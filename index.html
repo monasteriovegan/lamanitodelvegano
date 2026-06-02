@@ -1030,3 +1030,38 @@ async function renderAdminTab(tab) {
         <div class="prod-admin">
           <div class="pa-head">
             <div class="pa-emoji" style="background:${p.color_fondo || '#F0FFF4'}">${p.imagen_url ? `<img src="${p.imagen_url}" alt="${p.nombre}">` : (p.emoji || '
+// PRODUCTOS Y ZONAS POR DEFECTO (siempre disponibles sin Supabase)
+productos = PRODUCTOS_DEMO;
+zonas = ZONAS_DEMO;
+config = {whatsapp: '56990816124', dias_anticipacion: '3'};
+
+// Render inmediato
+renderGrid();
+renderZonasBanner();
+
+// Links WhatsApp
+const _phone = '56990816124';
+document.getElementById('waf-link').href = 'https://wa.me/' + _phone + '?text=' + encodeURIComponent('Hola! 🌱 Quiero hacer un pedido');
+document.getElementById('wa-contacto').href = 'https://wa.me/' + _phone;
+document.getElementById('wa-estrella').href = 'https://wa.me/' + _phone + '?text=' + encodeURIComponent('Hola! Quiero saber más del Manjar de Cáñamo 🌿');
+
+const _manjar = productos.find(p => p.categoria === 'manjares');
+if (_manjar) {
+  document.getElementById('btn-estrella-carrito').onclick = () => agregarAlCarrito(_manjar.id);
+  document.getElementById('btn-estrella-carrito').textContent = '🛒 Agregar — $' + _manjar.precio.toLocaleString('es-CL');
+}
+
+// Intentar Supabase en background
+setTimeout(async () => {
+  try {
+    const d1 = await sb('productos', {filter: 'order=orden.asc&activo=eq.true'});
+    if (d1 && d1.length) { productos = d1; renderGrid(); }
+    const d2 = await sb('zonas_envio', {filter: 'activo=eq.true&order=id.asc'});
+    if (d2 && d2.length) { zonas = d2; renderZonasBanner(); }
+    const d3 = await sb('pedidos', {filter: 'order=created_at.desc'});
+    if (d3) pedidos = d3;
+  } catch(e) { console.log('Usando datos locales'); }
+}, 500);
+</script>
+</body>
+</html>
