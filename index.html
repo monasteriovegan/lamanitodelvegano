@@ -626,18 +626,32 @@ const SB_URL = 'https://adrydqvahzqjbgtcvlay.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkcnlkcXZhaHpxamJndGN2bGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNjExMDAsImV4cCI6MjA5NTkzNzEwMH0.mjpGjVN90sHJAahn3NTslo3wLzW0ttQlOrwBQ62BZko';
 
 async function sb(tabla, opts = {}) {
-  const { method = 'GET', filter = '', body = null, single = false } = opts;
-  let url = `${SB_URL}/rest/v1/${tabla}${filter ? '?' + filter : ''}`;
+  const { method = 'GET', filter = '', body = null } = opts;
+  let url = SB_URL + '/rest/v1/' + tabla + (filter ? '?' + filter : '');
   const headers = {
     'apikey': SB_KEY,
     'Authorization': 'Bearer ' + SB_KEY,
     'Content-Type': 'application/json',
-    'Prefer': single ? 'return=representation' : 'return=representation'
+    'Prefer': 'return=representation'
   };
-  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
-  if (!res.ok) { const e = await res.text(); console.error('SB Error:', e); return null; }
-  const text = await res.text();
-  return text ? JSON.parse(text) : [];
+  try {
+    const res = await fetch(url, { 
+      method, 
+      headers, 
+      body: body ? JSON.stringify(body) : null,
+      mode: 'cors'
+    });
+    if (!res.ok) { 
+      const e = await res.text(); 
+      console.error('SB Error ' + res.status + ':', e); 
+      return null; 
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  } catch(e) {
+    console.error('Fetch error:', e);
+    return null;
+  }
 }
 
 // ============================================================
@@ -665,26 +679,39 @@ async function init() {
   await Promise.all([cargarProductos(), cargarZonas(), cargarConfig(), cargarPedidos()]);
 }
 
+const PRODUCTOS_DEMO = [
+  {id:1,nombre:'Empanada Pino Soya',descripcion:'Pino de soya jugoso, aceitunas y pimentón.',precio:2500,precio_anterior:null,categoria:'empanadas',emoji:'🥟',color_fondo:'#F0FFF4',etiqueta:'nuevo',etiqueta_label:'Nuevo',activo:true,orden:1},
+  {id:2,nombre:'Empanada Champiñón',descripcion:'Champiñones salteados, queso vegano y tomillo.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍄',color_fondo:'#F5FFF5',etiqueta:null,etiqueta_label:null,activo:true,orden:2},
+  {id:3,nombre:'Empanada Napolitana',descripcion:'Tomate, albahaca fresca y queso vegano.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍅',color_fondo:'#FFF5F0',etiqueta:null,etiqueta_label:null,activo:true,orden:3},
+  {id:4,nombre:'Pie de Arándanos',descripcion:'Masa crocante, arándanos y crema de coco.',precio:18900,precio_anterior:22000,categoria:'pies',emoji:'🫐',color_fondo:'#F5F0FF',etiqueta:'oferta',etiqueta_label:'Oferta',activo:true,orden:4},
+  {id:5,nombre:'Manjar de Cáñamo',descripcion:'El único en Chile. 100% vegetal con semilla de cáñamo.',precio:8500,precio_anterior:null,categoria:'manjares',emoji:'🍯',color_fondo:'#FFFBF0',etiqueta:'estrella',etiqueta_label:'⭐ Único',activo:true,orden:5},
+  {id:6,nombre:'Pack 10 Empanadas',descripcion:'Elige 10 empanadas a tu gusto.',precio:23900,precio_anterior:28000,categoria:'packs',emoji:'📦',color_fondo:'#FFF0F5',etiqueta:'oferta',etiqueta_label:'Oferta',activo:true,orden:6},
+];
+
+const ZONAS_DEMO = [
+  {id:1,nombre:'Centro / Providencia',comunas:'Santiago, Providencia, Ñuñoa, Macul',precio:2000,activo:true},
+  {id:2,nombre:'Zona Oriente',comunas:'Las Condes, Vitacura, La Reina, Peñalolén',precio:2500,activo:true},
+  {id:3,nombre:'Zona Sur',comunas:'La Florida, Puente Alto, San Bernardo',precio:3500,activo:true},
+  {id:4,nombre:'Zona Poniente',comunas:'Maipú, Pudahuel, Cerrillos, Renca',precio:3500,activo:true},
+  {id:5,nombre:'Zona Norte',comunas:'Quilicura, Recoleta, Independencia, Conchalí',precio:3000,activo:true},
+  {id:6,nombre:'Retiro en persona',comunas:'Coordinar por WhatsApp',precio:0,activo:true},
+];
+
 async function cargarProductos() {
   const data = await sb('productos', { filter: 'order=orden.asc&activo=eq.true' });
-  if (data) {
-    productos = data;
-    renderGrid();
-    // Configurar botón estrella
-    const manjar = productos.find(p => p.categoria === 'manjares');
-    if (manjar) {
-      document.getElementById('btn-estrella-carrito').onclick = () => agregarAlCarrito(manjar.id);
-      document.getElementById('btn-estrella-carrito').textContent = '🛒 Agregar — $' + manjar.precio.toLocaleString('es-CL');
-    }
+  productos = (data && data.length) ? data : PRODUCTOS_DEMO;
+  renderGrid();
+  const manjar = productos.find(p => p.categoria === 'manjares');
+  if (manjar) {
+    document.getElementById('btn-estrella-carrito').onclick = () => agregarAlCarrito(manjar.id);
+    document.getElementById('btn-estrella-carrito').textContent = '🛒 Agregar — $' + manjar.precio.toLocaleString('es-CL');
   }
 }
 
 async function cargarZonas() {
   const data = await sb('zonas_envio', { filter: 'activo=eq.true&order=id.asc' });
-  if (data) {
-    zonas = data;
-    renderZonasBanner();
-  }
+  zonas = (data && data.length) ? data : ZONAS_DEMO;
+  renderZonasBanner();
 }
 
 async function cargarConfig() {
