@@ -450,6 +450,11 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
       </div>
       <div><label class="flbl">Color fondo</label><input class="finp" id="fcolor" placeholder="#F0FFF4"></div>
     </div>
+    <div class="frow">
+      <label class="flbl">URL de imagen (opcional)</label>
+      <input class="finp" id="fimagen" placeholder="https://... (pega el link de tu foto)">
+      <small style="color:var(--muted);font-size:10px;margin-top:4px;display:block">Sube tu foto a imgur.com o google drive y pega el link aquí</small>
+    </div>
     <button class="bguardar" onclick="guardarProd()">💾 Guardar producto</button>
     <button class="bcancelar" onclick="document.getElementById('modalov').classList.remove('open')">Cancelar</button>
   </div>
@@ -553,7 +558,12 @@ function renderGrid() {
     html += '<div class="card">';
     html += '<div class="cimg" style="background:' + p.color_fondo + '">';
     if (p.etiqueta) html += '<span class="ctag ' + tc + '">' + p.etiqueta_label + '</span>';
-    html += p.emoji;
+    if (p.imagen_url) {
+      html += '<img src="' + p.imagen_url + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.style.display='none'">';
+      html += '<span style="position:relative;z-index:1">' + p.emoji + '</span>';
+    } else {
+      html += p.emoji;
+    }
     html += '</div><div class="cbody">';
     html += '<div class="cname">' + p.nombre + '</div>';
     html += '<div class="cdesc">' + p.descripcion + '</div>';
@@ -814,17 +824,26 @@ function renderAdminTab(tab) {
     c.innerHTML = h;
   } else if (tab === 'zonas') {
     var h = '<div class="asub">🚚 Zonas de envío</div>';
-    h += '<div class="adesc">Ajusta los precios de cada zona según tus costos reales de despacho.</div>';
+    h += '<div class="adesc">Edita, agrega o elimina zonas. Los cambios se ven de inmediato en el carrito.</div>';
     for (var i = 0; i < zonas.length; i++) {
       var z = zonas[i];
       h += '<div class="zona-admin">';
-      h += '<div class="zahead"><span class="zanom">' + z.nombre + '</span></div>';
-      h += '<div class="zacom">📍 ' + z.comunas + '</div>';
-      h += '<div class="zaprow"><span style="font-size:11px;color:var(--muted)">Precio:</span>';
+      h += '<div class="frow"><label class="flbl">Nombre zona</label><input class="finp" id="znom' + i + '" value="' + z.nombre + '"></div>';
+      h += '<div class="frow"><label class="flbl">Comunas</label><input class="finp" id="zcom' + i + '" value="' + z.comunas + '"></div>';
+      h += '<div class="zaprow"><span style="font-size:11px;color:var(--muted)">Precio despacho ($):</span>';
       h += '<input class="zainp" id="zp' + i + '" value="' + z.precio + '" type="number" min="0" step="500">';
-      h += '<button class="zasave" onclick="guardarZona(' + i + ')">Guardar</button></div>';
+      h += '<button class="zasave" onclick="guardarZona(' + i + ')">💾 Guardar</button>';
+      h += '<button class="zasave" style="background:var(--rojo)" onclick="eliminarZona(' + i + ')">🗑</button></div>';
       h += '</div>';
     }
+    h += '<div class="zona-admin" style="border:2px dashed var(--v3)">';
+    h += '<div class="asub" style="font-size:15px;margin-bottom:10px">➕ Nueva zona</div>';
+    h += '<div class="frow"><label class="flbl">Nombre</label><input class="finp" id="nueva-zona-nom" placeholder="Ej: Zona Sur"></div>';
+    h += '<div class="frow"><label class="flbl">Comunas</label><input class="finp" id="nueva-zona-com" placeholder="Ej: La Florida, Puente Alto"></div>';
+    h += '<div class="zaprow"><span style="font-size:11px;color:var(--muted)">Precio ($):</span>';
+    h += '<input class="zainp" id="nueva-zona-pre" value="0" type="number" min="0" step="500">';
+    h += '<button class="zasave" onclick="agregarZona()">➕ Agregar</button></div>';
+    h += '</div>';
     c.innerHTML = h;
   } else if (tab === 'stats') {
     var total = 0;
@@ -860,6 +879,7 @@ function abrirModalProd(id) {
     document.getElementById('femoji').value = '🥟';
     document.getElementById('fetiqueta').value = '';
     document.getElementById('fcolor').value = '#F0FFF4';
+    document.getElementById('fimagen').value = '';
   } else {
     var p = null;
     for (var i = 0; i < productos.length; i++) { if (productos[i].id === id) { p = productos[i]; break; } }
@@ -873,6 +893,7 @@ function abrirModalProd(id) {
     document.getElementById('femoji').value = p.emoji;
     document.getElementById('fetiqueta').value = p.etiqueta || '';
     document.getElementById('fcolor').value = p.color_fondo;
+    document.getElementById('fimagen').value = p.imagen_url || '';
   }
   document.getElementById('modalov').classList.add('open');
 }
@@ -892,7 +913,8 @@ function guardarProd() {
     emoji: document.getElementById('femoji').value || '🌿',
     etiqueta: etiqueta || null,
     etiqueta_label: etiqueta_label,
-    color_fondo: document.getElementById('fcolor').value || '#F0FFF4'
+    color_fondo: document.getElementById('fcolor').value || '#F0FFF4',
+    imagen_url: document.getElementById('fimagen').value || null
   };
   if (editandoId === null) {
     data.id = Date.now();
@@ -923,9 +945,33 @@ function eliminarProd(id) {
 
 function guardarZona(i) {
   var val = parseInt(document.getElementById('zp' + i).value) || 0;
+  var nom = document.getElementById('znom' + i) ? document.getElementById('znom' + i).value : zonas[i].nombre;
+  var com = document.getElementById('zcom' + i) ? document.getElementById('zcom' + i).value : zonas[i].comunas;
   zonas[i].precio = val;
+  zonas[i].nombre = nom;
+  zonas[i].comunas = com;
   renderZonas();
-  showToast('✅ Precio guardado: ' + (val === 0 ? 'Gratis' : '$' + val.toLocaleString('es-CL')));
+  renderAdminTab('zonas');
+  showToast('✅ Zona guardada');
+}
+
+function agregarZona() {
+  var nom = document.getElementById('nueva-zona-nom').value.trim();
+  var com = document.getElementById('nueva-zona-com').value.trim();
+  var pre = parseInt(document.getElementById('nueva-zona-pre').value) || 0;
+  if (!nom) { showToast('⚠️ Ingresa el nombre de la zona'); return; }
+  zonas.push({id: Date.now(), nombre: nom, comunas: com, precio: pre});
+  renderZonas();
+  renderAdminTab('zonas');
+  showToast('✅ Zona agregada');
+}
+
+function eliminarZona(i) {
+  if (!confirm('¿Eliminar esta zona?')) return;
+  zonas.splice(i, 1);
+  renderZonas();
+  renderAdminTab('zonas');
+  showToast('🗑 Zona eliminada');
 }
 
 function cerrarModal(e) {
