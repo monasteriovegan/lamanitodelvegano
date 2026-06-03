@@ -3,181 +3,120 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>La Manito Del Vegano 🌱</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>La Manito Del Vegano</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --v1:#1B4332;--v2:#2D6A4F;--v3:#40916C;--v4:#74C69D;--v5:#D8F3DC;
-  --c1:#6B4226;--crema:#FAFAF7;--texto:#1B1B1B;--muted:#7A7A7A;--borde:#EBEBEB;
-  --wa:#25D366;--wa2:#1DA851;--mp:#009EE3;--mp2:#0077B6;--rojo:#E63946;--amarillo:#F4A261;--azul:#3A86FF;
-}
-body{font-family:'DM Sans',sans-serif;background:var(--crema);color:var(--texto);overflow-x:hidden}
-::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--v3);border-radius:3px}
-
-/* NAV */
-nav{background:var(--v1);padding:0 18px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 20px rgba(0,0,0,0.3)}
-.nav-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
-.nav-ic{width:34px;height:34px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px}
-.nav-txt{font-family:'Fraunces',serif;color:white;font-size:13px;line-height:1.2}
-.nav-txt small{display:block;font-size:9px;font-family:'DM Sans',sans-serif;opacity:0.65;letter-spacing:1px;text-transform:uppercase}
-.nav-menu{display:flex;gap:1px}
-.nm{color:rgba(255,255,255,0.7);padding:5px 8px;border-radius:7px;font-size:11px;cursor:pointer;transition:all 0.2s;border:none;background:none;font-family:'DM Sans',sans-serif;white-space:nowrap}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--v1:#1B4332;--v2:#2D6A4F;--v3:#40916C;--v5:#D8F3DC;--c1:#6B4226;--crema:#FAFAF7;--texto:#1B1B1B;--muted:#7A7A7A;--borde:#EBEBEB;--wa:#25D366;--wa2:#1DA851;--mp:#009EE3;--rojo:#E63946;--amarillo:#F4A261}
+body{font-family:'DM Sans',sans-serif;background:var(--crema);color:var(--texto)}
+nav{background:var(--v1);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 16px rgba(0,0,0,0.3)}
+.nlogo{display:flex;align-items:center;gap:9px;cursor:pointer}
+.nic{width:34px;height:34px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ntxt{font-family:'Fraunces',serif;color:white;font-size:13px;line-height:1.2}
+.ntxt small{display:block;font-size:9px;font-family:'DM Sans',sans-serif;opacity:0.65;letter-spacing:1px;text-transform:uppercase}
+.nmenu{display:flex;gap:2px}
+.nm{color:rgba(255,255,255,0.7);padding:5px 8px;border-radius:7px;font-size:11px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif}
 .nm:hover,.nm.on{color:white;background:rgba(255,255,255,0.12)}
-.nav-r{display:flex;align-items:center;gap:5px}
-.cart-ic{position:relative;background:rgba(255,255,255,0.12);border:none;color:white;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s}
-.cart-ic:hover{background:rgba(255,255,255,0.22)}
+.nright{display:flex;align-items:center;gap:5px}
+.cbtn{position:relative;background:rgba(255,255,255,0.12);border:none;color:white;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cbtn:hover{background:rgba(255,255,255,0.22)}
 .bdg{position:absolute;top:-3px;right:-3px;background:var(--rojo);color:white;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .bdg.h{display:none}
-.admin-btn{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.8);border:none;padding:5px 9px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
-.admin-btn:hover{background:rgba(255,255,255,0.2);color:white}
-
-/* PAGES */
+.abtn{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.8);border:none;padding:5px 9px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
 .pg{display:none}.pg.on{display:block}
-
-/* LOADING */
-.loading{display:flex;align-items:center;justify-content:center;padding:60px 20px;flex-direction:column;gap:12px}
-.spinner{width:36px;height:36px;border:3px solid var(--v5);border-top-color:var(--v2);border-radius:50%;animation:spin 0.8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading p{font-size:13px;color:var(--muted)}
-
-/* HERO */
-.hero{background:linear-gradient(155deg,var(--v1) 0%,var(--v2) 55%,var(--v3) 100%);padding:38px 18px 52px;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;width:260px;height:260px;background:var(--v4);opacity:0.08;border-radius:50%;top:-80px;right:-70px}
+.hero{background:linear-gradient(155deg,var(--v1),var(--v2) 55%,var(--v3));padding:38px 18px 52px;text-align:center;position:relative;overflow:hidden}
 .hero::after{content:'🌿';position:absolute;font-size:100px;opacity:0.05;bottom:-15px;right:-8px;transform:rotate(-20deg)}
-.h-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.13);color:white;padding:4px 13px;border-radius:50px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;border:1px solid rgba(255,255,255,0.22)}
+.hpill{display:inline-block;background:rgba(255,255,255,0.13);color:white;padding:4px 13px;border-radius:50px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;border:1px solid rgba(255,255,255,0.22)}
 .hero h1{font-family:'Fraunces',serif;font-size:clamp(24px,7vw,40px);color:white;line-height:1.15;margin-bottom:9px}
-.hero h1 em{font-style:italic;color:var(--v4)}
+.hero h1 em{font-style:italic;color:#74C69D}
 .hero p{color:rgba(255,255,255,0.78);font-size:13px;margin-bottom:20px;line-height:1.6}
-.h-tags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
-.h-tag{background:rgba(255,255,255,0.11);color:white;padding:4px 11px;border-radius:50px;font-size:10px;border:1px solid rgba(255,255,255,0.18)}
-.h-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.btn-w{background:white;color:var(--v2);padding:11px 20px;border-radius:50px;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif}
-.btn-w:hover{background:var(--v5);transform:translateY(-1px)}
-.btn-o{background:transparent;color:white;padding:11px 20px;border-radius:50px;font-size:13px;font-weight:600;border:2px solid rgba(255,255,255,0.35);cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif}
-.btn-o:hover{background:rgba(255,255,255,0.08)}
-
-/* STATS */
+.htags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
+.htag{background:rgba(255,255,255,0.11);color:white;padding:4px 11px;border-radius:50px;font-size:10px;border:1px solid rgba(255,255,255,0.18)}
+.hbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.btnw{background:white;color:var(--v2);padding:11px 20px;border-radius:50px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btno{background:transparent;color:white;padding:11px 20px;border-radius:50px;font-size:13px;font-weight:600;border:2px solid rgba(255,255,255,0.35);cursor:pointer;font-family:'DM Sans',sans-serif}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);background:white;border-bottom:1px solid var(--borde)}
 .st{text-align:center;padding:13px 4px;border-right:1px solid var(--borde)}
 .st:last-child{border-right:none}
-.st-n{font-family:'Fraunces',serif;font-size:19px;color:var(--v2);font-weight:900}
-.st-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}
-
-/* ESTRELLA */
-.estrella{background:linear-gradient(135deg,#FFF8E7,#FFF3CD);margin:16px;border-radius:16px;padding:18px;border:2px solid var(--amarillo);position:relative;overflow:hidden}
-.estrella::after{content:'⭐';position:absolute;font-size:64px;opacity:0.07;bottom:-8px;right:-4px}
-.e-badge{display:inline-block;background:var(--amarillo);color:white;padding:2px 10px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
+.stn{font-family:'Fraunces',serif;font-size:19px;color:var(--v2);font-weight:900}
+.stl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}
+.estrella{background:linear-gradient(135deg,#FFF8E7,#FFF3CD);margin:16px;border-radius:16px;padding:18px;border:2px solid var(--amarillo)}
+.ebadge{display:inline-block;background:var(--amarillo);color:white;padding:2px 10px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:7px}
 .estrella h2{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:4px}
 .estrella p{font-size:12px;color:#8B5E3C;line-height:1.6;margin-bottom:11px}
-.e-btns{display:flex;gap:7px;flex-wrap:wrap}
-.bwa{display:flex;align-items:center;gap:5px;background:var(--wa);color:white;padding:8px 13px;border-radius:50px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;transition:background 0.2s}
-.bwa:hover{background:var(--wa2)}
-.bverde{display:flex;align-items:center;gap:5px;background:var(--v2);color:white;padding:8px 13px;border-radius:50px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.2s}
-.bverde:hover{background:var(--v1)}
+.ebtns{display:flex;gap:7px;flex-wrap:wrap}
+.bwa{display:flex;align-items:center;gap:5px;background:var(--wa);color:white;padding:8px 13px;border-radius:50px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none}
+.bverde{display:flex;align-items:center;gap:5px;background:var(--v2);color:white;padding:8px 13px;border-radius:50px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
 .wai{width:13px;height:13px;fill:currentColor;flex-shrink:0}
-
-/* ENVIO BANNER */
-.envio-banner{margin:0 16px 16px;background:linear-gradient(135deg,#E8F4FD,#D6EAF8);border-radius:14px;padding:16px;border:1px solid #AED6F1}
-.eb-title{font-family:'Fraunces',serif;font-size:15px;color:#1A5276;margin-bottom:9px;display:flex;align-items:center;gap:6px}
-.zonas-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.zona-item{background:white;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center}
-.zona-nom{font-size:11px;font-weight:600}
-.zona-com{font-size:9px;color:var(--muted);margin-top:1px}
-.zona-precio{font-family:'Fraunces',serif;font-size:13px;color:var(--v2);font-weight:700}
-.zona-gratis{font-family:'Fraunces',serif;font-size:12px;color:var(--wa);font-weight:700}
-
-/* CATS */
+.ebanner{margin:0 16px 16px;background:linear-gradient(135deg,#E8F4FD,#D6EAF8);border-radius:14px;padding:16px;border:1px solid #AED6F1}
+.ebtit{font-family:'Fraunces',serif;font-size:15px;color:#1A5276;margin-bottom:9px}
+.zgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.zitem{background:white;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center}
+.znom{font-size:11px;font-weight:600}
+.zcom{font-size:9px;color:var(--muted)}
+.zpre{font-family:'Fraunces',serif;font-size:13px;color:var(--v2);font-weight:700}
+.zgrat{font-family:'Fraunces',serif;font-size:12px;color:var(--wa);font-weight:700}
 .cats{display:flex;gap:7px;padding:12px 16px 6px;overflow-x:auto;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.cat{white-space:nowrap;padding:6px 13px;border-radius:50px;border:2px solid var(--borde);background:white;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif}
+.cat{white-space:nowrap;padding:6px 13px;border-radius:50px;border:2px solid var(--borde);background:white;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif}
 .cat.on,.cat:hover{background:var(--v2);border-color:var(--v2);color:white}
-
-/* GRID PRODUCTOS */
 .sec{font-family:'Fraunces',serif;font-size:16px;color:var(--c1);padding:11px 16px 9px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:10px;padding:0 16px 8px}
-.card{background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06);transition:transform 0.2s,box-shadow 0.2s}
-.card:hover{transform:translateY(-3px);box-shadow:0 7px 18px rgba(0,0,0,0.1)}
-.cimg{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
-.cimg img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
-.cimg-emoji{position:relative;z-index:1;font-size:42px}
-.ctag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:50px;font-size:8px;font-weight:700;text-transform:uppercase;z-index:2}
+.card{background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06);transition:transform 0.2s}
+.card:hover{transform:translateY(-3px)}
+.cimg{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative}
+.ctag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:50px;font-size:8px;font-weight:700;text-transform:uppercase}
 .tn{background:var(--v2);color:white}.to{background:var(--rojo);color:white}.te{background:var(--amarillo);color:white}
 .cbody{padding:9px 10px 10px}
 .cname{font-weight:600;font-size:11px;margin-bottom:2px}
 .cdesc{font-size:10px;color:var(--muted);margin-bottom:7px;line-height:1.3}
 .cfoot{display:flex;align-items:center;justify-content:space-between}
 .cprice{font-family:'Fraunces',serif;font-size:14px;color:var(--v2);font-weight:700}
-.cold{font-size:9px;color:#ccc;text-decoration:line-through;display:block;line-height:1}
-.badd{background:var(--v2);color:white;border:none;width:26px;height:26px;border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s}
-.badd:hover{background:var(--v1)}
+.cold{font-size:9px;color:#ccc;text-decoration:line-through;display:block}
+.badd{background:var(--v2);color:white;border:none;width:26px;height:26px;border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .qc{display:flex;align-items:center;gap:4px}
 .qb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .qb.p{background:var(--v2);color:white}
 .qn{font-weight:700;font-size:12px;color:var(--v2);min-width:12px;text-align:center}
-
-/* RESEÑAS */
-.res-wrap{padding:0 16px 20px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
-.res-wrap::-webkit-scrollbar{display:none}
+.reswrap{padding:0 16px 20px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
 .res{background:white;border-radius:13px;padding:12px;min-width:195px;box-shadow:0 2px 7px rgba(0,0,0,0.05);flex-shrink:0}
-.res-s{color:var(--amarillo);font-size:11px;margin-bottom:5px}
-.res-t{font-size:11px;color:var(--texto);line-height:1.5;margin-bottom:6px;font-style:italic}
-.res-a{font-size:10px;color:var(--muted);font-weight:600}
-
-/* INFO */
-.info-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 22px}
+.ress{color:var(--amarillo);font-size:11px;margin-bottom:5px}
+.rest{font-size:11px;color:var(--texto);line-height:1.5;margin-bottom:6px;font-style:italic}
+.resa{font-size:10px;color:var(--muted);font-weight:600}
+.infog{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 22px}
 .ic{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
 .ii{font-size:21px;margin-bottom:4px}
 .it{font-weight:600;font-size:11px;margin-bottom:2px}
 .id{font-size:10px;color:var(--muted);line-height:1.3}
-
-/* NOSOTROS */
-.page-hero{padding:30px 18px;text-align:center}
-.page-hero.v{background:linear-gradient(135deg,var(--v1),var(--v2))}
-.page-hero h1{font-family:'Fraunces',serif;font-size:24px;color:white;margin-bottom:5px}
-.page-hero p{color:rgba(255,255,255,0.78);font-size:13px}
+.phero{padding:30px 18px;text-align:center;background:linear-gradient(135deg,var(--v1),var(--v2))}
+.phero h1{font-family:'Fraunces',serif;font-size:24px;color:white;margin-bottom:5px}
+.phero p{color:rgba(255,255,255,0.78);font-size:13px}
 .hist{padding:20px 18px}
 .hist h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:10px}
-.hist p{font-size:13px;color:var(--texto);line-height:1.75;margin-bottom:10px}
-.vals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 18px 0}
+.hist p{font-size:13px;line-height:1.75;margin-bottom:10px}
+.vals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 18px}
 .val{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
 .vi{font-size:24px;margin-bottom:6px}
 .vt{font-weight:700;font-size:12px;color:var(--v2);margin-bottom:2px}
 .vd{font-size:10px;color:var(--muted);line-height:1.4}
-.team{padding:20px 18px}
-.team h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:13px}
-.tcard{background:white;border-radius:16px;padding:16px;display:flex;gap:13px;align-items:center;box-shadow:0 2px 9px rgba(0,0,0,0.06)}
-.tav{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
-.tn2{font-weight:700;font-size:14px;margin-bottom:2px}
-.tr{font-size:10px;color:var(--v3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
-.tb{font-size:11px;color:var(--muted);line-height:1.5}
-
-/* BLOG */
-.blog-g{display:grid;gap:12px;padding:16px}
-.bc{background:white;border-radius:15px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06);cursor:pointer;transition:transform 0.2s}
-.bc:hover{transform:translateY(-2px)}
+.blogg{display:grid;gap:12px;padding:16px}
+.bc{background:white;border-radius:15px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06)}
 .bimg{height:100px;display:flex;align-items:center;justify-content:center;font-size:48px}
 .bbody{padding:12px 14px 14px}
-.bcat{display:inline-block;background:var(--v5);color:var(--v2);padding:2px 8px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
-.btit{font-family:'Fraunces',serif;font-size:14px;color:var(--texto);margin-bottom:4px;line-height:1.3}
-.bex{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:7px}
-.bmeta{font-size:10px;color:var(--muted)}
-
-/* CONTACTO */
-.cont-cards{display:grid;gap:10px;padding:16px}
-.cc2{background:white;border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 9px rgba(0,0,0,0.06);cursor:pointer;transition:transform 0.2s;text-decoration:none}
-.cc2:hover{transform:translateY(-2px)}
+.bcat{display:inline-block;background:var(--v5);color:var(--v2);padding:2px 8px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:6px}
+.btit{font-family:'Fraunces',serif;font-size:14px;margin-bottom:4px;line-height:1.3}
+.bex{font-size:11px;color:var(--muted);line-height:1.5}
+.contcards{display:grid;gap:10px;padding:16px}
+.cc{background:white;border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 9px rgba(0,0,0,0.06);text-decoration:none;color:inherit}
 .cci{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
 .cch3{font-weight:700;font-size:13px;margin-bottom:1px}
 .ccp{font-size:11px;color:var(--muted)}
-.faq{padding:0 16px 26px}
-.faq h2{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:11px}
-.fi{background:white;border-radius:11px;margin-bottom:6px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,0.05)}
-.fq{padding:12px 14px;font-weight:600;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.faqsec{padding:0 16px 26px}
+.faqsec h2{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:11px}
+.fi{background:white;border-radius:11px;margin-bottom:6px;overflow:hidden}
+.fq{padding:12px 14px;font-weight:600;font-size:12px;cursor:pointer;display:flex;justify-content:space-between}
 .fa{padding:0 14px 12px;font-size:12px;color:var(--muted);line-height:1.6;display:none}
 .fa.open{display:block}
-
-/* CARRITO */
 .co{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:flex-end;justify-content:center}
 .co.open{display:flex}
 .cp{background:white;border-radius:20px 20px 0 0;padding:16px 15px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
@@ -186,9 +125,8 @@ nav{background:var(--v1);padding:0 18px;display:flex;align-items:center;justify-
 .ctit{font-family:'Fraunces',serif;font-size:20px;margin-bottom:12px}
 .cempty{text-align:center;padding:26px 0;color:var(--muted);font-size:13px}
 .cempty span{font-size:38px;display:block;margin-bottom:8px}
-.ci{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--borde)}
-.ciem{font-size:22px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;overflow:hidden}
-.ciem img{width:100%;height:100%;object-fit:cover}
+.citem{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--borde)}
+.ciem{font-size:22px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0}
 .ciin{flex:1}
 .cin{font-weight:600;font-size:12px}
 .cip{font-size:11px;color:var(--v2);font-weight:600}
@@ -196,230 +134,109 @@ nav{background:var(--v1);padding:0 18px;display:flex;align-items:center;justify-
 .cb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .cb.p{background:var(--v2);color:white}
 .cq{font-weight:700;font-size:12px;min-width:12px;text-align:center}
-
-/* ENVIO SELECTOR CARRITO */
-.envio-sec{background:#F0F9FF;border-radius:12px;padding:12px;margin:10px 0}
-.envio-tit{font-weight:700;font-size:12px;margin-bottom:8px;color:#1A5276}
-.sel-zona{width:100%;padding:9px 12px;border:2px solid #AED6F1;border-radius:9px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white;color:var(--texto);margin-bottom:7px}
-.sel-zona:focus{border-color:var(--v2)}
-.envio-det{background:white;border-radius:9px;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
-.envio-det-txt{color:var(--muted);font-size:10px}
-.envio-det-p{font-family:'Fraunces',serif;font-size:15px;color:var(--v2);font-weight:700}
-.envio-gratis{color:var(--wa);font-weight:700}
-
-/* TOTALES */
-.tot-wrap{padding:4px 0 8px}
-.tot-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0}
-.tot-sub{font-size:11px;color:var(--muted)}
-.tot-div{border-top:1px solid var(--borde);margin:7px 0}
-.tot-lbl{font-weight:700;font-size:14px}
-.tot-amt{font-family:'Fraunces',serif;font-size:24px;color:var(--v2)}
-
-/* FECHAS */
+.ensec{background:#F0F9FF;border-radius:12px;padding:12px;margin:10px 0}
+.entit{font-weight:700;font-size:12px;margin-bottom:8px;color:#1A5276}
+.selzona{width:100%;padding:9px 12px;border:2px solid #AED6F1;border-radius:9px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white;margin-bottom:7px}
+.endet{background:white;border-radius:9px;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
+.totwrap{padding:4px 0 8px}
+.totrow{display:flex;justify-content:space-between;padding:2px 0}
+.totsub{font-size:11px;color:var(--muted)}
+.totdiv{border-top:1px solid var(--borde);margin:7px 0}
+.totlbl{font-weight:700;font-size:14px}
+.totamt{font-family:'Fraunces',serif;font-size:24px;color:var(--v2)}
 .ftit{font-weight:600;font-size:12px;margin:12px 0 8px}
 .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:11px}
-.fb{padding:7px 3px;border-radius:9px;border:2px solid var(--borde);background:white;text-align:center;transition:all 0.2s;font-family:'DM Sans',sans-serif}
+.fb{padding:7px 3px;border-radius:9px;border:2px solid var(--borde);background:white;text-align:center;font-family:'DM Sans',sans-serif}
 .fb.ok{cursor:pointer}
 .fb.ok:hover,.fb.sel{border-color:var(--v2);background:var(--v5)}
 .fb.no{background:#F7F7F7;cursor:not-allowed;opacity:0.4}
-.fd{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.fd{font-size:8px;color:var(--muted);text-transform:uppercase}
 .fn{font-size:15px;font-weight:700}
 .fm{font-size:8px;color:var(--muted)}
 .fs{font-size:8px;margin-top:1px}
 .fb.ok .fs{color:var(--v2)}.fb.no .fs,.fb.no .fn{color:#ccc}.fb.sel .fs{color:var(--v2);font-weight:700}
-
-/* INPUTS */
 .ilbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block}
-.inp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border 0.2s;margin-bottom:8px}
+.inp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:8px}
 .inp:focus{border-color:var(--v2)}
-.alrt{background:#FFF8E7;border:1px solid var(--amarillo);border-radius:9px;padding:8px 12px;font-size:11px;color:#8B5E3C;margin-bottom:8px;line-height:1.5}
-.bwab{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--wa);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;transition:background 0.2s;font-family:'DM Sans',sans-serif}
+.alrt{background:#FFF8E7;border:1px solid var(--amarillo);border-radius:9px;padding:8px 12px;font-size:11px;color:#8B5E3C;margin-bottom:8px}
+.bwab{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--wa);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
 .bwab:hover{background:var(--wa2)}
-.bmpb{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--mp);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;transition:background 0.2s;font-family:'DM Sans',sans-serif}
-.bmpb:hover{background:var(--mp2)}
-.mpnota{font-size:10px;color:var(--muted);text-align:center;margin-bottom:8px}
+.bmpb{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--mp);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
 .bclose{width:100%;background:#F3F3F3;border:none;padding:10px;border-radius:12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
-
-/* ADMIN */
-.admin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;overflow-y:auto}
-.admin-overlay.open{display:block}
-.admin-panel{background:#F8F9FA;min-height:100vh;padding-bottom:40px}
-.admin-nav{background:var(--v1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
-.admin-nav h2{font-family:'Fraunces',serif;color:white;font-size:17px}
-.admin-close{background:rgba(255,255,255,0.15);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px}
-.admin-tabs{display:flex;gap:0;background:white;border-bottom:2px solid var(--borde);padding:0 16px;overflow-x:auto;scrollbar-width:none}
-.admin-tabs::-webkit-scrollbar{display:none}
-.atab{padding:11px 13px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:'DM Sans',sans-serif}
-.atab.on{color:var(--v2);border-bottom-color:var(--v2)}
-.admin-content{padding:16px}
-.admin-subtitle{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:5px}
-.admin-desc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
-
-/* PEDIDOS */
-.ped-card{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.ped-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px}
-.ped-num{font-family:'Fraunces',serif;font-size:15px;color:var(--v2)}
-.ped-st{padding:3px 9px;border-radius:50px;font-size:10px;font-weight:700;text-transform:uppercase}
-.ps-pendiente{background:#FFF3CD;color:#856404}
-.ps-camino{background:#D1ECF1;color:#0C5460}
-.ps-entregado{background:#D4EDDA;color:#155724}
-.ped-info{font-size:11px;color:var(--texto);line-height:1.8;margin-bottom:9px}
-.ped-btns{display:flex;gap:6px;flex-wrap:wrap}
-.pb2{padding:6px 11px;border-radius:8px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
-.pb-wa{background:var(--wa);color:white}
-.pb-camino{background:var(--azul);color:white}
-.pb-ok{background:var(--v2);color:white}
-.pb-del{background:#F0F0F0;color:var(--muted)}
-
-/* PRODUCTOS ADMIN */
-.prod-admin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.pa-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.pa-emoji{font-size:28px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex-shrink:0;overflow:hidden}
-.pa-emoji img{width:100%;height:100%;object-fit:cover}
-.pa-info{flex:1}
-.pa-name{font-weight:700;font-size:13px}
-.pa-price{font-size:12px;color:var(--v2);font-weight:600}
-.pa-cat{font-size:10px;color:var(--muted)}
-.pa-btns{display:flex;gap:6px;flex-wrap:wrap}
-.pa-edit{background:var(--v2);color:white;border:none;padding:6px 11px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
-.pa-toggle{padding:6px 11px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;border:none}
-.pa-toggle.on{background:#D4EDDA;color:#155724}
-.pa-toggle.off{background:#F8D7DA;color:#721C24}
-.pa-del{background:#F0F0F0;color:var(--muted);border:none;padding:6px 11px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
-.btn-nuevo{background:var(--v2);color:white;border:none;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;margin-bottom:13px;display:flex;align-items:center;justify-content:center;gap:7px}
-.btn-nuevo:hover{background:var(--v1)}
-
-/* MODAL PRODUCTO */
-.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:flex-end;justify-content:center}
-.modal-ov.open{display:flex}
-.modal-box{background:white;border-radius:20px 20px 0 0;padding:18px 16px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
-.modal-tit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:14px}
-.form-row{margin-bottom:10px}
-.form-lbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
-.form-inp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border 0.2s}
-.form-inp:focus{border-color:var(--v2)}
-.form-sel{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white}
-.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.btn-guardar{background:var(--v2);color:white;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;margin-bottom:8px}
-.btn-cancelar{background:#F3F3F3;color:var(--muted);border:none;padding:11px;border-radius:12px;font-size:13px;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif}
-
-/* ZONAS ADMIN */
-.zona-admin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.za-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.za-nom{font-weight:700;font-size:13px}
-.za-tog{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
-.za-tog.on{background:#D4EDDA;color:#155724}
-.za-tog.off{background:#F8D7DA;color:#721C24}
-.za-com{font-size:11px;color:var(--muted);margin-bottom:7px}
-.za-p-row{display:flex;align-items:center;gap:7px}
-.za-inp{padding:7px 10px;border:2px solid var(--borde);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;width:110px}
-.za-inp:focus{border-color:var(--v2)}
-.za-save{background:var(--v2);color:white;border:none;padding:7px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600}
-
-/* HORARIOS */
-.hor-card{background:white;border-radius:13px;padding:2px 13px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.hc-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--borde)}
-.hc-row:last-child{border-bottom:none}
-.hc-dia{font-weight:600;font-size:13px}
-.hc-r{display:flex;align-items:center;gap:8px}
-.hc-lbl{font-size:11px}
-.toggle-sw{position:relative;width:40px;height:21px;cursor:pointer}
-.toggle-sw input{opacity:0;width:0;height:0}
-.slider{position:absolute;inset:0;background:#E0E0E0;border-radius:21px;transition:0.3s}
-.slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:50%;transform:translateY(-50%);background:white;border-radius:50%;transition:0.3s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
-input:checked+.slider{background:var(--v2)}
-input:checked+.slider::before{transform:translateY(-50%) translateX(19px)}
-
-/* STATS ADMIN */
-.admin-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
-.as{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.as-n{font-family:'Fraunces',serif;font-size:26px;color:var(--v2);font-weight:900}
-.as-l{font-size:10px;color:var(--muted);margin-top:2px}
-
-/* CONFIRM */
-.conf-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:800;align-items:center;justify-content:center;padding:20px}
-.conf-ov.open{display:flex}
-.conf-box{background:white;border-radius:20px;padding:28px 20px;text-align:center;max-width:310px;width:100%;animation:pop 0.3s ease}
+.confov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:center;justify-content:center;padding:20px}
+.confov.open{display:flex}
+.confbox{background:white;border-radius:20px;padding:28px 20px;text-align:center;max-width:310px;width:100%;animation:pop 0.3s ease}
 @keyframes pop{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
-.cf-ic{font-size:50px;margin-bottom:11px}
-.cf-tit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:6px}
-.cf-msg{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;white-space:pre-line}
-.cf-btn{background:var(--v2);color:white;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
-
-/* WA FLOAT */
-.waf{position:fixed;bottom:20px;right:16px;z-index:400;background:var(--wa);color:white;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,0.4);cursor:pointer;transition:transform 0.2s;text-decoration:none}
-.waf:hover{transform:scale(1.1)}
+.cfic{font-size:50px;margin-bottom:11px}
+.cftit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:6px}
+.cfmsg{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;white-space:pre-line}
+.cfbtn{background:var(--v2);color:white;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.waf{position:fixed;bottom:20px;right:16px;z-index:400;background:var(--wa);color:white;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,0.4);text-decoration:none}
 .waf svg{width:23px;height:23px;fill:white}
-
-/* TOAST */
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--v2);color:white;padding:8px 16px;border-radius:50px;font-size:12px;z-index:900;font-family:'DM Sans',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.2);pointer-events:none;opacity:0;transition:opacity 0.3s;white-space:nowrap}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--v2);color:white;padding:8px 16px;border-radius:50px;font-size:12px;z-index:900;font-family:'DM Sans',sans-serif;pointer-events:none;opacity:0;transition:opacity 0.3s;white-space:nowrap}
 .toast.show{opacity:1}
-
-/* FOOTER */
 footer{background:var(--v1);color:rgba(255,255,255,0.6);padding:24px 16px;font-size:11px;line-height:1.8}
 footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-family:'Fraunces',serif}
 .flinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
-.fl{color:rgba(255,255,255,0.45);cursor:pointer;transition:color 0.2s;font-size:10px}
+.fl{color:rgba(255,255,255,0.45);cursor:pointer;font-size:10px}
 .fl:hover{color:white}
 </style>
 </head>
 <body>
-
 <nav>
-  <div class="nav-logo" onclick="goPage('home')">
-    <div class="nav-ic">🌱</div>
-    <div class="nav-txt">La Manito Del Vegano<small>Plant Based · Chile</small></div>
+  <div class="nlogo" onclick="goPage('home')">
+    <div class="nic">🌱</div>
+    <div class="ntxt">La Manito Del Vegano<small>Plant Based · Chile</small></div>
   </div>
-  <div class="nav-menu">
+  <div class="nmenu">
     <button class="nm on" onclick="goPage('home')">Inicio</button>
     <button class="nm" onclick="goPage('nosotros')">Nosotros</button>
     <button class="nm" onclick="goPage('blog')">Blog</button>
     <button class="nm" onclick="goPage('contacto')">Contacto</button>
   </div>
-  <div class="nav-r">
-    <button class="admin-btn" onclick="abrirAdmin()">⚙️ Admin</button>
-    <button class="cart-ic" onclick="abrirCarrito()">🛒<span class="bdg h" id="bdg">0</span></button>
+  <div class="nright">
+    <button class="cbtn" onclick="abrirCarrito()">🛒<span class="bdg h" id="bdg">0</span></button>
   </div>
 </nav>
 
 <!-- HOME -->
 <div class="pg on" id="pg-home">
   <div class="hero">
-    <div class="h-pill">🌿 Taller Plant Based</div>
+    <div class="hpill">🌿 Taller Plant Based</div>
     <h1>Comida vegana<br>que <em>enamora</em></h1>
     <p>Elaboramos con amor y conciencia.<br>Solo pedidos · Santiago · Despacho propio</p>
-    <div class="h-tags">
-      <span class="h-tag">🌱 100% Vegano</span>
-      <span class="h-tag">✋ Artesanal</span>
-      <span class="h-tag">📅 Pedido anticipado</span>
-      <span class="h-tag">🚚 Despacho propio</span>
+    <div class="htags">
+      <span class="htag">🌱 100% Vegano</span>
+      <span class="htag">✋ Artesanal</span>
+      <span class="htag">📅 Pedido anticipado</span>
+      <span class="htag">🚚 Despacho propio</span>
     </div>
-    <div class="h-btns">
-      <button class="btn-w" onclick="document.getElementById('prod-sec').scrollIntoView({behavior:'smooth'})">Ver productos 🛒</button>
-      <button class="btn-o" onclick="goPage('nosotros')">Nuestra historia</button>
+    <div class="hbtns">
+      <button class="btnw" onclick="document.getElementById('prodsec').scrollIntoView({behavior:'smooth'})">Ver productos 🛒</button>
+      <button class="btno" onclick="goPage('nosotros')">Nuestra historia</button>
     </div>
   </div>
   <div class="stats">
-    <div class="st"><div class="st-n">3.8K</div><div class="st-l">Seguidores</div></div>
-    <div class="st"><div class="st-n">125</div><div class="st-l">Posts</div></div>
-    <div class="st"><div class="st-n">100%</div><div class="st-l">Vegano</div></div>
-    <div class="st"><div class="st-n">⭐4.9</div><div class="st-l">Rating</div></div>
+    <div class="st"><div class="stn">3.8K</div><div class="stl">Seguidores</div></div>
+    <div class="st"><div class="stn">125</div><div class="stl">Posts</div></div>
+    <div class="st"><div class="stn">100%</div><div class="stl">Vegano</div></div>
+    <div class="st"><div class="stn">⭐4.9</div><div class="stl">Rating</div></div>
   </div>
-  <div class="estrella" id="estrella-sec">
-    <div class="e-badge">⭐ Producto Único en Chile</div>
+  <div class="estrella">
+    <div class="ebadge">⭐ Producto Único en Chile</div>
     <h2>Manjar de Semilla de Cáñamo</h2>
     <p>El único manjar 100% vegetal con semillas de cáñamo de Chile. Rico en proteína completa, Omega 3 y 6. Sin lácteos, sin azúcar refinada.</p>
-    <div class="e-btns">
-      <a id="wa-estrella" href="#" target="_blank" class="bwa">
+    <div class="ebtns">
+      <a id="waest" href="https://wa.me/56990816124?text=Hola!%20Quiero%20saber%20del%20Manjar%20de%20Ca%C3%B1amo" target="_blank" class="bwa">
         <svg class="wai" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
         Consultar
       </a>
-      <button class="bverde" id="btn-estrella-carrito">🛒 Agregar</button>
+      <button class="bverde" id="btnest">🛒 Agregar — $8.500</button>
     </div>
   </div>
-  <div class="envio-banner">
-    <div class="eb-title">🚚 Despacho propio — Tarifas</div>
-    <div class="zonas-grid" id="zonasBanner"><div class="loading"><div class="spinner"></div></div></div>
+  <div class="ebanner">
+    <div class="ebtit">🚚 Despacho propio — Tarifas</div>
+    <div class="zgrid" id="zbanner"></div>
   </div>
   <div class="cats">
     <button class="cat on" onclick="filtrar('todos',this)">Todos</button>
@@ -428,21 +245,21 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <button class="cat" onclick="filtrar('manjares',this)">🍯 Manjares</button>
     <button class="cat" onclick="filtrar('packs',this)">📦 Packs</button>
   </div>
-  <p class="sec" id="prod-sec">🌿 Nuestros productos</p>
-  <div class="grid" id="prodGrid"><div class="loading"><div class="spinner"></div><p>Cargando productos...</p></div></div>
+  <p class="sec" id="prodsec">🌿 Nuestros productos</p>
+  <div class="grid" id="pgrid"></div>
   <p class="sec">💬 Lo que dicen nuestros clientes</p>
-  <div class="res-wrap">
-    <div class="res"><div class="res-s">★★★★★</div><div class="res-t">"Las empanadas de soya son increíbles. No puedo creer que sean veganas!"</div><div class="res-a">— Valentina M., Santiago</div></div>
-    <div class="res"><div class="res-s">★★★★★</div><div class="res-t">"El manjar de cáñamo es lo mejor que he probado. Único en Chile."</div><div class="res-a">— Rodrigo P., Pucón</div></div>
-    <div class="res"><div class="res-s">★★★★★</div><div class="res-t">"El pie de arándanos es una obra de arte. Lo pedí para mi cumpleaños."</div><div class="res-a">— Camila R., Providencia</div></div>
-    <div class="res"><div class="res-s">★★★★☆</div><div class="res-t">"Super puntual el despacho. Se nota el amor en cada detalle."</div><div class="res-a">— Felipe A., Ñuñoa</div></div>
+  <div class="reswrap">
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"Las empanadas de soya son increíbles. No puedo creer que sean veganas!"</div><div class="resa">— Valentina M., Santiago</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El manjar de cáñamo es lo mejor que he probado. Único en Chile."</div><div class="resa">— Rodrigo P., Pucón</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El pie de arándanos es una obra de arte."</div><div class="resa">— Camila R., Providencia</div></div>
+    <div class="res"><div class="ress">★★★★☆</div><div class="rest">"Super puntual el despacho. Se nota el amor."</div><div class="resa">— Felipe A., Ñuñoa</div></div>
   </div>
   <p class="sec">📦 Info importante</p>
-  <div class="info-g">
-    <div class="ic"><div class="ii">⏰</div><div class="it">Anticipación</div><div class="id">Mínimo 3 días para preparar tu pedido</div></div>
+  <div class="infog">
+    <div class="ic"><div class="ii">⏰</div><div class="it">Anticipación</div><div class="id">Mínimo 3 días para tu pedido</div></div>
     <div class="ic"><div class="ii">🚚</div><div class="it">Despacho propio</div><div class="id">Todo Santiago con tarifas fijas</div></div>
     <div class="ic"><div class="ii">💳</div><div class="it">Pagos</div><div class="id">Transferencia o Mercado Pago</div></div>
-    <div class="ic"><div class="ii">🌱</div><div class="it">Sin crueldad</div><div class="id">100% ingredientes de origen vegetal</div></div>
+    <div class="ic"><div class="ii">🌱</div><div class="it">Sin crueldad</div><div class="id">100% ingredientes vegetales</div></div>
   </div>
   <footer>
     <strong>La Manito Del Vegano 🌱</strong>
@@ -458,10 +275,10 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 
 <!-- NOSOTROS -->
 <div class="pg" id="pg-nosotros">
-  <div class="page-hero v"><h1>Nuestra Historia 🌱</h1><p>Más que comida — es un acto de amor</p></div>
+  <div class="phero"><h1>Nuestra Historia 🌱</h1><p>Más que comida — es un acto de amor</p></div>
   <div class="hist">
     <h2>¿Quiénes somos?</h2>
-    <p>La Manito Del Vegano nació de una convicción profunda: que la alimentación plant based puede ser deliciosa, accesible y llena de amor. Desde nuestra cocina en Santiago, elaboramos cada producto con ingredientes 100% vegetales.</p>
+    <p>La Manito Del Vegano nació de una convicción profunda: que la alimentación plant based puede ser deliciosa, accesible y llena de amor.</p>
     <p>Empezamos con una receta de empanadas y hoy tenemos un catálogo completo que incluye nuestro producto más especial: el manjar de semilla de cáñamo — el único en Chile.</p>
   </div>
   <div class="vals">
@@ -470,325 +287,158 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <div class="val"><div class="vi">🌍</div><div class="vt">Consciente</div><div class="vd">Respeto por animales y planeta</div></div>
     <div class="val"><div class="vi">💚</div><div class="vt">Con propósito</div><div class="vd">Cada bocado tiene una historia</div></div>
   </div>
-  <div class="team">
-    <h2>El equipo</h2>
-    <div class="tcard">
-      <div class="tav" style="background:#D8F3DC">👩‍🍳</div>
-      <div><div class="tn2">La Manito</div><div class="tr">Fundadora & Chef Plant Based</div><div class="tb">Apasionada de la cocina vegana, lleva años perfeccionando recetas que demuestran que la comida plant based puede ser la más rica del mundo.</div></div>
-    </div>
-  </div>
   <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago<div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('blog')">Blog</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div></footer>
 </div>
 
 <!-- BLOG -->
 <div class="pg" id="pg-blog">
-  <div class="page-hero v"><h1>Blog Vegano 🌿</h1><p>Recetas, tips y todo sobre el mundo plant based</p></div>
-  <div class="blog-g">
-    <div class="bc"><div class="bimg" style="background:#F0FFF4">🌿</div><div class="bbody"><span class="bcat">Nutrición</span><div class="btit">¿Por qué la semilla de cáñamo es el superalimento que necesitas?</div><div class="bex">Rica en proteína completa, Omega 3 y 6. Todo sobre este ingrediente único.</div><div class="bmeta">🌱 La Manito · 5 min</div></div></div>
-    <div class="bc"><div class="bimg" style="background:#FFF0F5">🥟</div><div class="bbody"><span class="bcat">Recetas</span><div class="btit">Cómo hacer empanadas veganas perfectas en casa</div><div class="bex">Todos los secretos de nuestra masa crocante y el relleno de pino de soya.</div><div class="bmeta">🌱 La Manito · 8 min</div></div></div>
-    <div class="bc"><div class="bimg" style="background:#FFFBF0">🍯</div><div class="bbody"><span class="bcat">Curiosidades</span><div class="btit">El manjar vegano que nadie creía posible</div><div class="bex">La historia del primer manjar de semilla de cáñamo de Chile.</div><div class="bmeta">🌱 La Manito · 4 min</div></div></div>
-    <div class="bc"><div class="bimg" style="background:#F5F0FF">🌱</div><div class="bbody"><span class="bcat">Estilo de vida</span><div class="btit">5 razones para pasarte al veganismo en Chile</div><div class="bex">Cada vez hay más opciones deliciosas. Los mejores argumentos.</div><div class="bmeta">🌱 La Manito · 6 min</div></div></div>
+  <div class="phero"><h1>Blog Vegano 🌿</h1><p>Recetas, tips y todo sobre el mundo plant based</p></div>
+  <div class="blogg">
+    <div class="bc"><div class="bimg" style="background:#F0FFF4">🌿</div><div class="bbody"><span class="bcat">Nutrición</span><div class="btit">¿Por qué la semilla de cáñamo es el superalimento que necesitas?</div><div class="bex">Rica en proteína completa, Omega 3 y 6.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFF0F5">🥟</div><div class="bbody"><span class="bcat">Recetas</span><div class="btit">Cómo hacer empanadas veganas perfectas en casa</div><div class="bex">Todos los secretos de nuestra masa crocante.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFFBF0">🍯</div><div class="bbody"><span class="bcat">Curiosidades</span><div class="btit">El manjar vegano que nadie creía posible</div><div class="bex">La historia del primer manjar de cáñamo de Chile.</div></div></div>
   </div>
   <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano<div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div></footer>
 </div>
 
 <!-- CONTACTO -->
 <div class="pg" id="pg-contacto">
-  <div class="page-hero v"><h1>Contáctanos 💬</h1><p>Estamos para ayudarte</p></div>
-  <div class="cont-cards">
-    <a id="wa-contacto" href="#" target="_blank" class="cc2"><div class="cci" style="background:#D8F3DC"><svg width="22" height="22" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg></div><div><div class="cch3">WhatsApp</div><div class="ccp">Respuesta rápida</div></div></a>
-    <a href="https://instagram.com/lamanitodelvegano" target="_blank" class="cc2"><div class="cci" style="background:#FFF0F5">📸</div><div><div class="cch3">Instagram</div><div class="ccp">@lamanitodelvegano</div></div></a>
-    <div class="cc2"><div class="cci" style="background:#FFF8E7">📍</div><div><div class="cch3">Ubicación</div><div class="ccp">Santiago, Chile</div></div></div>
+  <div class="phero"><h1>Contáctanos 💬</h1><p>Estamos para ayudarte</p></div>
+  <div class="contcards">
+    <a href="https://wa.me/56990816124" target="_blank" class="cc"><div class="cci" style="background:#D8F3DC">💬</div><div><div class="cch3">WhatsApp</div><div class="ccp">+56 9 9081 6124 · Respuesta rápida</div></div></a>
+    <a href="https://instagram.com/lamanitodelvegano" target="_blank" class="cc"><div class="cci" style="background:#FFF0F5">📸</div><div><div class="cch3">Instagram</div><div class="ccp">@lamanitodelvegano</div></div></a>
+    <div class="cc"><div class="cci" style="background:#FFF8E7">📍</div><div><div class="cch3">Ubicación</div><div class="ccp">Santiago, Chile</div></div></div>
   </div>
-  <div class="faq">
+  <div class="faqsec">
     <h2>Preguntas frecuentes</h2>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Con cuánto tiempo debo pedir? <span>▼</span></div><div class="fa">Mínimo 3 días de anticipación para preparar tu pedido con la calidad que mereces.</div></div>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Hacen despacho a domicilio? <span>▼</span></div><div class="fa">Sí, despacho propio en todo Santiago. El costo varía según tu zona y lo puedes ver al hacer tu pedido.</div></div>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Cómo pago mi pedido? <span>▼</span></div><div class="fa">Aceptamos transferencia bancaria y Mercado Pago (tarjeta débito, crédito o transferencia).</div></div>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Los productos tienen gluten? <span>▼</span></div><div class="fa">Algunos productos contienen harina de trigo. Si necesitas opción sin gluten, consúltanos por WhatsApp.</div></div>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Qué es el manjar de cáñamo? <span>▼</span></div><div class="fa">Nuestro producto estrella y único en Chile. Manjar 100% vegetal con semillas de cáñamo, rico en proteína completa y Omega 3 y 6.</div></div>
-    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Puedo retirar en persona? <span>▼</span></div><div class="fa">Sí, coordina retiro por WhatsApp sin costo de envío.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Con cuánto tiempo debo pedir? <span>▼</span></div><div class="fa">Mínimo 3 días de anticipación.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Hacen despacho a domicilio? <span>▼</span></div><div class="fa">Sí, despacho propio en todo Santiago con tarifas fijas.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Cómo pago? <span>▼</span></div><div class="fa">Transferencia bancaria o Mercado Pago.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Qué es el manjar de cáñamo? <span>▼</span></div><div class="fa">Nuestro producto estrella y único en Chile. Manjar 100% vegetal con semillas de cáñamo, rico en proteína y Omega 3.</div></div>
   </div>
   <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago<div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('blog')">Blog</span></div></footer>
 </div>
 
 <!-- CARRITO -->
-<div class="co" id="cartOv" onclick="cClick(event)">
+<div class="co" id="cartov" onclick="cclick(event)">
   <div class="cp">
     <div class="hndl"></div>
     <div class="ctit">🛒 Tu pedido</div>
-    <div id="cartBody"></div>
+    <div id="cartbody"></div>
     <button class="bclose" onclick="cerrarCarrito()">Seguir viendo productos</button>
   </div>
 </div>
 
-<!-- ADMIN -->
-<div class="admin-overlay" id="adminOv">
-  <div class="admin-panel">
-    <div class="admin-nav">
-      <h2>⚙️ Panel de Gestión</h2>
-      <button class="admin-close" onclick="cerrarAdmin()">✕ Cerrar</button>
-    </div>
-    <div class="admin-tabs">
-      <div class="atab on" onclick="aTab('pedidos',this)">📋 Pedidos</div>
-      <div class="atab" onclick="aTab('productos',this)">🌿 Productos</div>
-      <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
-      <div class="atab" onclick="aTab('horarios',this)">📅 Horarios</div>
-      <div class="atab" onclick="aTab('stats',this)">📊 Stats</div>
-    </div>
-    <div class="admin-content" id="adminContent"></div>
-  </div>
-</div>
-
-<!-- MODAL PRODUCTO -->
-<div class="modal-ov" id="modalProd" onclick="cerrarModal(event)">
-  <div class="modal-box">
-    <div class="hndl"></div>
-    <div class="modal-tit" id="modal-tit">Nuevo Producto</div>
-    <input type="hidden" id="modal-id">
-    <div class="form-row">
-      <label class="form-lbl">Nombre del producto *</label>
-      <input class="form-inp" id="f-nombre" placeholder="Ej: Empanada Pino Soya">
-    </div>
-    <div class="form-row">
-      <label class="form-lbl">Descripción</label>
-      <input class="form-inp" id="f-desc" placeholder="Descripción corta del producto">
-    </div>
-    <div class="form-row-2">
-      <div>
-        <label class="form-lbl">Precio * ($)</label>
-        <input class="form-inp" id="f-precio" type="number" placeholder="2500">
-      </div>
-      <div>
-        <label class="form-lbl">Precio anterior ($)</label>
-        <input class="form-inp" id="f-precio-ant" type="number" placeholder="Opcional">
-      </div>
-    </div>
-    <div class="form-row-2">
-      <div>
-        <label class="form-lbl">Categoría</label>
-        <select class="form-sel" id="f-cat">
-          <option value="empanadas">Empanadas</option>
-          <option value="pies">Pies</option>
-          <option value="manjares">Manjares</option>
-          <option value="packs">Packs</option>
-        </select>
-      </div>
-      <div>
-        <label class="form-lbl">Emoji</label>
-        <input class="form-inp" id="f-emoji" placeholder="🥟">
-      </div>
-    </div>
-    <div class="form-row-2">
-      <div>
-        <label class="form-lbl">Etiqueta</label>
-        <select class="form-sel" id="f-etiqueta">
-          <option value="">Sin etiqueta</option>
-          <option value="nuevo">🟢 Nuevo</option>
-          <option value="oferta">🔴 Oferta</option>
-          <option value="estrella">⭐ Estrella</option>
-        </select>
-      </div>
-      <div>
-        <label class="form-lbl">Color fondo</label>
-        <input class="form-inp" id="f-color" placeholder="#F0FFF4">
-      </div>
-    </div>
-    <div class="form-row">
-      <label class="form-lbl">URL de imagen (opcional)</label>
-      <input class="form-inp" id="f-imagen" placeholder="https://... o sube después">
-    </div>
-    <button class="btn-guardar" onclick="guardarProducto()">💾 Guardar producto</button>
-    <button class="btn-cancelar" onclick="document.getElementById('modalProd').classList.remove('open')">Cancelar</button>
-  </div>
-</div>
-
 <!-- CONFIRM -->
-<div class="conf-ov" id="confOv">
-  <div class="conf-box">
-    <div class="cf-ic" id="cfIc"></div>
-    <div class="cf-tit" id="cfTit"></div>
-    <div class="cf-msg" id="cfMsg"></div>
-    <button class="cf-btn" onclick="cerrarConf()">¡Perfecto!</button>
+<div class="confov" id="confov">
+  <div class="confbox">
+    <div class="cfic" id="cfic"></div>
+    <div class="cftit" id="cftit"></div>
+    <div class="cfmsg" id="cfmsg"></div>
+    <button class="cfbtn" onclick="cerrarConf()">Perfecto</button>
   </div>
 </div>
 
-<a id="waf-link" href="#" target="_blank" class="waf">
+<a href="https://wa.me/56990816124?text=Hola!%20Quiero%20hacer%20un%20pedido%20%F0%9F%8C%B1" target="_blank" class="waf">
   <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
 </a>
 <div class="toast" id="toast"></div>
 
 <script>
-// ============================================================
-// CONFIGURACIÓN SUPABASE
-// ============================================================
-const SB_URL = 'https://adrydqvahzqjbgtcvlay.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkcnlkcXZhaHpxamJndGN2bGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNjExMDAsImV4cCI6MjA5NTkzNzEwMH0.mjpGjVN90sHJAahn3NTslo3wLzW0ttQlOrwBQ62BZko';
+var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
-async function sb(tabla, opts = {}) {
-  const { method = 'GET', filter = '', body = null } = opts;
-  let url = SB_URL + '/rest/v1/' + tabla + (filter ? '?' + filter : '');
-  const headers = {
-    'apikey': SB_KEY,
-    'Authorization': 'Bearer ' + SB_KEY,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  };
-  try {
-    const res = await fetch(url, { 
-      method, 
-      headers, 
-      body: body ? JSON.stringify(body) : null,
-      mode: 'cors'
-    });
-    if (!res.ok) { 
-      const e = await res.text(); 
-      console.error('SB Error ' + res.status + ':', e); 
-      return null; 
-    }
-    const text = await res.text();
-    return text ? JSON.parse(text) : [];
-  } catch(e) {
-    console.error('Fetch error:', e);
-    return null;
-  }
-}
-
-// ============================================================
-// ESTADO GLOBAL
-// ============================================================
-const DIAS_N = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-
-let productos = [];
-let zonas = [];
-let config = {};
-let pedidos = [];
-let horarios = [
-  {dia:'Lunes',activo:true},{dia:'Martes',activo:true},{dia:'Miércoles',activo:true},
-  {dia:'Jueves',activo:true},{dia:'Viernes',activo:true},{dia:'Sábado',activo:true},{dia:'Domingo',activo:false}
-];
-let carrito = {}, zonaSel = null, fechaSel = null, catActual = 'todos';
-let nombreG = '', comunaG = '', dirG = '';
-let editandoId = null;
-
-// ============================================================
-// CARGA INICIAL
-// ============================================================
-async function init() {
-  await Promise.all([cargarProductos(), cargarZonas(), cargarConfig(), cargarPedidos()]);
-}
-
-const PRODUCTOS_DEMO = [
-  {id:1,nombre:'Empanada Pino Soya',descripcion:'Pino de soya jugoso, aceitunas y pimentón.',precio:2500,precio_anterior:null,categoria:'empanadas',emoji:'🥟',color_fondo:'#F0FFF4',etiqueta:'nuevo',etiqueta_label:'Nuevo',activo:true,orden:1},
-  {id:2,nombre:'Empanada Champiñón',descripcion:'Champiñones salteados, queso vegano y tomillo.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍄',color_fondo:'#F5FFF5',etiqueta:null,etiqueta_label:null,activo:true,orden:2},
-  {id:3,nombre:'Empanada Napolitana',descripcion:'Tomate, albahaca fresca y queso vegano.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍅',color_fondo:'#FFF5F0',etiqueta:null,etiqueta_label:null,activo:true,orden:3},
-  {id:4,nombre:'Pie de Arándanos',descripcion:'Masa crocante, arándanos y crema de coco.',precio:18900,precio_anterior:22000,categoria:'pies',emoji:'🫐',color_fondo:'#F5F0FF',etiqueta:'oferta',etiqueta_label:'Oferta',activo:true,orden:4},
-  {id:5,nombre:'Manjar de Cáñamo',descripcion:'El único en Chile. 100% vegetal con semilla de cáñamo.',precio:8500,precio_anterior:null,categoria:'manjares',emoji:'🍯',color_fondo:'#FFFBF0',etiqueta:'estrella',etiqueta_label:'⭐ Único',activo:true,orden:5},
-  {id:6,nombre:'Pack 10 Empanadas',descripcion:'Elige 10 empanadas a tu gusto.',precio:23900,precio_anterior:28000,categoria:'packs',emoji:'📦',color_fondo:'#FFF0F5',etiqueta:'oferta',etiqueta_label:'Oferta',activo:true,orden:6},
+var PRODS = [
+  {id:1,nombre:'Empanada Pino Soya',descripcion:'Pino de soya jugoso, aceitunas y pimentón.',precio:2500,precio_anterior:null,categoria:'empanadas',emoji:'🥟',color_fondo:'#F0FFF4',etiqueta:'nuevo',etiqueta_label:'Nuevo'},
+  {id:2,nombre:'Empanada Champiñón',descripcion:'Champiñones salteados, queso vegano y tomillo.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍄',color_fondo:'#F5FFF5',etiqueta:null,etiqueta_label:null},
+  {id:3,nombre:'Empanada Napolitana',descripcion:'Tomate, albahaca fresca y queso vegano.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍅',color_fondo:'#FFF5F0',etiqueta:null,etiqueta_label:null},
+  {id:4,nombre:'Pie de Arándanos',descripcion:'Masa crocante, arándanos y crema de coco.',precio:18900,precio_anterior:22000,categoria:'pies',emoji:'🫐',color_fondo:'#F5F0FF',etiqueta:'oferta',etiqueta_label:'Oferta'},
+  {id:5,nombre:'Manjar de Cáñamo',descripcion:'El único en Chile. 100% vegetal con semilla de cáñamo.',precio:8500,precio_anterior:null,categoria:'manjares',emoji:'🍯',color_fondo:'#FFFBF0',etiqueta:'estrella',etiqueta_label:'⭐ Único'},
+  {id:6,nombre:'Pack 10 Empanadas',descripcion:'Elige 10 empanadas a tu gusto.',precio:23900,precio_anterior:28000,categoria:'packs',emoji:'📦',color_fondo:'#FFF0F5',etiqueta:'oferta',etiqueta_label:'Oferta'}
 ];
 
-const ZONAS_DEMO = [
-  {id:1,nombre:'Centro / Providencia',comunas:'Santiago, Providencia, Ñuñoa, Macul',precio:2000,activo:true},
-  {id:2,nombre:'Zona Oriente',comunas:'Las Condes, Vitacura, La Reina, Peñalolén',precio:2500,activo:true},
-  {id:3,nombre:'Zona Sur',comunas:'La Florida, Puente Alto, San Bernardo',precio:3500,activo:true},
-  {id:4,nombre:'Zona Poniente',comunas:'Maipú, Pudahuel, Cerrillos, Renca',precio:3500,activo:true},
-  {id:5,nombre:'Zona Norte',comunas:'Quilicura, Recoleta, Independencia, Conchalí',precio:3000,activo:true},
-  {id:6,nombre:'Retiro en persona',comunas:'Coordinar por WhatsApp',precio:0,activo:true},
+var ZONAS = [
+  {id:1,nombre:'Centro / Providencia',comunas:'Santiago, Providencia, Ñuñoa, Macul',precio:2000},
+  {id:2,nombre:'Zona Oriente',comunas:'Las Condes, Vitacura, La Reina',precio:2500},
+  {id:3,nombre:'Zona Sur',comunas:'La Florida, Puente Alto, San Bernardo',precio:3500},
+  {id:4,nombre:'Zona Poniente',comunas:'Maipú, Pudahuel, Cerrillos',precio:3500},
+  {id:5,nombre:'Zona Norte',comunas:'Quilicura, Recoleta, Independencia',precio:3000},
+  {id:6,nombre:'Retiro en persona',comunas:'Coordinar por WhatsApp',precio:0}
 ];
 
-async function cargarProductos() {
-  const data = await sb('productos', { filter: 'order=orden.asc&activo=eq.true' });
-  productos = (data && data.length) ? data : PRODUCTOS_DEMO;
-  renderGrid();
-  const manjar = productos.find(p => p.categoria === 'manjares');
-  if (manjar) {
-    document.getElementById('btn-estrella-carrito').onclick = () => agregarAlCarrito(manjar.id);
-    document.getElementById('btn-estrella-carrito').textContent = '🛒 Agregar — $' + manjar.precio.toLocaleString('es-CL');
-  }
-}
+var productos = PRODS;
+var zonas = ZONAS;
+var carrito = {};
+var zonaSel = null;
+var fechaSel = null;
+var catActual = 'todos';
+var nombreG = '';
+var dirG = '';
 
-async function cargarZonas() {
-  const data = await sb('zonas_envio', { filter: 'activo=eq.true&order=id.asc' });
-  zonas = (data && data.length) ? data : ZONAS_DEMO;
-  renderZonasBanner();
-}
-
-async function cargarConfig() {
-  const data = await sb('configuracion');
-  if (data) {
-    data.forEach(c => config[c.clave] = c.valor);
-    const phone = config.whatsapp || '56990816124';
-    const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('Hola! 🌱 Quiero hacer un pedido');
-    document.getElementById('waf-link').href = waUrl;
-    document.getElementById('wa-contacto').href = 'https://wa.me/' + phone;
-    document.getElementById('wa-estrella').href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent('Hola! Quiero saber más del Manjar de Cáñamo 🌿');
-  }
-}
-
-async function cargarPedidos() {
-  const data = await sb('pedidos', { filter: 'order=created_at.desc' });
-  if (data) pedidos = data;
-}
-
-// ============================================================
-// NAVEGACIÓN
-// ============================================================
 function goPage(id) {
-  document.querySelectorAll('.pg').forEach(p => p.classList.remove('on'));
+  var pgs = document.querySelectorAll('.pg');
+  for (var i = 0; i < pgs.length; i++) pgs[i].classList.remove('on');
   document.getElementById('pg-' + id).classList.add('on');
-  document.querySelectorAll('.nm').forEach(b => b.classList.remove('on'));
-  const idx = {home:0, nosotros:1, blog:2, contacto:3};
-  if (document.querySelectorAll('.nm')[idx[id]]) document.querySelectorAll('.nm')[idx[id]].classList.add('on');
+  var nms = document.querySelectorAll('.nm');
+  for (var i = 0; i < nms.length; i++) nms[i].classList.remove('on');
+  var idx = {home:0, nosotros:1, blog:2, contacto:3};
+  if (nms[idx[id]]) nms[idx[id]].classList.add('on');
   window.scrollTo(0, 0);
 }
 
-// ============================================================
-// PRODUCTOS
-// ============================================================
+function renderZonas() {
+  var html = '';
+  var zz = zonas.slice(0, 4);
+  for (var i = 0; i < zz.length; i++) {
+    var z = zz[i];
+    html += '<div class="zitem"><div><div class="znom">' + z.nombre + '</div><div class="zcom">' + z.comunas.split(',')[0] + '...</div></div>';
+    html += z.precio === 0 ? '<span class="zgrat">Gratis</span>' : '<span class="zpre">$' + z.precio.toLocaleString('es-CL') + '</span>';
+    html += '</div>';
+  }
+  document.getElementById('zbanner').innerHTML = html;
+}
+
 function filtrar(cat, btn) {
   catActual = cat;
-  document.querySelectorAll('.cat').forEach(b => b.classList.remove('on'));
+  var cats = document.querySelectorAll('.cat');
+  for (var i = 0; i < cats.length; i++) cats[i].classList.remove('on');
   btn.classList.add('on');
   renderGrid();
 }
 
 function renderGrid() {
-  const g = document.getElementById('prodGrid');
-  const f = catActual === 'todos' ? productos : productos.filter(p => p.categoria === catActual);
-  if (!f.length) { g.innerHTML = '<p style="padding:20px;color:var(--muted);font-size:13px">No hay productos en esta categoría aún.</p>'; return; }
-  g.innerHTML = f.map(p => {
-    const qty = carrito[p.id]?.qty || 0;
-    const tagClass = p.etiqueta === 'nuevo' ? 'tn' : p.etiqueta === 'oferta' ? 'to' : 'te';
-    const imgHtml = p.imagen_url
-      ? `<img src="${p.imagen_url}" alt="${p.nombre}" onerror="this.style.display='none'">`
-      : `<span class="cimg-emoji">${p.emoji || '🌿'}</span>`;
-    return `<div class="card">
-      <div class="cimg" style="background:${p.color_fondo || '#F0FFF4'}">
-        ${p.etiqueta ? `<span class="ctag ${tagClass}">${p.etiqueta_label || p.etiqueta}</span>` : ''}
-        ${imgHtml}
-      </div>
-      <div class="cbody">
-        <div class="cname">${p.nombre}</div>
-        <div class="cdesc">${p.descripcion || ''}</div>
-        <div class="cfoot">
-          <div>
-            ${p.precio_anterior ? `<span class="cold">$${p.precio_anterior.toLocaleString('es-CL')}</span>` : ''}
-            <span class="cprice">$${p.precio.toLocaleString('es-CL')}</span>
-          </div>
-          ${qty > 0
-            ? `<div class="qc"><button class="qb" onclick="chQty(${p.id},-1)">−</button><span class="qn">${qty}</span><button class="qb p" onclick="chQty(${p.id},1)">+</button></div>`
-            : `<button class="badd" onclick="agregarAlCarrito(${p.id})">+</button>`}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  var g = document.getElementById('pgrid');
+  var f = catActual === 'todos' ? productos : productos.filter(function(p) { return p.categoria === catActual; });
+  var html = '';
+  for (var i = 0; i < f.length; i++) {
+    var p = f[i];
+    var qty = carrito[p.id] ? carrito[p.id].qty : 0;
+    var tc = p.etiqueta === 'nuevo' ? 'tn' : p.etiqueta === 'oferta' ? 'to' : 'te';
+    html += '<div class="card">';
+    html += '<div class="cimg" style="background:' + p.color_fondo + '">';
+    if (p.etiqueta) html += '<span class="ctag ' + tc + '">' + p.etiqueta_label + '</span>';
+    html += p.emoji;
+    html += '</div><div class="cbody">';
+    html += '<div class="cname">' + p.nombre + '</div>';
+    html += '<div class="cdesc">' + p.descripcion + '</div>';
+    html += '<div class="cfoot"><div>';
+    if (p.precio_anterior) html += '<span class="cold">$' + p.precio_anterior.toLocaleString('es-CL') + '</span>';
+    html += '<span class="cprice">$' + p.precio.toLocaleString('es-CL') + '</span></div>';
+    if (qty > 0) {
+      html += '<div class="qc"><button class="qb" onclick="chQty(' + p.id + ',-1)">-</button><span class="qn">' + qty + '</span><button class="qb p" onclick="chQty(' + p.id + ',1)">+</button></div>';
+    } else {
+      html += '<button class="badd" onclick="addCart(' + p.id + ')">+</button>';
+    }
+    html += '</div></div></div>';
+  }
+  g.innerHTML = html;
 }
 
-function agregarAlCarrito(id) {
-  const p = productos.find(x => x.id === id);
+function addCart(id) {
+  var p = null;
+  for (var i = 0; i < productos.length; i++) { if (productos[i].id === id) { p = productos[i]; break; } }
   if (!p) return;
-  if (!carrito[id]) carrito[id] = {...p, qty: 0};
+  if (!carrito[id]) carrito[id] = {id:p.id, nombre:p.nombre, precio:p.precio, emoji:p.emoji, color_fondo:p.color_fondo, qty:0};
   carrito[id].qty++;
   updBdg(); renderGrid();
   showToast('✅ ' + p.nombre + ' agregado');
@@ -799,177 +449,155 @@ function chQty(id, d) {
   carrito[id].qty += d;
   if (carrito[id].qty <= 0) delete carrito[id];
   updBdg(); renderGrid();
-  if (!Object.keys(carrito).length) cerrarCarrito();
-  else renderCarrito();
+  if (Object.keys(carrito).length === 0) cerrarCarrito();
+  else renderCart();
 }
 
 function updBdg() {
-  const t = Object.values(carrito).reduce((s, x) => s + x.qty, 0);
-  const b = document.getElementById('bdg');
-  b.textContent = t; b.classList.toggle('h', t === 0);
+  var t = 0;
+  var keys = Object.keys(carrito);
+  for (var i = 0; i < keys.length; i++) t += carrito[keys[i]].qty;
+  var b = document.getElementById('bdg');
+  b.textContent = t;
+  t === 0 ? b.classList.add('h') : b.classList.remove('h');
 }
 
-function subtotal() { return Object.values(carrito).reduce((s, x) => s + x.qty * x.precio, 0); }
-function costoEnvio() { return zonaSel !== null ? (zonas[zonaSel]?.precio || 0) : 0; }
+function subtotal() {
+  var s = 0;
+  var keys = Object.keys(carrito);
+  for (var i = 0; i < keys.length; i++) s += carrito[keys[i]].qty * carrito[keys[i]].precio;
+  return s;
+}
+
+function costoEnvio() { return zonaSel !== null ? zonas[zonaSel].precio : 0; }
 function totalFinal() { return subtotal() + costoEnvio(); }
 
-// ============================================================
-// ZONAS BANNER
-// ============================================================
-function renderZonasBanner() {
-  const z = zonas.slice(0, 4);
-  document.getElementById('zonasBanner').innerHTML = z.map(z =>
-    `<div class="zona-item">
-      <div><div class="zona-nom">${z.nombre}</div><div class="zona-com">${z.comunas.split(',')[0]}...</div></div>
-      ${z.precio === 0 ? `<span class="zona-gratis">Gratis</span>` : `<span class="zona-precio">$${z.precio.toLocaleString('es-CL')}</span>`}
-    </div>`
-  ).join('');
-}
-
-// ============================================================
-// FECHAS
-// ============================================================
 function genFechas() {
-  const res = []; const hoy = new Date();
-  const diasOk = horarios.filter(h => h.activo).map(h => ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].indexOf(h.dia));
-  const diasAnt = parseInt(config.dias_anticipacion || 3);
-  for (let i = 1; res.length < 9; i++) {
-    const d = new Date(hoy); d.setDate(hoy.getDate() + i);
-    const ok = i >= diasAnt && diasOk.includes(d.getDay());
-    res.push({fecha: d, ok, dias: i, razon: i < diasAnt ? 'pronto' : 'nodia'});
-    if (res.filter(x => x.ok).length >= 6 && i >= diasAnt + 1) break;
+  var res = [];
+  var hoy = new Date();
+  var diasOk = [1,2,3,4,5,6];
+  for (var i = 1; res.length < 9; i++) {
+    var d = new Date(hoy);
+    d.setDate(hoy.getDate() + i);
+    var ok = i >= 3 && diasOk.indexOf(d.getDay()) !== -1;
+    res.push({fecha:d, ok:ok, dias:i});
+    if (res.filter(function(x){return x.ok;}).length >= 6 && i >= 5) break;
   }
   return res;
 }
 
-// ============================================================
-// CARRITO
-// ============================================================
-function abrirCarrito() { renderCarrito(); document.getElementById('cartOv').classList.add('open'); }
-function cerrarCarrito() { document.getElementById('cartOv').classList.remove('open'); }
-function cClick(e) { if (e.target.id === 'cartOv') cerrarCarrito(); }
+function abrirCarrito() { renderCart(); document.getElementById('cartov').classList.add('open'); }
+function cerrarCarrito() { document.getElementById('cartov').classList.remove('open'); }
+function cclick(e) { if (e.target.id === 'cartov') cerrarCarrito(); }
 
-function renderCarrito() {
-  const body = document.getElementById('cartBody');
-  const items = Object.values(carrito);
-  if (!items.length) { body.innerHTML = '<div class="cempty"><span>🛒</span>Tu carrito está vacío</div>'; return; }
-  const fechas = genFechas();
-  let h = '';
+function renderCart() {
+  var body = document.getElementById('cartbody');
+  var keys = Object.keys(carrito);
+  if (keys.length === 0) { body.innerHTML = '<div class="cempty"><span>🛒</span>Tu carrito está vacío</div>'; return; }
+  var fechas = genFechas();
+  var h = '';
 
-  // Items
-  items.forEach(item => {
-    const imgHtml = item.imagen_url
-      ? `<img src="${item.imagen_url}" alt="${item.nombre}">`
-      : item.emoji || '🌿';
-    h += `<div class="ci">
-      <div class="ciem" style="background:${item.color_fondo || '#F0FFF4'}">${imgHtml}</div>
-      <div class="ciin"><div class="cin">${item.nombre}</div><div class="cip">$${(item.precio * item.qty).toLocaleString('es-CL')}</div></div>
-      <div class="cic"><button class="cb" onclick="chQty(${item.id},-1)">−</button><span class="cq">${item.qty}</span><button class="cb p" onclick="chQty(${item.id},1)">+</button></div>
-    </div>`;
-  });
+  for (var i = 0; i < keys.length; i++) {
+    var item = carrito[keys[i]];
+    h += '<div class="citem"><div class="ciem" style="background:' + item.color_fondo + '">' + item.emoji + '</div>';
+    h += '<div class="ciin"><div class="cin">' + item.nombre + '</div><div class="cip">$' + (item.precio * item.qty).toLocaleString('es-CL') + '</div></div>';
+    h += '<div class="cic"><button class="cb" onclick="chQty(' + item.id + ',-1)">-</button><span class="cq">' + item.qty + '</span><button class="cb p" onclick="chQty(' + item.id + ',1)">+</button></div></div>';
+  }
 
-  // Zona envío
-  h += `<div class="envio-sec"><div class="envio-tit">🚚 Selecciona tu zona de envío</div>
-    <select class="sel-zona" id="selZona" onchange="selZona(this.value)">
-      <option value="">— Elige tu zona —</option>
-      ${zonas.map((z, i) => `<option value="${i}" ${zonaSel === i ? 'selected' : ''}>${z.nombre} — ${z.precio === 0 ? 'Gratis' : '$' + z.precio.toLocaleString('es-CL')}</option>`).join('')}
-    </select>
-    ${zonaSel !== null ? `<div class="envio-det"><span class="envio-det-txt">${zonas[zonaSel]?.comunas}</span><span class="${zonas[zonaSel]?.precio === 0 ? 'envio-gratis' : 'envio-det-p'}">${zonas[zonaSel]?.precio === 0 ? '¡Gratis!' : '$' + zonas[zonaSel]?.precio.toLocaleString('es-CL')}</span></div>` : ''}
-  </div>`;
+  h += '<div class="ensec"><div class="entit">🚚 Selecciona tu zona de envío</div>';
+  h += '<select class="selzona" id="selzona" onchange="selZona(this.value)">';
+  h += '<option value="">— Elige tu zona —</option>';
+  for (var i = 0; i < zonas.length; i++) {
+    var z = zonas[i];
+    var sel = zonaSel === i ? ' selected' : '';
+    h += '<option value="' + i + '"' + sel + '>' + z.nombre + ' — ' + (z.precio === 0 ? 'Gratis' : '$' + z.precio.toLocaleString('es-CL')) + '</option>';
+  }
+  h += '</select>';
+  if (zonaSel !== null) {
+    var zz = zonas[zonaSel];
+    h += '<div class="endet"><span style="font-size:10px;color:var(--muted)">' + zz.comunas + '</span>';
+    h += '<span style="font-family:Fraunces,serif;font-size:15px;color:' + (zz.precio === 0 ? 'var(--wa)' : 'var(--v2)') + ';font-weight:700">' + (zz.precio === 0 ? '¡Gratis!' : '$' + zz.precio.toLocaleString('es-CL')) + '</span></div>';
+  }
+  h += '</div>';
 
-  // Totales
-  h += `<div class="tot-wrap">
-    <div class="tot-row"><span class="tot-sub">Subtotal</span><span class="tot-sub">$${subtotal().toLocaleString('es-CL')}</span></div>
-    <div class="tot-row"><span class="tot-sub">Envío</span><span class="tot-sub">${zonaSel !== null ? (costoEnvio() === 0 ? '<span style="color:var(--wa);font-weight:700">Gratis</span>' : '$' + costoEnvio().toLocaleString('es-CL')) : '—'}</span></div>
-    <div class="tot-div"></div>
-    <div class="tot-row"><span class="tot-lbl">Total</span><span class="tot-amt">$${totalFinal().toLocaleString('es-CL')}</span></div>
-  </div>`;
+  h += '<div class="totwrap">';
+  h += '<div class="totrow"><span class="totsub">Subtotal</span><span class="totsub">$' + subtotal().toLocaleString('es-CL') + '</span></div>';
+  h += '<div class="totrow"><span class="totsub">Envío</span><span class="totsub">' + (zonaSel !== null ? (costoEnvio() === 0 ? '<span style="color:var(--wa);font-weight:700">Gratis</span>' : '$' + costoEnvio().toLocaleString('es-CL')) : '—') + '</span></div>';
+  h += '<div class="totdiv"></div>';
+  h += '<div class="totrow"><span class="totlbl">Total</span><span class="totamt">$' + totalFinal().toLocaleString('es-CL') + '</span></div>';
+  h += '</div>';
 
-  // Fechas
-  h += '<div class="ftit">📅 ¿Para qué fecha necesitas tu pedido?</div><div class="fgrid">';
-  fechas.forEach(function(f, i) {
-    var sel = fechaSel === i ? 'sel' : '';
-    var cls = f.ok ? ('ok ' + sel) : 'no';
-    var st = f.ok ? '✅ Disponible' : (f.razon === 'pronto' ? '⏰ Muy pronto' : '❌ Sin despacho');
-    var click = f.ok ? (' onclick="sFecha(' + i + ')"') : '';
+  h += '<div class="ftit">📅 Para qué fecha necesitas tu pedido?</div>';
+  h += '<div class="fgrid">';
+  for (var i = 0; i < fechas.length; i++) {
+    var f = fechas[i];
+    var sel = fechaSel === i ? ' sel' : '';
+    var cls = f.ok ? 'ok' + sel : 'no';
+    var st = f.ok ? '✅ Disponible' : (f.dias < 3 ? '⏰ Muy pronto' : '❌ Sin despacho');
+    var click = f.ok ? ' onclick="selFecha(' + i + ')"' : '';
     h += '<div class="fb ' + cls + '"' + click + '>';
-    h += '<div class="fd">' + DIAS_N[f.fecha.getDay()] + '</div>';
+    h += '<div class="fd">' + DIAS[f.fecha.getDay()] + '</div>';
     h += '<div class="fn">' + f.fecha.getDate() + '</div>';
     h += '<div class="fm">' + MESES[f.fecha.getMonth()] + '</div>';
     h += '<div class="fs">' + st + '</div>';
     h += '</div>';
-  });
+  }
   h += '</div>';
 
-  // Datos cliente
-  h += `<label class="ilbl">👤 Tu nombre</label><input class="inp" id="iNom" placeholder="Ej: María González" value="${nombreG}">`;
-  h += `<label class="ilbl">📍 Tu dirección</label><input class="inp" id="iDir" placeholder="Ej: Av. Providencia 1234, Depto 5" value="${dirG}">`;
-  h += `<label class="ilbl">📱 Tu teléfono (opcional)</label><input class="inp" id="iTel" placeholder="+56 9 1234 5678">`;
+  h += '<label class="ilbl">👤 Tu nombre</label>';
+  h += '<input class="inp" id="inpnom" placeholder="Ej: María González" value="' + nombreG + '">';
+  h += '<label class="ilbl">📍 Tu dirección</label>';
+  h += '<input class="inp" id="inpdir" placeholder="Ej: Av. Providencia 1234" value="' + dirG + '">';
 
   if (zonaSel === null || fechaSel === null) {
-    h += `<div class="alrt">👆 ${zonaSel === null ? 'Selecciona tu zona de envío' : ''}${zonaSel === null && fechaSel === null ? ' y ' : ''}${fechaSel === null ? 'elige una fecha disponible' : ''} para continuar</div>`;
+    h += '<div class="alrt">👆 ' + (zonaSel === null ? 'Selecciona tu zona de envío' : '') + (zonaSel === null && fechaSel === null ? ' y ' : '') + (fechaSel === null ? 'elige una fecha disponible' : '') + '</div>';
   }
 
-  const dis = (zonaSel === null || fechaSel === null) ? "style='opacity:0.45;pointer-events:none'" : '';
-  h += `<button class="bwab" ${dis} onclick="enviarWA()">
-    <svg class="wai" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-    Enviar pedido por WhatsApp
-  </button>
-  <button class="bmpb" ${dis} onclick="pagarMP()">💳 Pagar con Mercado Pago</button>
-  <p class="mpnota">🔒 Pago seguro · Tarjeta, débito o transferencia</p>`;
+  var dis = (zonaSel === null || fechaSel === null) ? ' style="opacity:0.45;pointer-events:none"' : '';
+  h += '<button class="bwab"' + dis + ' onclick="enviarWA()">💬 Enviar pedido por WhatsApp</button>';
+  h += '<button class="bmpb"' + dis + ' onclick="pagarMP()">💳 Pagar con Mercado Pago</button>';
 
   body.innerHTML = h;
 }
 
 function selZona(val) {
-  nombreG = document.getElementById('iNom')?.value || '';
-  dirG = document.getElementById('iDir')?.value || '';
+  nombreG = document.getElementById('inpnom') ? document.getElementById('inpnom').value : '';
+  dirG = document.getElementById('inpdir') ? document.getElementById('inpdir').value : '';
   zonaSel = val === '' ? null : parseInt(val);
-  renderCarrito();
+  renderCart();
 }
 
-function sFecha(i) {
-  nombreG = document.getElementById('iNom')?.value || '';
-  dirG = document.getElementById('iDir')?.value || '';
-  fechaSel = i; renderCarrito();
+function selFecha(i) {
+  nombreG = document.getElementById('inpnom') ? document.getElementById('inpnom').value : '';
+  dirG = document.getElementById('inpdir') ? document.getElementById('inpdir').value : '';
+  fechaSel = i;
+  renderCart();
 }
 
-async function enviarWA() {
-  const nombre = document.getElementById('iNom')?.value || 'Cliente';
-  const dir = document.getElementById('iDir')?.value || 'Sin especificar';
-  const tel = document.getElementById('iTel')?.value || '';
-  const fechas = genFechas(); const fecha = fechas[fechaSel];
-  const zona = zonas[zonaSel];
-  const items = Object.values(carrito);
-  const phone = config.whatsapp || '56990816124';
-
-  let msg = 'Hola! 🌱 Quiero hacer un pedido:\n\n';
+function enviarWA() {
+  var nombre = document.getElementById('inpnom') ? document.getElementById('inpnom').value : 'Cliente';
+  var dir = document.getElementById('inpdir') ? document.getElementById('inpdir').value : '';
+  var fechas = genFechas();
+  var fecha = fechas[fechaSel];
+  var zona = zonas[zonaSel];
+  var keys = Object.keys(carrito);
+  var msg = 'Hola! 🌱 Quiero hacer un pedido:\n\n';
   msg += '👤 *' + nombre + '*\n';
-  if (tel) msg += '📱 ' + tel + '\n';
   msg += '📍 ' + dir + '\n';
   msg += '🚚 Zona: ' + zona.nombre + '\n';
-  msg += '📅 Para el *' + DIAS_N[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()] + '*\n\n';
+  msg += '📅 Para el *' + DIAS[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()] + '*\n\n';
   msg += '🛒 *Mi pedido:*\n';
-  items.forEach(item => msg += '• ' + item.qty + 'x ' + item.nombre + ' — $' + (item.precio * item.qty).toLocaleString('es-CL') + '\n');
+  for (var i = 0; i < keys.length; i++) {
+    var item = carrito[keys[i]];
+    msg += '• ' + item.qty + 'x ' + item.nombre + ' — $' + (item.precio * item.qty).toLocaleString('es-CL') + '\n';
+  }
   msg += '\n📦 Subtotal: $' + subtotal().toLocaleString('es-CL') + '\n';
   msg += '🚚 Envío: ' + (costoEnvio() === 0 ? 'Gratis' : '$' + costoEnvio().toLocaleString('es-CL')) + '\n';
   msg += '💰 *Total: $' + totalFinal().toLocaleString('es-CL') + '*';
-
-  // Guardar pedido en Supabase
-  const pedidoData = {
-    nombre_cliente: nombre, telefono: tel, direccion: dir,
-    zona_id: zona.id, costo_envio: costoEnvio(),
-    fecha_entrega: DIAS_N[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()],
-    items: items.map(i => ({id: i.id, nombre: i.nombre, qty: i.qty, precio: i.precio})),
-    subtotal: subtotal(), total: totalFinal(), estado: 'pendiente'
-  };
-  await sb('pedidos', {method: 'POST', body: pedidoData});
-  await cargarPedidos();
-
-  window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+  window.open('https://wa.me/56990816124?text=' + encodeURIComponent(msg), '_blank');
   cerrarCarrito();
-  showConf('💬', '¡Pedido enviado!', 'Tu pedido de $' + totalFinal().toLocaleString('es-CL') + ' fue enviado.\nFecha: ' + DIAS_N[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()] + '\n\nEspera la confirmación de La Manito 🌱');
-  carrito = {}; zonaSel = null; fechaSel = null; nombreG = ''; dirG = '';
+  showConf('💬', '¡Pedido enviado!', 'Tu pedido fue enviado por WhatsApp\nFecha: ' + DIAS[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()] + '\n\nEspera la confirmación 🌱');
+  carrito = {}; zonaSel = null; fechaSel = null;
   updBdg(); renderGrid();
 }
 
@@ -978,90 +606,19 @@ function pagarMP() {
   showConf('💳', 'Mercado Pago', 'Aquí se abrirá Mercado Pago\npor $' + totalFinal().toLocaleString('es-CL') + '\n\n✅ Al pagar recibirás confirmación automática 🌱');
 }
 
-// ============================================================
-// ADMIN
-// ============================================================
-function abrirAdmin() { document.getElementById('adminOv').classList.add('open'); renderAdminTab('pedidos'); }
-function cerrarAdmin() { document.getElementById('adminOv').classList.remove('open'); }
-
-function aTab(tab, btn) {
-  document.querySelectorAll('.atab').forEach(t => t.classList.remove('on'));
-  btn.classList.add('on');
-  renderAdminTab(tab);
+function showConf(ic, tit, msg) {
+  document.getElementById('cfic').textContent = ic;
+  document.getElementById('cftit').textContent = tit;
+  document.getElementById('cfmsg').textContent = msg;
+  document.getElementById('confov').classList.add('open');
 }
+function cerrarConf() { document.getElementById('confov').classList.remove('open'); }
+function tfaq(el) { var a = el.nextElementSibling; a.classList.toggle('open'); el.querySelector('span').textContent = a.classList.contains('open') ? '▲' : '▼'; }
+function showToast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 2400); }
 
-async function renderAdminTab(tab) {
-  const c = document.getElementById('adminContent');
-  if (tab === 'pedidos') {
-    await cargarPedidos();
-    if (!pedidos.length) {
-      c.innerHTML = '<div class="admin-subtitle">📋 Pedidos</div><p style="color:var(--muted);font-size:13px;margin-top:8px">No hay pedidos aún. Cuando lleguen aparecerán aquí.</p>';
-      return;
-    }
-    c.innerHTML = '<div class="admin-subtitle">📋 Pedidos</div><br>' +
-      pedidos.map((p, i) => `
-        <div class="ped-card">
-          <div class="ped-head">
-            <span class="ped-num">Pedido #${p.id}</span>
-            <span class="ped-st ps-${p.estado}">${p.estado === 'pendiente' ? '⏳ Pendiente' : p.estado === 'camino' ? '🚚 En camino' : '✅ Entregado'}</span>
-          </div>
-          <div class="ped-info">
-            <strong>👤 ${p.nombre_cliente}</strong><br>
-            📍 ${p.direccion || '—'}<br>
-            📅 ${p.fecha_entrega}<br>
-            🛒 ${Array.isArray(p.items) ? p.items.map(x => x.qty + 'x ' + x.nombre).join(', ') : '—'}<br>
-            🚚 Envío: ${p.costo_envio === 0 ? 'Gratis' : '$' + (p.costo_envio || 0).toLocaleString('es-CL')}<br>
-            💰 <strong>Total: $${(p.total || 0).toLocaleString('es-CL')}</strong>
-          </div>
-          <div class="ped-btns">
-            <button class="pb2 pb-wa" onclick="notifWA(${i})">💬 WhatsApp</button>
-            ${p.estado === 'pendiente' ? `<button class="pb2 pb-camino" onclick="cambiarEstado(${p.id},'camino')">🚚 En camino</button>` : ''}
-            ${p.estado === 'camino' ? `<button class="pb2 pb-ok" onclick="cambiarEstado(${p.id},'entregado')">✅ Entregado</button>` : ''}
-            <button class="pb2 pb-del" onclick="eliminarPedido(${p.id})">🗑</button>
-          </div>
-        </div>`).join('');
-  }
-  else if (tab === 'productos') {
-    await cargarProductos();
-    c.innerHTML = `<div class="admin-subtitle">🌿 Productos</div>
-      <p class="admin-desc">Agrega, edita o desactiva productos. Los cambios se reflejan de inmediato en la tienda.</p>
-      <button class="btn-nuevo" onclick="abrirModalProducto()">➕ Agregar nuevo producto</button>` +
-      productos.map(p => `
-        <div class="prod-admin">
-          <div class="pa-head">
-            <div class="pa-emoji" style="background:${p.color_fondo || '#F0FFF4'}">${p.imagen_url ? `<img src="${p.imagen_url}" alt="${p.nombre}">` : (p.emoji || '
-// PRODUCTOS Y ZONAS POR DEFECTO (siempre disponibles sin Supabase)
-productos = PRODUCTOS_DEMO;
-zonas = ZONAS_DEMO;
-config = {whatsapp: '56990816124', dias_anticipacion: '3'};
-
-// Render inmediato
+document.getElementById('btnest').onclick = function() { addCart(5); };
 renderGrid();
-renderZonasBanner();
-
-// Links WhatsApp
-const _phone = '56990816124';
-document.getElementById('waf-link').href = 'https://wa.me/' + _phone + '?text=' + encodeURIComponent('Hola! 🌱 Quiero hacer un pedido');
-document.getElementById('wa-contacto').href = 'https://wa.me/' + _phone;
-document.getElementById('wa-estrella').href = 'https://wa.me/' + _phone + '?text=' + encodeURIComponent('Hola! Quiero saber más del Manjar de Cáñamo 🌿');
-
-const _manjar = productos.find(p => p.categoria === 'manjares');
-if (_manjar) {
-  document.getElementById('btn-estrella-carrito').onclick = () => agregarAlCarrito(_manjar.id);
-  document.getElementById('btn-estrella-carrito').textContent = '🛒 Agregar — $' + _manjar.precio.toLocaleString('es-CL');
-}
-
-// Intentar Supabase en background
-setTimeout(async () => {
-  try {
-    const d1 = await sb('productos', {filter: 'order=orden.asc&activo=eq.true'});
-    if (d1 && d1.length) { productos = d1; renderGrid(); }
-    const d2 = await sb('zonas_envio', {filter: 'activo=eq.true&order=id.asc'});
-    if (d2 && d2.length) { zonas = d2; renderZonasBanner(); }
-    const d3 = await sb('pedidos', {filter: 'order=created_at.desc'});
-    if (d3) pedidos = d3;
-  } catch(e) { console.log('Usando datos locales'); }
-}, 500);
+renderZonas();
 </script>
 </body>
 </html>
