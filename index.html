@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -225,9 +225,13 @@ nav{background:var(--v1);padding:0 16px;display:flex;align-items:center;justify-
 .zahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .zanom{font-weight:700;font-size:13px}
 /* MODAL */
-.modalov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:flex-end;justify-content:center}
+.modalov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:center;justify-content:center;padding:20px}
 .modalov.open{display:flex}
-.modalbox{background:white;border-radius:20px 20px 0 0;padding:18px 16px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
+.modalbox{background:white;border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 10px 25px rgba(0,0,0,0.2);animation:pop 0.2s ease-out}
+.upload-container{border:2px dashed var(--borde);border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#fafbfb;transition:border-color 0.2s;margin-top:4px}
+.upload-container:hover{border-color:var(--v2)}
+.upload-placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.upload-icon{font-size:24px}
 .modaltit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:14px}
 .frow{margin-bottom:10px}
 .flbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
@@ -325,6 +329,7 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
 
@@ -507,7 +512,8 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
     <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
     <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
-    <div class="atab" onclick="aTab('stats',this)">📊 Stats</div>
+    <div class="atab" onclick="aTab('pedidos',this)">📦 Pedidos</div>
+    <div class="atab" onclick="aTab('stats',this)">📊 Métricas</div>
   </div>
   <div class="acont" id="acont"></div>
 </div>
@@ -547,9 +553,16 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
       <div><label class="flbl">Color fondo</label><input class="finp" id="fcolor" placeholder="#F0FFF4"></div>
     </div>
     <div class="frow">
-      <label class="flbl">URL de imagen (opcional)</label>
-      <input class="finp" id="fimagen" placeholder="https://i.imgur.com/...">
-      <small style="color:var(--muted);font-size:10px;margin-top:4px;display:block">💡 Sube tu foto en imgur.com y pega el link directo aquí</small>
+      <label class="flbl">Imagen del Producto</label>
+      <input type="file" id="fsubir_img" accept="image/*" style="display:none" onchange="subirImagen(this)">
+      <div class="upload-container" onclick="document.getElementById('fsubir_img').click()">
+        <div class="upload-placeholder">
+          <span class="upload-icon">📸</span>
+          <span class="upload-text">Subir imagen desde tu dispositivo</span>
+        </div>
+        <img id="fimagen_preview" style="display:none; max-width: 100px; max-height: 100px; object-fit: cover; margin: 10px auto 0; border-radius: 8px; border: 1px solid var(--borde)">
+      </div>
+      <input type="hidden" id="fimagen">
     </div>
     <button class="bguardar" onclick="guardarProd()">💾 Guardar producto</button>
     <button class="bcancelar" onclick="document.getElementById('modalov').classList.remove('open')">Cancelar</button>

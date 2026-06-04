@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { carrito, nombre, direccion, telefono, zona, envio, fecha } = req.body;
+  const { carrito, nombre, direccion, telefono, zona, envio, fecha, pedidoId } = req.body;
   const mpAccessToken = (process.env.MP_ACCESS_TOKEN || '').trim();
 
   if (!mpAccessToken) {
@@ -61,8 +61,10 @@ export default async function handler(req, res) {
         pending: `${origin}/?status=pending`
       },
       auto_return: 'approved',
+      external_reference: pedidoId || undefined,
       // Metadata útil para asociar compras en tu panel
       metadata: {
+        pedido_id: pedidoId,
         nombre_cliente: nombre,
         direccion_entrega: direccion,
         telefono_cliente: telefono,
