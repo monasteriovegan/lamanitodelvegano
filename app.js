@@ -1,4 +1,4 @@
-﻿var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 var ADMIN_PASS = 'manito2024';
 var editandoId = null;
@@ -562,6 +562,8 @@ loadData();
 // ============================================================
 // CHATBOT WIDGET: IA REAL VÍA VERCEL API
 // ============================================================
+var chatHistory = [];
+
 function toggleChat() {
   document.getElementById('chatWin').classList.toggle('open');
 }
@@ -579,6 +581,8 @@ function sendChat(forceMsg) {
   body.appendChild(udiv);
   body.scrollTop = body.scrollHeight;
   
+  chatHistory.push({ role: "user", parts: [{ text: msg }] });
+
   var tdiv = document.createElement('div');
   tdiv.className = 'cmsg bot';
   tdiv.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
@@ -589,9 +593,10 @@ function sendChat(forceMsg) {
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mensaje: msg })
+    body: JSON.stringify({ history: chatHistory })
   }).then(function(res){ return res.json(); }).then(function(data){
     body.removeChild(tdiv);
+    chatHistory.push({ role: "model", parts: [{ text: data.respuesta }] });
     var bdiv = document.createElement('div');
     bdiv.className = 'cmsg bot';
     bdiv.textContent = data.respuesta;
