@@ -1,4 +1,4 @@
-var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+﻿var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 var ADMIN_PASS = 'manito2024';
 var editandoId = null;
@@ -373,101 +373,20 @@ function aTab(tab, btn) {
 function renderAdminTab(tab) {
   var c = document.getElementById('acont');
   if (tab==='productos') {
-    var h = '<div class="asub">🌿 Productos</div>';
-    h += '<div class="adesc">Agrega, edita o elimina productos. Marca como "Destacado" para que aparezcan en la sección de ofertas.</div>';
-    h += '<button class="btnuevo" onclick="abrirModalProd(null)">➕ Agregar nuevo producto</button>';
+    var h = '<div class="admin-head"><div class="admin-tit">ðŸ“¦ Inventario & Ofertas</div><button class="btn-add" onclick="abrirModalProd(null)">âž• Nuevo Producto</button></div>';
+    h += '<div class="admin-card"><table class="atbl"><thead><tr><th>Producto</th><th>CategorÃ­a</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>';
     for (var i=0;i<productos.length;i++) {
       var p = productos[i];
-      h += '<div class="prodadmin"><div class="pahead">';
-      h += '<div class="paemoji" style="background:'+p.color_fondo+'">';
-      if (p.imagen_url) h += '<img src="'+p.imagen_url+'" onerror="this.style.display=\'none\'">';
-      h += p.emoji+'</div>';
-      h += '<div class="painfo"><div class="paname">'+p.nombre+'</div>';
-      h += '<div class="paprice">$'+p.precio.toLocaleString('es-CL')+'</div>';
-      h += '<div class="pacat">'+p.categoria+(p.destacado?' · ⭐ Destacado':'')+'</div></div></div>';
-      h += '<div class="pabtns">';
-      h += '<button class="pabtn" style="background:var(--v2);color:white" onclick="abrirModalProd(\''+p.id+'\')">✏️ Editar</button>';
-      h += '<button class="pabtn" style="background:'+(p.destacado?'var(--am)':'#F0F0F0')+';color:'+(p.destacado?'white':'var(--muted)')+'" onclick="toggleDestacado(\''+p.id+'\')">'+(p.destacado?'⭐ Destacado':'☆ Destacar')+'</button>';
-      h += '<button class="pabtn" style="background:#F0F0F0;color:var(--muted)" onclick="eliminarProd(\''+p.id+'\')">🗑</button>';
-      h += '</div></div>';
-    }
-    c.innerHTML = h;
-  } else if (tab==='destacados') {
-    var dest = productos.filter(function(p){return p.destacado;});
-    var h = '<div class="asub">⭐ Productos Destacados</div>';
-    h += '<div class="adesc">Estos productos aparecen en la sección de ofertas destacadas con imagen grande. Márcalos desde la pestaña Productos.</div>';
-    if (dest.length===0) {
-      h += '<div style="text-align:center;padding:30px;color:var(--muted);background:white;border-radius:13px">';
-      h += '<div style="font-size:36px;margin-bottom:10px">⭐</div>';
-      h += '<p style="font-size:13px">No hay productos destacados.<br>Ve a Productos y marca los que quieras destacar.</p></div>';
-    } else {
-      for (var i=0;i<dest.length;i++) {
-        var p = dest[i];
-        h += '<div class="prodadmin"><div class="pahead">';
-        h += '<div class="paemoji" style="background:'+p.color_fondo+';width:60px;height:60px;font-size:32px">';
-        if (p.imagen_url) h += '<img src="'+p.imagen_url+'">';
-        h += p.emoji+'</div>';
-        h += '<div class="painfo"><div class="paname">'+p.nombre+'</div><div class="paprice">$'+p.precio.toLocaleString('es-CL')+'</div></div></div>';
-        h += '<div class="pabtns"><button class="pabtn" style="background:var(--rojo);color:white" onclick="toggleDestacado(\''+p.id+'\')">✕ Quitar de destacados</button></div></div>';
-      }
-    }
-    c.innerHTML = h;
-  } else if (tab==='zonas') {
-    var h = '<div class="asub">🚚 Zonas de envío</div>';
-    h += '<div class="adesc">Edita, agrega o elimina zonas de despacho. Los cambios se ven inmediatamente en el carrito.</div>';
-    for (var i=0;i<zonas.length;i++) {
-      var z = zonas[i];
-      h += '<div class="zadmin">';
-      h += '<div class="zahead"><span class="zanom">' + z.nombre + '</span>';
-      h += '<button class="pabtn" style="background:var(--rojo);color:white;font-size:10px" onclick="eliminarZona(\''+z.id+'\')">🗑 Eliminar</button></div>';
-      h += '<div class="frow"><label class="flbl">Nombre</label><input class="finp" id="znom_'+z.id+'" value="'+z.nombre+'"></div>';
-      h += '<div class="frow"><label class="flbl">Comunas que cubre</label><input class="finp" id="zcom_'+z.id+'" value="'+z.comunas+'"></div>';
-      h += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
-      h += '<label class="flbl" style="margin:0">Precio despacho ($):</label>';
-      h += '<input class="finp" id="zpre_'+z.id+'" type="number" value="'+z.precio+'" min="0" step="500" style="width:120px">';
-      h += '<button class="pabtn" style="background:var(--v2);color:white" onclick="guardarZona(\''+z.id+'\')">💾 Guardar</button></div>';
-      h += '</div>';
-    }
-    h += '<div class="zadmin" style="border:2px dashed var(--v3);background:#F8FFF9">';
-    h += '<div class="asub" style="font-size:15px;margin-bottom:10px;color:var(--v2)">➕ Agregar nueva zona</div>';
-    h += '<div class="frow"><label class="flbl">Nombre zona</label><input class="finp" id="nznom" placeholder="Ej: Zona Sur"></div>';
-    h += '<div class="frow"><label class="flbl">Comunas</label><input class="finp" id="nzcom" placeholder="Ej: La Florida, Puente Alto, San Bernardo"></div>';
-    h += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
-    h += '<label class="flbl" style="margin:0">Precio ($):</label>';
-    h += '<input class="finp" id="nzpre" type="number" value="0" min="0" step="500" style="width:120px">';
-    h += '<button class="pabtn" style="background:var(--v3);color:white" onclick="agregarZona()">➕ Agregar</button></div>';
-    h += '</div>';
-    c.innerHTML = h;
-  } else if (tab==='stats') {
-    var h = '<div class="asub">📊 Estadísticas</div><br>';
-    h += '<div class="astats">';
-    h += '<div class="ast"><div class="astn">'+productos.length+'</div><div class="astl">Productos</div></div>';
-    h += '<div class="ast"><div class="astn">'+zonas.length+'</div><div class="astl">Zonas envío</div></div>';
-    h += '<div class="ast"><div class="astn">'+productos.filter(function(p){return p.destacado;}).length+'</div><div class="astl">Destacados</div></div>';
-    h += '<div class="ast"><div class="astn">'+productos.filter(function(p){return p.etiqueta==='oferta';}).length+'</div><div class="astl">En oferta</div></div>';
-    h += '</div>';
-    h += '<div style="background:white;border-radius:13px;padding:13px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:12px">';
-    h += '<p style="font-weight:600;font-size:13px;margin-bottom:10px">🌿 Todos los productos</p>';
-    for (var i=0;i<productos.length;i++) {
-      var p = productos[i];
-      h += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--borde);font-size:12px">';
-      h += '<span>'+p.emoji+' '+p.nombre+(p.destacado?' ⭐':'')+'</span>';
-      h += '<span style="color:var(--v2);font-weight:600">$'+p.precio.toLocaleString('es-CL')+'</span></div>';
-    }
-    h += '</div>';
-    h += '<div style="background:white;border-radius:13px;padding:13px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">';
-    h += '<p style="font-weight:600;font-size:13px;margin-bottom:10px">🚚 Zonas de envío</p>';
-    for (var i=0;i<zonas.length;i++) {
-      h += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--borde);font-size:12px">';
-      h += '<span>'+zonas[i].nombre+'</span>';
-      h += '<span style="color:var(--v2);font-weight:600">'+(zonas[i].precio===0?'Gratis':'$'+zonas[i].precio.toLocaleString('es-CL'))+'</span></div>';
-    }
-    h += '</div>';
-    c.innerHTML = h;
-  }
-}
-
-// ============================================================
+      h += '<tr>';
+      h += '<td><div style="display:flex;align-items:center;gap:16px">';
+      h += '<div class="atbl-emoji" style="background:'+p.color_fondo+'">';
+      if(p.imagen_url) h += '<img src="'+p.imagen_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px">';
+      else h += p.emoji;
+      h += '</div><div><div style="font-weight:600;color:var(--texto)">'+p.nombre+'</div>';
+      if(p.destacado) h += '<span style="font-size:11px;background:#FEF3C7;color:#D97706;padding:2px 8px;border-radius:100px;font-weight:600;margin-top:4px;display:inline-block">â­ Destacado</span>';
+      h += '</div></div></td>';
+      h += '<td><span style="background:#F1F5F9;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500">'+p.categoria+'</span></td>';
+      h += '<td style="font-weight:600;color:var(--v2)">
 // ADMIN ACCIONES
 // ============================================================
 function abrirModalProd(id) {
@@ -589,3 +508,61 @@ function showToast(msg) { var t=document.getElementById('toast'); t.textContent=
 // INIT
 handleHash();
 loadData();
+
+// ============================================================
+// CHATBOT WIDGET
+// ============================================================
+function toggleChat() {
+  document.getElementById('chatWin').classList.toggle('open');
+}
+
+function sendChat() {
+  var input = document.getElementById('chatInp');
+  var msg = input.value.trim();
+  if(!msg) return;
+  input.value = '';
+  
+  var body = document.getElementById('chatBody');
+  var udiv = document.createElement('div');
+  udiv.className = 'cmsg user';
+  udiv.textContent = msg;
+  body.appendChild(udiv);
+  body.scrollTop = body.scrollHeight;
+  
+  var tdiv = document.createElement('div');
+  tdiv.className = 'cmsg bot';
+  tdiv.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  body.appendChild(tdiv);
+  body.scrollTop = body.scrollHeight;
+
+  // === AQUÃ SE CONECTARÃ CON n8n ===
+  // URL de ejemplo. Reemplaza esto con la URL de tu Webhook de n8n.
+  var webhook_url = 'https://tu-url-de-n8n.com/webhook/chat'; 
+  
+  setTimeout(function() {
+    body.removeChild(tdiv);
+    var bdiv = document.createElement('div');
+    bdiv.className = 'cmsg bot';
+    bdiv.innerHTML = 'Â¡Hola! AÃºn no estoy conectado a tu n8n, pero cuando lo estÃ©, procesarÃ© tu mensaje: <strong>"' + msg + '"</strong>';
+    body.appendChild(bdiv);
+    body.scrollTop = body.scrollHeight;
+  }, 1500);
+
+  /* EJEMPLO DE CONEXIÃ“N REAL (Descomenta cuando tengas la URL de n8n):
+  fetch(webhook_url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mensaje: msg })
+  }).then(res => res.json()).then(data => {
+    body.removeChild(tdiv);
+    var bdiv = document.createElement('div');
+    bdiv.className = 'cmsg bot';
+    bdiv.textContent = data.respuesta; // Cambia "respuesta" por el campo que devuelva n8n
+    body.appendChild(bdiv);
+    body.scrollTop = body.scrollHeight;
+  }).catch(err => {
+    body.removeChild(tdiv);
+    console.error("Error en el chat:", err);
+  });
+  */
+}
