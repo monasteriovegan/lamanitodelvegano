@@ -45,6 +45,10 @@ var descuentoFidelidad = 0;
 var puntosDisponibles = 0;
 var emailG = '';
 var telG = '';
+var pinRegistrado = false;
+var pinCorrecto = false;
+var puntosVerificados = false;
+var clientePinDb = '';
 var orderSearchQuery = '';
 var orderStatusFilter = 'Todos';
 var statsTimeFilter = 'all';
@@ -435,12 +439,32 @@ function renderCart() {
     h += '<button class="btn-sm btn-dan" style="padding:4px 8px; font-size:11px" onclick="quitarCanjePuntos()">Quitar</button></div>';
   } else if (puntosDisponibles > 0) {
     var valP = puntosDisponibles * (ajustesTienda.valorPunto || 100);
-    h += '<div class="alrt" style="background:#E8F5E9; border-color:#81C784; color:#2E7D32; margin-bottom:8px;">';
-    h += '🎉 ¡Tienes <strong>' + puntosDisponibles + '</strong> puntos acumulados! Equivalen a <strong>$' + valP.toLocaleString('es-CL') + '</strong> de descuento.</div>';
-    h += '<button class="btnw" style="width:100%; border:2px solid var(--v3); background:white; color:var(--v2); padding:8px; font-size:12px;" onclick="canjearPuntosTienda()">Canjear todos mis puntos 🎁</button>';
+    if (pinCorrecto) {
+      h += '<div class="alrt" style="background:#E8F5E9; border-color:#81C784; color:#2E7D32; margin-bottom:8px;">';
+      h += '🎉 ¡Tienes <strong>' + puntosDisponibles + '</strong> puntos acumulados! Equivalen a <strong>$' + valP.toLocaleString('es-CL') + '</strong> de descuento.</div>';
+      h += '<button class="btnw" style="width:100%; border:2px solid var(--v3); background:white; color:var(--v2); padding:8px; font-size:12px;" onclick="canjearPuntosTienda()">Canjear todos mis puntos 🎁</button>';
+    } else {
+      h += '<div class="alrt" style="background:#FFF9E6; border-color:#FFE082; color:#B78103; margin-bottom:0; font-size:12px;">';
+      if (pinRegistrado) {
+        h += '🔒 Puntos protegidos. Ingresa tu <strong>PIN de Seguridad de 4 dígitos</strong> para poder canjearlos:';
+        h += '<div style="display:flex; gap:8px; margin-top:8px;">';
+        h += '<input class="inp" type="password" style="margin:0; width:100px; text-align:center;" id="input_pin_fidelidad" maxlength="4" placeholder="PIN" onkeypress="if(event.key===\'Enter\')validarPinPuntos()">';
+        h += '<button class="btn-sm btn-pri" style="height:38px; border-radius:10px;" onclick="validarPinPuntos()">Validar</button></div>';
+      } else {
+        h += '🛡️ ¡Tienes <strong>' + puntosDisponibles + '</strong> puntos! Crea un <strong>PIN de 4 dígitos</strong> para protegerlos y canjearlos ahora y en futuras compras:';
+        h += '<div style="display:flex; gap:8px; margin-top:8px;">';
+        h += '<input class="inp" type="password" style="margin:0; width:120px; text-align:center;" id="nuevo_pin_fidelidad" maxlength="4" placeholder="Nuevo PIN" onkeypress="if(event.key===\'Enter\')registrarPinPuntos()">';
+        h += '<button class="btn-sm btn-pri" style="height:38px; border-radius:10px;" onclick="registrarPinPuntos()">Crear y Canjear</button></div>';
+      }
+      h += '</div>';
+    }
   } else {
-    h += '<p style="font-size:10px; color:var(--muted); margin-bottom:6px;">Ingresa tu email o teléfono abajo y presiona verificar para consultar tus puntos acumulados.</p>';
-    h += '<button class="btn-sm" style="width:100%; background:white;" onclick="buscarPuntosCliente()">🔍 Verificar mis puntos acumulados</button>';
+    if (puntosVerificados) {
+      h += '<p style="font-size:11px; color:var(--rojo); margin-bottom:0; font-weight:600;">ℹ️ No encontramos puntos acumulados con estos datos.</p>';
+    } else {
+      h += '<p style="font-size:10px; color:var(--muted); margin-bottom:6px;">Ingresa tu email o teléfono abajo y presiona verificar para consultar tus puntos acumulados.</p>';
+      h += '<button class="btn-sm" style="width:100%; background:white;" onclick="buscarPuntosCliente()">🔍 Verificar mis puntos acumulados</button>';
+    }
   }
   h += '</div>';
 
@@ -488,10 +512,23 @@ function renderCart() {
 }
 
 function guardarInputsG() {
+  var prevEmail = emailG;
+  var prevTel = telG;
+  
   nombreG = document.getElementById('inpnom') ? document.getElementById('inpnom').value : '';
   dirG = document.getElementById('inpdir') ? document.getElementById('inpdir').value : '';
   telG = document.getElementById('inptel') ? document.getElementById('inptel').value : '';
   emailG = document.getElementById('inpemail') ? document.getElementById('inpemail').value : '';
+  
+  if (emailG !== prevEmail || telG !== prevTel) {
+    puntosVerificados = false;
+    puntosDisponibles = 0;
+    pinCorrecto = false;
+    pinRegistrado = false;
+    clientePinDb = '';
+    descuentoFidelidad = 0;
+    puntosACanjear = 0;
+  }
 }
 
 function selZona(val) {
@@ -561,6 +598,72 @@ function quitarCupon() {
   showToast('🗑️ Cupón removido');
 }
 
+function getClienteIdentifier(email, tel) {
+  if (email && email.trim()) return email.trim().toLowerCase();
+  if (tel && tel.trim()) return tel.replace(/\D/g, '');
+  return null;
+}
+
+function validarPinPuntos() {
+  guardarInputsG();
+  var pinInput = document.getElementById('input_pin_fidelidad');
+  var enteredPin = pinInput ? pinInput.value.trim() : '';
+  
+  if (enteredPin.length !== 4 || isNaN(enteredPin)) {
+    showToast('⚠️ El PIN debe ser de 4 dígitos numéricos');
+    return;
+  }
+  
+  if (enteredPin === clientePinDb) {
+    pinCorrecto = true;
+    showToast('🔓 PIN correcto. ¡Puntos desbloqueados!');
+    renderCart();
+  } else {
+    showToast('❌ PIN de seguridad incorrecto');
+  }
+}
+
+function registrarPinPuntos() {
+  guardarInputsG();
+  var pinInput = document.getElementById('nuevo_pin_fidelidad');
+  var nuevoPin = pinInput ? pinInput.value.trim() : '';
+  
+  if (nuevoPin.length !== 4 || isNaN(nuevoPin)) {
+    showToast('⚠️ Crea un PIN de 4 dígitos numéricos');
+    return;
+  }
+  
+  var identifier = getClienteIdentifier(emailG, telG);
+  if (!identifier) {
+    showToast('⚠️ Error: No se pudo identificar al cliente');
+    return;
+  }
+  
+  if (!db) {
+    clientePinDb = nuevoPin;
+    pinRegistrado = true;
+    pinCorrecto = true;
+    showToast('🛡️ PIN creado con éxito (Test Local)');
+    canjearPuntosTienda();
+    return;
+  }
+  
+  showToast('⏳ Guardando PIN...');
+  db.collection("puntos_pins").doc(identifier).set({
+    pin: nuevoPin,
+    createdAt: new Date().toISOString()
+  }).then(function() {
+    clientePinDb = nuevoPin;
+    pinRegistrado = true;
+    pinCorrecto = true;
+    showToast('🛡️ PIN creado con éxito y puntos resguardados');
+    canjearPuntosTienda();
+  }).catch(function(e) {
+    console.error("Error al registrar PIN:", e);
+    showToast('❌ Error al guardar el PIN de seguridad');
+  });
+}
+
 function buscarPuntosCliente() {
   guardarInputsG();
   var email = emailG.trim().toLowerCase();
@@ -571,10 +674,24 @@ function buscarPuntosCliente() {
     return;
   }
   
+  var identifier = getClienteIdentifier(email, tel);
+  if (!identifier) {
+    showToast('⚠️ Datos inválidos');
+    return;
+  }
+  
   showToast('⏳ Buscando tus puntos...');
+  
+  pinCorrecto = false;
+  pinRegistrado = false;
+  clientePinDb = '';
+  puntosVerificados = false;
   
   if (!db) {
     puntosDisponibles = 15;
+    pinRegistrado = true;
+    clientePinDb = '1234';
+    puntosVerificados = true;
     showToast('🎉 Encontrados: ' + puntosDisponibles + ' puntos (Local Test)');
     renderCart();
     return;
@@ -602,8 +719,29 @@ function buscarPuntosCliente() {
     });
     
     puntosDisponibles = Math.max(0, totalGanados - totalCanjeados);
-    showToast('🎉 Tienes ' + puntosDisponibles + ' puntos disponibles');
-    renderCart();
+    
+    if (puntosDisponibles > 0) {
+      db.collection("puntos_pins").doc(identifier).get().then(function(doc) {
+        if (doc.exists) {
+          pinRegistrado = true;
+          clientePinDb = doc.data().pin;
+        } else {
+          pinRegistrado = false;
+          clientePinDb = '';
+        }
+        puntosVerificados = true;
+        showToast('🎉 Tienes ' + puntosDisponibles + ' puntos disponibles');
+        renderCart();
+      }).catch(function(e) {
+        console.error("Error al buscar PIN:", e);
+        puntosVerificados = true;
+        renderCart();
+      });
+    } else {
+      puntosVerificados = true;
+      showToast('ℹ️ No tienes puntos acumulados con estos datos.');
+      renderCart();
+    }
   }).catch(function(e) {
     console.error("Error buscando puntos:", e);
     showToast('❌ Error al buscar puntos');
