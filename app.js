@@ -126,15 +126,24 @@ var dirG = '';
 function handleHash() {
   var hash = window.location.hash.substring(1) || 'home';
   var pgs = document.querySelectorAll('.pg');
-  for (var i = 0; i < pgs.length; i++) pgs[i].classList.remove('on');
+  for (var i = 0; i < pgs.length; i++) {
+    pgs[i].classList.remove('active-page', 'show-page', 'on');
+  }
   var pg = document.getElementById('pg-' + hash);
-  if (pg) pg.classList.add('on');
-  else document.getElementById('pg-home').classList.add('on');
+  if (!pg) pg = document.getElementById('pg-home');
+  
+  if (pg) {
+    pg.classList.add('active-page');
+    // Trigger reflow to initiate opacity transition
+    pg.offsetWidth;
+    pg.classList.add('show-page');
+  }
+  
   var nms = document.querySelectorAll('.nm');
   for (var i = 0; i < nms.length; i++) nms[i].classList.remove('on');
   var idx = {home:0,nosotros:1,blog:2,contacto:3};
   if (nms[idx[hash]] !== undefined) nms[idx[hash]].classList.add('on');
-  window.scrollTo(0,0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 window.addEventListener('hashchange', handleHash);
 
@@ -1129,18 +1138,41 @@ function initFloatingLeaves() {
   var container = document.getElementById('leaves-container');
   if (!container) return;
 
-  var leafCount = 8;
+  var leafCount = 12;
   for (var i = 0; i < leafCount; i++) {
     var leaf = document.createElement('div');
     leaf.className = 'leaf';
-    leaf.style.left = Math.random() * 100 + 'vw';
-    leaf.style.animationDuration = (Math.random() * 12 + 10) + 's';
-    leaf.style.animationDelay = (Math.random() * 8) + 's';
     
-    var size = Math.random() * 10 + 10;
+    // Position
+    leaf.style.left = (Math.random() * 100) + 'vw';
+    
+    // Timing: Slower/faster organic speeds, with negative delay so leaves fall immediately on load
+    var duration = (Math.random() * 15 + 12);
+    var delay = (Math.random() * -20);
+    leaf.style.animationDuration = duration + 's';
+    leaf.style.animationDelay = delay + 's';
+    
+    // Size and Scale
+    var size = (Math.random() * 12 + 12);
     leaf.style.width = size + 'px';
     leaf.style.height = size + 'px';
-    leaf.style.transform = 'scale(' + (Math.random() * 0.6 + 0.4) + ')';
+    
+    var scale = (Math.random() * 0.6 + 0.4);
+    leaf.style.transform = 'scale(' + scale + ')';
+    
+    // Dynamic 3D leaf variables
+    var drift = (Math.random() * 200 - 100);
+    var rotX = (Math.random() * 540 + 180);
+    var rotY = (Math.random() * 540 + 180);
+    var rotZ = (Math.random() * 720 + 360);
+    var initRot = (Math.random() * 360);
+    
+    leaf.style.setProperty('--x-drift', drift + 'px');
+    leaf.style.setProperty('--rot-x', rotX + 'deg');
+    leaf.style.setProperty('--rot-y', rotY + 'deg');
+    leaf.style.setProperty('--rot-z', rotZ + 'deg');
+    leaf.style.setProperty('--init-rot', initRot + 'deg');
+    
     container.appendChild(leaf);
   }
 }
