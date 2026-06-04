@@ -325,6 +325,24 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 .typing-dot:nth-child(2) { animation-delay:0.2s; }
 .typing-dot:nth-child(3) { animation-delay:0.4s; }
 @keyframes blink { 0% { opacity:0.2; } 20% { opacity:1; } 100% { opacity:0.2; } }
+#leaves-container { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:50; overflow:hidden; }
+.leaf { position:absolute; width:15px; height:15px; background:rgba(64,145,108,0.15); border-radius:15px 0; animation:fall linear infinite; }
+@keyframes fall {
+  0% { transform:translateY(-20px) rotate(0deg); opacity:0; }
+  10% { opacity:0.8; }
+  90% { opacity:0.8; }
+  100% { transform:translateY(105vh) rotate(360deg); opacity:0; }
+}
+.reveal { opacity:0; transform:translateY(20px); transition:opacity 0.8s cubic-bezier(0.165, 0.84, 0.44, 1), transform 0.8s cubic-bezier(0.165, 0.84, 0.44, 1); }
+.reveal.active { opacity:1; transform:translateY(0); }
+.card { transition:transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease !important; }
+.card:hover { transform:translateY(-6px); box-shadow:0 12px 30px rgba(0,0,0,0.1) !important; }
+.cimg-e { transition:transform 0.4s ease; }
+.card:hover .cimg-e { transform:scale(1.2) rotate(6deg); }
+.hero { background:radial-gradient(circle at top left, #F0FFF4 0%, #FFFFFF 100%); background-size: 200% 200%; animation:colorShift 8s ease infinite alternate; }
+@keyframes colorShift { 0% { background-position:0% 50%; } 100% { background-position:100% 50%; } }
+.chat-btn::after { content:''; position:absolute; inset:-4px; border:2px solid var(--v3); border-radius:50%; animation:pulseGlow 2s infinite; pointer-events:none; }
+@keyframes pulseGlow { 0% { transform:scale(1); opacity:1; } 100% { transform:scale(1.4); opacity:0; } }
 </style>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -332,6 +350,7 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
+<div id="leaves-container"></div>
 
 <nav>
   <div class="nlogo" onclick="goPage('home')">
@@ -381,11 +400,7 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <div class="dest-grid" id="dest-grid"></div>
   </div>
 
-  <!-- ZONAS BANNER -->
-  <div class="ebanner">
-    <div class="ebtit">🚚 Despacho propio — Tarifas</div>
-    <div class="zgrid" id="zbanner"></div>
-  </div>
+  <!-- ZONAS BANNER REMOVED FROM MAIN PAGE -->
 
   <!-- CATEGORIAS -->
   <div class="cats">
@@ -511,6 +526,7 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
   <div class="admintabs">
     <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
     <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
+    <div class="atab" onclick="aTab('categorias',this)">🏷️ Categorías</div>
     <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
     <div class="atab" onclick="aTab('pedidos',this)">📦 Pedidos</div>
     <div class="atab" onclick="aTab('stats',this)">📊 Métricas</div>
@@ -561,6 +577,12 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
           <span class="upload-text">Subir imagen desde tu dispositivo</span>
         </div>
         <img id="fimagen_preview" style="display:none; max-width: 100px; max-height: 100px; object-fit: cover; margin: 10px auto 0; border-radius: 8px; border: 1px solid var(--borde)">
+      </div>
+      <div style="margin-top:8px; text-align:right">
+        <span style="font-size:11px;color:var(--v2);cursor:pointer;text-decoration:underline" onclick="toggleUrlInput()">O ingresar URL de la imagen</span>
+      </div>
+      <div id="url_input_container" style="display:none;margin-top:6px">
+        <input class="finp" id="fimagen_url" placeholder="https://ejemplo.com/imagen.jpg" oninput="actualizarPreview(this.value)">
       </div>
       <input type="hidden" id="fimagen">
     </div>

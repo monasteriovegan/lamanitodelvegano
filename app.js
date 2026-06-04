@@ -26,6 +26,7 @@ try {
 var productos = [];
 var zonas = [];
 var pedidos = [];
+var categorias = [];
 
 function loadData() {
   if (!db || firebaseConfig.apiKey === "TU_API_KEY") {
@@ -77,6 +78,35 @@ function loadData() {
     if (tab) {
       var tabVal = tab.getAttribute('onclick').split("'")[1];
       if (tabVal === 'pedidos' || tabVal === 'stats') {
+        renderAdminTab(tabVal);
+      }
+    }
+  });
+
+  db.collection("categorias").onSnapshot(function(querySnapshot) {
+    var cats = [];
+    querySnapshot.forEach(function(doc) { var d = doc.data(); d.id = doc.id; cats.push(d); });
+    categorias = cats;
+    
+    if (categorias.length === 0 && db && firebaseConfig.apiKey !== "TU_API_KEY") {
+      var defaultCats = [
+        { nombre: 'Empanadas', emoji: '🥟', slug: 'empanadas' },
+        { nombre: 'Pies', emoji: '🫐', slug: 'pies' },
+        { nombre: 'Manjares', emoji: '🍯', slug: 'manjares' },
+        { nombre: 'Packs', emoji: '📦', slug: 'packs' }
+      ];
+      defaultCats.forEach(function(cat) {
+        db.collection("categorias").add(cat);
+      });
+      return;
+    }
+    
+    renderCategoriasUI();
+
+    var tab = document.querySelector('.atab.on');
+    if (tab) {
+      var tabVal = tab.getAttribute('onclick').split("'")[1];
+      if (tabVal === 'categorias' || tabVal === 'productos') {
         renderAdminTab(tabVal);
       }
     }
@@ -587,6 +617,26 @@ function renderAdminTab(tab) {
       h += '</tbody></table></div>';
     }
     c.innerHTML = h;
+  } else if (tab === 'categorias') {
+    var h = '<div class="admin-head"><div class="admin-tit">Gestión de Categorías</div></div>';
+    h += '<div class="admin-card admin-card-pad" style="background:#fafbfb;border-style:dashed">';
+    h += '<div style="font-weight:600;font-size:14px;margin-bottom:12px;">Agregar nueva categoría</div><div style="display:flex;gap:12px;align-items:flex-end">';
+    h += '<div style="flex:2"><label class="flbl">Nombre</label><input class="finp" id="ncatnom" placeholder="Ej: Hamburguesas"></div>';
+    h += '<div style="flex:1"><label class="flbl">Emoji</label><input class="finp" id="ncatemoj" placeholder="Ej: 🍔"></div>';
+    h += '<button class="btn-add" style="margin-bottom:4px" onclick="agregarCategoria()">Guardar</button></div></div>';
+    
+    h += '<div class="admin-card"><table class="atbl"><thead><tr><th>Emoji</th><th>Nombre</th><th>Slug (identificador)</th><th>Acciones</th></tr></thead><tbody>';
+    for (var i = 0; i < categorias.length; i++) {
+      var c = categorias[i];
+      h += '<tr>';
+      h += '<td style="font-size:24px">' + c.emoji + '</td>';
+      h += '<td><strong>' + c.nombre + '</strong></td>';
+      h += '<td><code>' + c.slug + '</code></td>';
+      h += '<td><button class="btn-sm btn-dan" onclick="eliminarCategoria(\'' + c.id + '\')">Borrar</button></td>';
+      h += '</tr>';
+    }
+    h += '</tbody></table></div>';
+    c.innerHTML = h;
   } else if (tab==='zonas') {
     var h = '<div class="admin-head"><div class="admin-tit">Zonas de Envío</div></div>';
     h += '<div class="admin-card admin-card-pad" style="background:#fafbfb;border-style:dashed">';
@@ -876,6 +926,8 @@ function showToast(msg) { var t=document.getElementById('toast'); t.textContent=
 handleHash();
 loadData();
 checkPaymentStatus();
+initScrollReveal();
+initFloatingLeaves();
 
 function checkPaymentStatus() {
   var urlParams = new URLSearchParams(window.location.search);
@@ -966,8 +1018,131 @@ function subirImagen(input) {
   }).catch(function(error) {
     console.error("Error al subir imagen:", error);
     if (uploadText) uploadText.textContent = originalText;
-    showToast("❌ Error al subir: " + error.message);
+    showToast("❌ Error al subir: " + error.message + " (Puedes pegar el link de la imagen abajo alternativamente)");
+    toggleUrlInput(); // Abre la alternativa de URL automáticamente
   });
+}
+
+function toggleUrlInput() {
+  var container = document.getElementById('url_input_container');
+  if (container) {
+    var isHidden = container.style.display === 'none';
+    container.style.display = isHidden ? 'block' : 'none';
+  }
+}
+
+function actualizarPreview(val) {
+  document.getElementById('fimagen').value = val;
+  var imgPreview = document.getElementById('fimagen_preview');
+  if (imgPreview) {
+    if (val.trim()) {
+      imgPreview.src = val;
+      imgPreview.style.display = 'block';
+    } else {
+      imgPreview.style.display = 'none';
+      imgPreview.src = '';
+    }
+  }
+}
+
+function agregarCategoria() {
+  if (!db || firebaseConfig.apiKey === "TU_API_KEY") return;
+  var nom = document.getElementById('ncatnom').value.trim();
+  var emoj = document.getElementById('ncatemoj').value.trim() || '🌱';
+  if (!nom) { showToast('⚠️ Ingresa el nombre de la categoría'); return; }
+  
+  var slug = nom.toLowerCase()
+                .replace(/[^a-z0-9\s]/g, '')
+                .replace(/\s+/g, '-');
+
+  db.collection("categorias").add({
+    nombre: nom,
+    emoji: emoj,
+    slug: slug
+  }).then(function() {
+    document.getElementById('ncatnom').value = '';
+    document.getElementById('ncatemoj').value = '';
+    showToast('✅ Categoría agregada');
+  });
+}
+
+function eliminarCategoria(id) {
+  if (!confirm('¿Eliminar esta categoría? Los productos asociados a ella no se borrarán pero quedarán sin categoría asignada.')) return;
+  if (!db || firebaseConfig.apiKey === "TU_API_KEY") return;
+  db.collection("categorias").doc(id).delete().then(function() {
+    showToast('🗑 Categoría eliminada');
+  });
+}
+
+function renderCategoriasUI() {
+  var catsContainer = document.querySelector('.cats');
+  if (catsContainer) {
+    var h = '<button class="cat ' + (catActual === 'todos' ? 'on' : '') + '" onclick="filtrar(\'todos\',this)">Todos</button>';
+    for (var i = 0; i < categorias.length; i++) {
+      var c = categorias[i];
+      var sel = catActual === c.slug ? 'on' : '';
+      h += '<button class="cat ' + sel + '" onclick="filtrar(\'' + c.slug + '\',this)">' + c.emoji + ' ' + c.nombre + '</button>';
+    }
+    catsContainer.innerHTML = h;
+  }
+
+  var fcatSelect = document.getElementById('fcat');
+  if (fcatSelect) {
+    var sh = '';
+    for (var i = 0; i < categorias.length; i++) {
+      var c = categorias[i];
+      sh += '<option value="' + c.slug + '">' + c.emoji + ' ' + c.nombre + '</option>';
+    }
+    fcatSelect.innerHTML = sh;
+  }
+}
+
+function initScrollReveal() {
+  var sections = [
+    document.querySelector('.hero'),
+    document.querySelector('.stats'),
+    document.getElementById('dest-sec'),
+    document.querySelector('.cats'),
+    document.getElementById('prodsec'),
+    document.getElementById('pgrid'),
+    document.querySelector('.reswrap'),
+    document.querySelector('.infog')
+  ];
+
+  var observer = new IntersectionObserver(function(entries) {
+    for (var j = 0; j < entries.length; j++) {
+      if (entries[j].isIntersecting) {
+        entries[j].target.classList.add('active');
+      }
+    }
+  }, { threshold: 0.05 });
+
+  for (var i = 0; i < sections.length; i++) {
+    if (sections[i]) {
+      sections[i].classList.add('reveal');
+      observer.observe(sections[i]);
+    }
+  }
+}
+
+function initFloatingLeaves() {
+  var container = document.getElementById('leaves-container');
+  if (!container) return;
+
+  var leafCount = 8;
+  for (var i = 0; i < leafCount; i++) {
+    var leaf = document.createElement('div');
+    leaf.className = 'leaf';
+    leaf.style.left = Math.random() * 100 + 'vw';
+    leaf.style.animationDuration = (Math.random() * 12 + 10) + 's';
+    leaf.style.animationDelay = (Math.random() * 8) + 's';
+    
+    var size = Math.random() * 10 + 10;
+    leaf.style.width = size + 'px';
+    leaf.style.height = size + 'px';
+    leaf.style.transform = 'scale(' + (Math.random() * 0.6 + 0.4) + ')';
+    container.appendChild(leaf);
+  }
 }
 
 // ============================================================
