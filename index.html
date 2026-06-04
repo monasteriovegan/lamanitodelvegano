@@ -339,8 +339,8 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 .card:hover { transform:translateY(-6px); box-shadow:0 12px 30px rgba(0,0,0,0.1) !important; }
 .cimg-e { transition:transform 0.4s ease; }
 .card:hover .cimg-e { transform:scale(1.2) rotate(6deg); }
-.hero { background:radial-gradient(circle at top left, #F0FFF4 0%, #FFFFFF 100%); background-size: 200% 200%; animation:colorShift 8s ease infinite alternate; }
-@keyframes colorShift { 0% { background-position:0% 50%; } 100% { background-position:100% 50%; } }
+.hero { background: linear-gradient(135deg, var(--v1), var(--v2), var(--v3)); background-size: 300% 300%; animation: colorShift 10s ease infinite alternate; }
+@keyframes colorShift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
 .chat-btn::after { content:''; position:absolute; inset:-4px; border:2px solid var(--v3); border-radius:50%; animation:pulseGlow 2s infinite; pointer-events:none; }
 @keyframes pulseGlow { 0% { transform:scale(1); opacity:1; } 100% { transform:scale(1.4); opacity:0; } }
 </style>
