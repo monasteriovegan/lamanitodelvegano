@@ -21,6 +21,9 @@ try {
   app = firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   storage = firebase.storage();
+  if (storage) {
+    storage.setMaxUploadRetryTime(5000); // 5 segundos max retry para evitar bloqueos
+  }
 } catch(e) { console.log("Firebase no configurado aún", e); }
 
 var productos = [];
@@ -1739,8 +1742,23 @@ function subirImagen(input) {
   }).catch(function(error) {
     console.error("Error al subir imagen:", error);
     if (uploadText) uploadText.textContent = originalText;
-    showToast("❌ Error al subir: " + error.message + " (Puedes pegar el link de la imagen abajo alternativamente)");
-    toggleUrlInput(); // Abre la alternativa de URL automáticamente
+    
+    var msg = "Error al subir la imagen.";
+    if (error.code === 'storage/unauthorized') {
+      msg = "❌ Error de Permisos (Storage): Tus reglas de seguridad de Firebase Storage están bloqueando la subida. Debes cambiarlas a públicas.";
+    } else if (error.code === 'storage/retry-limit-exceeded' || error.code === 'storage/project-not-found' || error.code === 'storage/bucket-not-found') {
+      msg = "⚠️ Servicio no activado: Firebase Storage no está respondiendo o el Bucket no existe. Ve a la consola de Firebase, entra a la pestaña 'Storage' y haz clic en el botón 'Comenzar' (Get Started).";
+    } else {
+      msg = "❌ Error de Firebase: " + error.message;
+    }
+    
+    alert(msg + "\n\n💡 Alternativa: Si no deseas configurar Firebase Storage, puedes subir tu imagen en Imgur.com o Postimages.org y pegar el link directo de la imagen usando la opción de abajo.");
+    showToast("⚠️ Falló la subida directa");
+    
+    var container = document.getElementById('url_input_container');
+    if (container) {
+      container.style.display = 'block';
+    }
   });
 }
 
