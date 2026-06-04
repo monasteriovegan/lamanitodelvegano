@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const { mensaje } = req.body;
-  // El ".trim()" limpia la llave por si se pegó con espacios ocultos
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
   if (!apiKey) return res.status(200).json({ respuesta: "Faltó la llave." });
@@ -10,7 +9,8 @@ export default async function handler(req, res) {
   try {
     const prompt = `Eres el asistente experto en ventas de "La Manito Del Vegano", tienda plant-based en Santiago y Pucón. Responde muy conciso y amigable. El cliente dice: "${mensaje}"`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    // Volvemos a gemini-1.5-flash que es el modelo correcto. El error de antes era por el espacio en la llave, no por el modelo.
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
