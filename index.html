@@ -258,36 +258,44 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 .flinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
 .fl{color:rgba(255,255,255,0.45);cursor:pointer;font-size:10px}
 .fl:hover{color:white}
-/* ADMIN DASHBOARD V2 */
-.admin-dash { display:flex; height:100vh; background:#F8FAFC; color:#1E293B; }
-.admin-side { width:260px; background:var(--v1); color:white; padding:24px 0; display:flex; flex-direction:column; }
-.admin-slogo { font-family:Fraunces,serif; font-size:20px; font-weight:700; padding:0 24px 32px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:24px; }
+/* SHOPIFY ADMIN DASHBOARD */
+.admin-dash { display:flex; height:100vh; background:#f4f6f8; color:#202223; font-family:-apple-system,BlinkMacSystemFont,"San Francisco","Segoe UI",Roboto,"Helvetica Neue",sans-serif; }
+.admin-side { width:240px; background:#ebebeb; color:#202223; padding:16px 8px; display:flex; flex-direction:column; border-right:1px solid #e1e3e5; }
+.admin-slogo { font-weight:700; font-size:18px; padding:12px 16px; margin-bottom:16px; color:#202223; display:flex; align-items:center; gap:8px; }
 .admin-smenu { flex:1; }
-.atab { padding:14px 24px; cursor:pointer; color:rgba(255,255,255,0.7); display:flex; align-items:center; gap:12px; transition:0.2s; font-weight:500; font-size:15px; }
-.atab:hover { background:rgba(255,255,255,0.05); color:white; }
-.atab.on { background:rgba(255,255,255,0.1); color:white; border-right:3px solid var(--wa); }
+.atab { padding:8px 12px; margin:4px 0; cursor:pointer; color:#434648; display:flex; align-items:center; gap:12px; transition:0.1s; font-weight:500; font-size:14px; border-radius:6px; }
+.atab:hover { background:#e1e3e5; color:#202223; }
+.atab.on { background:#f4f6f8; color:#202223; font-weight:600; }
 .admin-main { flex:1; padding:32px 48px; overflow-y:auto; }
-.admin-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; }
-.admin-tit { font-family:Fraunces,serif; font-size:28px; font-weight:700; color:var(--texto); }
-.admin-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:32px; }
-.kpi-card { background:white; padding:24px; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.03); border:1px solid #F1F5F9; }
-.kpi-val { font-size:32px; font-weight:700; color:var(--v2); font-family:Fraunces,serif; }
-.kpi-lbl { font-size:14px; color:#64748B; margin-top:4px; font-weight:500; }
-.admin-card { background:white; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.03); border:1px solid #F1F5F9; padding:24px; overflow:hidden; margin-bottom:24px; }
+.admin-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.admin-tit { font-size:24px; font-weight:700; color:#202223; }
+.admin-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:white; padding:16px 20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; }
+.kpi-val { font-size:28px; font-weight:600; color:#202223; margin-top:8px; }
+.kpi-lbl { font-size:13px; color:#6d7175; font-weight:500; }
+.admin-card { background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; overflow:hidden; margin-bottom:24px; }
+.admin-card-pad { padding:20px; }
 .atbl { width:100%; border-collapse:collapse; }
-.atbl th { text-align:left; padding:16px; font-size:13px; color:#64748B; font-weight:600; text-transform:uppercase; border-bottom:1px solid #E2E8F0; }
-.atbl td { padding:16px; font-size:14px; border-bottom:1px solid #F1F5F9; vertical-align:middle; }
+.atbl th { text-align:left; padding:12px 16px; font-size:12px; color:#6d7175; font-weight:600; border-bottom:1px solid #e1e3e5; background:#f9fafb; }
+.atbl td { padding:12px 16px; font-size:14px; border-bottom:1px solid #e1e3e5; vertical-align:middle; color:#202223; }
 .atbl tr:last-child td { border-bottom:none; }
-.atbl-emoji { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
-.btn-sm { padding:6px 12px; font-size:13px; font-weight:600; border-radius:6px; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:6px; transition:0.2s; }
-.btn-pri { background:var(--v2); color:white; }
-.btn-pri:hover { background:var(--v1); }
-.btn-sec { background:#F1F5F9; color:#475569; }
-.btn-sec:hover { background:#E2E8F0; }
-.btn-dan { background:#FEF2F2; color:#EF4444; }
-.btn-dan:hover { background:#FEE2E2; }
-.btn-add { background:var(--v3); color:white; padding:10px 20px; font-weight:600; border-radius:8px; font-size:14px; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:8px; transition:0.2s; box-shadow:0 4px 12px rgba(64,145,108,0.2); }
-.btn-add:hover { background:var(--v2); transform:translateY(-1px); }
+.atbl tr:hover { background:#fafbfb; }
+.atbl-emoji { width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; border:1px solid #e1e3e5; }
+.btn-sm { padding:5px 10px; font-size:13px; font-weight:500; border-radius:4px; cursor:pointer; border:1px solid #c9cccf; display:inline-flex; align-items:center; gap:6px; transition:0.1s; background:white; color:#202223; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+.btn-sm:hover { background:#f4f6f8; }
+.btn-pri { background:#008060; color:white; border:1px solid #008060; }
+.btn-pri:hover { background:#006e52; color:white; }
+.btn-dan { background:white; color:#d82c0d; }
+.btn-dan:hover { background:#fbeae5; border-color:#d82c0d; }
+.btn-add { background:#008060; color:white; padding:8px 16px; font-weight:600; border-radius:4px; font-size:13px; cursor:pointer; border:1px solid #008060; display:inline-flex; align-items:center; gap:8px; transition:0.1s; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+.btn-add:hover { background:#006e52; }
+.star-icon { cursor:pointer; opacity:0.3; transition:0.2s; font-size:18px; }
+.star-icon:hover { opacity:0.7; transform:scale(1.1); }
+.star-icon.active { opacity:1; color:#ffb800; }
+.status-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:500; }
+.pill-cat { background:#e4f0f6; color:#005e8a; }
+.pill-oferta { background:#ffea8a; color:#8a6116; }
+.pill-nuevo { background:#aee9d1; color:#005c3b; }
 
 /* CHATBOT WIDGET */
 .chat-btn { position:fixed; bottom:24px; right:24px; width:60px; height:60px; background:var(--v3); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 8px 24px rgba(64,145,108,0.3); cursor:pointer; z-index:900; transition:0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
@@ -417,9 +425,10 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 <div class="pg" id="pg-nosotros">
   <div class="phero"><h1>Nuestra Historia 🌱</h1><p>Más que comida — es un acto de amor</p></div>
   <div class="hist">
-    <h2>¿Quiénes somos?</h2>
-    <p>La Manito Del Vegano nació de una convicción profunda: que la alimentación plant based puede ser deliciosa, accesible y llena de amor. Desde nuestra cocina en Santiago, elaboramos cada producto con ingredientes 100% vegetales.</p>
-    <p>Empezamos con una receta de empanadas y hoy tenemos un catálogo completo que incluye nuestro producto más especial: el manjar de semilla de cáñamo — el único en Chile.</p>
+    <h2>Nuestra Misión y Legado</h2>
+    <p>Hubo un tiempo donde se creía que ser vegano significaba renunciar al sabor de nuestras tradiciones. <strong>La Manito Del Vegano</strong> nació para desafiar esa creencia. Todo comenzó en una pequeña cocina, con las manos manchadas de harina y el corazón puesto en crear una alternativa ética que mantuviera la esencia de la comida casera chilena.</p>
+    <p>Nuestra mayor victoria llegó después de meses de pruebas y errores: logramos crear el <strong>primer manjar de semilla de cáñamo de todo Chile</strong>. Una receta 100% libre de crueldad, cremosísima y nutritiva que hoy se ha convertido en nuestro sello.</p>
+    <p>Hoy, con mucho orgullo y esfuerzo, nuestro taller despacha cientos de pedidos en <strong>Santiago y Pucón</strong>. Creemos que la revolución comienza en nuestro plato, y cada empanada que elaboramos es un acto de amor hacia los animales, hacia nuestro planeta y hacia ti. 🌱</p>
   </div>
   <div class="vals">
     <div class="val"><div class="vi">🌱</div><div class="vt">Plant Based</div><div class="vd">Cero ingredientes de origen animal</div></div>
