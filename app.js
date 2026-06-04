@@ -6,12 +6,13 @@ var editandoId = null;
 // === CONFIGURACIÓN DE FIREBASE ===
 // Pega aquí los datos de tu proyecto de Firebase
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyC6CjNZtcSKilwirggvx7Ez80FbAF1wBSs",
+  authDomain: "la-manito-del-vegano.firebaseapp.com",
+  projectId: "la-manito-del-vegano",
+  storageBucket: "la-manito-del-vegano.firebasestorage.app",
+  messagingSenderId: "33295844484",
+  appId: "1:33295844484:web:c6cabb28382651301eaed1",
+  measurementId: "G-1Q7QB5EZ33"
 };
 
 var app, db = null;
