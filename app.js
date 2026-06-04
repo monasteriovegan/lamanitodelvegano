@@ -337,9 +337,79 @@ function enviarWA() {
 }
 
 function pagarMP() {
-  cerrarCarrito();
-  showConf('💳','Mercado Pago','Próximamente podrás pagar directo\ncon tarjeta o transferencia 🌱\n\nPor ahora usa WhatsApp para coordinar el pago.');
+  var nombre = document.getElementById('inpnom') ? document.getElementById('inpnom').value.trim() : 'Cliente';
+  var dir = document.getElementById('inpdir') ? document.getElementById('inpdir').value.trim() : '';
+  var tel = document.getElementById('inptel') ? document.getElementById('inptel').value.trim() : '';
+  
+  if (zonaSel === null) {
+    showToast('⚠️ Selecciona tu zona de envío primero.');
+    return;
+  }
+  if (fechaSel === null) {
+    showToast('⚠️ Selecciona una fecha de entrega disponible.');
+    return;
+  }
+  if (!nombre) {
+    showToast('⚠️ Ingresa tu nombre para proceder al pago.');
+    return;
+  }
+  if (!dir) {
+    showToast('⚠️ Ingresa tu dirección para el envío.');
+    return;
+  }
+
+  var fechas = genFechas();
+  var fecha = fechas[fechaSel];
+  var fechaTxt = DIAS[fecha.fecha.getDay()] + ' ' + fecha.fecha.getDate() + ' ' + MESES[fecha.fecha.getMonth()];
+  var zona = zonas.find(function(x){return x.id === zonaSel;});
+  var zonaTxt = zona ? zona.nombre : '';
+
+  // Cambiar el botón a estado "cargando"
+  var btn = document.querySelector('.bmpb');
+  var originalTxt = btn ? btn.innerHTML : '💳 Pagar con Mercado Pago';
+  if (btn) {
+    btn.innerHTML = ' Redirigiendo a Mercado Pago...';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+  }
+
+  fetch('/api/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      carrito: carrito,
+      nombre: nombre,
+      direccion: dir,
+      telefono: tel,
+      zona: zonaTxt,
+      envio: costoEnvio(),
+      fecha: fechaTxt
+    })
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      return res.json().then(function(err) { throw new Error(err.error || 'Error desconocido'); });
+    }
+    return res.json();
+  })
+  .then(function(data) {
+    if (data.init_point) {
+      window.location.href = data.init_point;
+    } else {
+      throw new Error('No se recibió la URL de pago.');
+    }
+  })
+  .catch(function(err) {
+    console.error('Error al iniciar el pago:', err);
+    if (btn) {
+      btn.innerHTML = originalTxt;
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    }
+    showToast('❌ Error: ' + err.message);
+  });
 }
+
 
 // ============================================================
 // ADMIN
@@ -559,6 +629,29 @@ function showToast(msg) { var t=document.getElementById('toast'); t.textContent=
 // INIT
 handleHash();
 loadData();
+checkPaymentStatus();
+
+function checkPaymentStatus() {
+  var urlParams = new URLSearchParams(window.location.search);
+  var status = urlParams.get('status');
+  var collectionStatus = urlParams.get('collection_status');
+
+  if (status === 'success' || collectionStatus === 'approved') {
+    carrito = {};
+    updBdg();
+    renderGrid();
+    if (typeof cerrarCarrito === 'function') cerrarCarrito();
+    
+    showConf('🎉', '¡Pago Exitoso!', 'Tu pago ha sido procesado correctamente con Mercado Pago.\n🌱 ¡Muchas gracias por tu compra! Te contactaremos pronto para coordinar el despacho.');
+    
+    var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
+    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  } else if (status === 'failure' || collectionStatus === 'rejected') {
+    showToast('❌ El pago fue rechazado o cancelado. Por favor, intenta de nuevo o coordina por WhatsApp.');
+    var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
+    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  }
+}
 
 // ============================================================
 // CHATBOT WIDGET: IA REAL VÍA VERCEL API
