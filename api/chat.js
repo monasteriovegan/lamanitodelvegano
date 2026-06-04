@@ -9,12 +9,36 @@ export default async function handler(req, res) {
   try {
     const prompt = `Eres el asistente experto en ventas de "La Manito Del Vegano", tienda plant-based en Santiago y Pucón. Responde muy conciso y amigable. El cliente dice: "${mensaje}"`;
 
-    // Volvemos a gemini-1.5-flash que es el modelo correcto. El error de antes era por el espacio en la llave, no por el modelo.
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    let modelName = 'gemini-1.5-flash';
+    let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    
+    let response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
     });
+
+    if (response.status === 404) {
+      // Fallback: Buscar dinámicamente qué modelos tiene permitidos esta API Key
+      const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (modelsRes.ok) {
+        const modelsData = await modelsRes.json();
+        // Buscar el primer modelo Gemini que soporte generación de texto
+        const validModel = (modelsData.models || []).find(m => 
+            m.supportedGenerationMethods && 
+            m.supportedGenerationMethods.includes('generateContent') &&
+            m.name.includes('gemini')
+        );
+        
+        if (validModel) {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
+            });
+        }
+      }
+    }
 
     if (!response.ok) {
         const errTxt = await response.text();
