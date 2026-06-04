@@ -1138,30 +1138,26 @@ function initFloatingLeaves() {
   var container = document.getElementById('leaves-container');
   if (!container) return;
 
-  var leafCount = 12;
+  // 1. Spawning Green Leaves (falling down, rotating in 3D)
+  var leafCount = 8;
   for (var i = 0; i < leafCount; i++) {
     var leaf = document.createElement('div');
     leaf.className = 'leaf';
-    
-    // Position
     leaf.style.left = (Math.random() * 100) + 'vw';
     
-    // Timing: Slower/faster organic speeds, with negative delay so leaves fall immediately on load
     var duration = (Math.random() * 15 + 12);
     var delay = (Math.random() * -20);
     leaf.style.animationDuration = duration + 's';
     leaf.style.animationDelay = delay + 's';
     
-    // Size and Scale
-    var size = (Math.random() * 12 + 12);
+    var size = (Math.random() * 12 + 10);
     leaf.style.width = size + 'px';
     leaf.style.height = size + 'px';
     
     var scale = (Math.random() * 0.6 + 0.4);
     leaf.style.transform = 'scale(' + scale + ')';
     
-    // Dynamic 3D leaf variables
-    var drift = (Math.random() * 200 - 100);
+    var drift = (Math.random() * 160 - 80);
     var rotX = (Math.random() * 540 + 180);
     var rotY = (Math.random() * 540 + 180);
     var rotZ = (Math.random() * 720 + 360);
@@ -1174,6 +1170,62 @@ function initFloatingLeaves() {
     leaf.style.setProperty('--init-rot', initRot + 'deg');
     
     container.appendChild(leaf);
+  }
+
+  // 2. Spawning Chamomile Petals (delicate, fluttery warm petals falling down)
+  var petalCount = 6;
+  for (var i = 0; i < petalCount; i++) {
+    var petal = document.createElement('div');
+    petal.className = 'petal';
+    petal.style.left = (Math.random() * 100) + 'vw';
+    
+    var duration = (Math.random() * 12 + 10);
+    var delay = (Math.random() * -20);
+    petal.style.animationDuration = duration + 's';
+    petal.style.animationDelay = delay + 's';
+    
+    var size = (Math.random() * 8 + 8);
+    petal.style.width = size + 'px';
+    petal.style.height = size + 'px';
+    
+    var scale = (Math.random() * 0.5 + 0.5);
+    petal.style.transform = 'scale(' + scale + ')';
+    
+    var drift = (Math.random() * 120 - 60);
+    var rotX = (Math.random() * 360 + 180);
+    var rotY = (Math.random() * 360 + 180);
+    var rotZ = (Math.random() * 360 + 360);
+    var initRot = (Math.random() * 360);
+    
+    petal.style.setProperty('--x-drift', drift + 'px');
+    petal.style.setProperty('--rot-x', rotX + 'deg');
+    petal.style.setProperty('--rot-y', rotY + 'deg');
+    petal.style.setProperty('--rot-z', rotZ + 'deg');
+    petal.style.setProperty('--init-rot', initRot + 'deg');
+    
+    container.appendChild(petal);
+  }
+
+  // 3. Spawning Warm Golden Sparkles (drifting upwards from the bottom)
+  var sparkleCount = 6;
+  for (var i = 0; i < sparkleCount; i++) {
+    var sparkle = document.createElement('div');
+    sparkle.className = 'sparkle';
+    sparkle.style.left = (Math.random() * 100) + 'vw';
+    
+    var duration = (Math.random() * 18 + 14);
+    var delay = (Math.random() * -30);
+    sparkle.style.animationDuration = duration + 's';
+    sparkle.style.animationDelay = delay + 's';
+    
+    var size = (Math.random() * 25 + 15);
+    sparkle.style.width = size + 'px';
+    sparkle.style.height = size + 'px';
+    
+    var drift = (Math.random() * 80 - 40);
+    sparkle.style.setProperty('--x-drift', drift + 'px');
+    
+    container.appendChild(sparkle);
   }
 }
 
