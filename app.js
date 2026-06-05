@@ -1752,7 +1752,10 @@ function subirImagen(input) {
       msg = "❌ Error de Firebase: " + error.message;
     }
     
-    alert(msg + "\n\n💡 Alternativa: Si no deseas configurar Firebase Storage, puedes subir tu imagen en Imgur.com o Postimages.org y pegar el link directo de la imagen usando la opción de abajo.");
+    setTimeout(function() {
+      alert(msg + "\n\n💡 Alternativa: Si no deseas configurar Firebase Storage, puedes subir tu imagen en Imgur.com o Postimages.org y pegar el link directo de la imagen usando la opción de abajo.");
+    }, 100);
+    
     showToast("⚠️ Falló la subida directa");
     
     var container = document.getElementById('url_input_container');
