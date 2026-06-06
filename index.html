@@ -4,11 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>La Manito Del Vegano 🌱</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--v1:#1B4332;--v2:#2D6A4F;--v3:#40916C;--v5:#D8F3DC;--c1:#6B4226;--crema:#FAFAF7;--texto:#1B1B1B;--muted:#7A7A7A;--borde:#EBEBEB;--wa:#25D366;--wa2:#1DA851;--mp:#009EE3;--rojo:#E63946;--am:#F4A261}
-body{font-family:'DM Sans',sans-serif;background:var(--crema);color:var(--texto)}
+:root{
+  --v1:#071E14;
+  --v2:#0d3d29;
+  --v3:#158054;
+  --v4:#2ecc71;
+  --v5:#e8fdf2;
+  --neon:#00ffaa;
+  --c1:#6B4226;
+  --crema:#FAF9F6;
+  --texto:#111827;
+  --muted:#6B7280;
+  --borde:#E5E7EB;
+  --wa:#25D366;
+  --wa2:#1DA851;
+  --mp:#009EE3;
+  --rojo:#EF4444;
+  --am:#F59E0B;
+  --gold:#D4AF37;
+}
+body{font-family:'Outfit',sans-serif;background:var(--crema);color:var(--texto)}
 /* NAV */
 nav{background:var(--v1);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 16px rgba(0,0,0,0.3)}
 .nlogo{display:flex;align-items:center;gap:9px;cursor:pointer}
@@ -724,6 +742,218 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 .scroll-ind { margin-top: 26px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; color: rgba(255,255,255,0.6); font-size: 14px; cursor: pointer; animation: bounce 2s infinite; transition: all 0.3s; }
 .scroll-ind:hover { border-color: white; color: white; background: rgba(255,255,255,0.1); }
 @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px); } 60% { transform: translateY(-4px); } }
+
+/* CURSOR PERSONALIZADO */
+#custom-cursor {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--neon);
+  border-radius: 50%;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10000;
+  transition: width 0.2s, height 0.2s, background-color 0.2s, border-color 0.2s;
+  mix-blend-mode: difference;
+  display: none;
+}
+#custom-cursor-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--neon);
+  border-radius: 50%;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10001;
+  display: none;
+}
+@media (pointer: fine) {
+  #custom-cursor, #custom-cursor-dot { display: block; }
+  body { cursor: none; }
+  a, button, select, input, textarea, .card, .atab, .cat, .star-icon, .zitem, .upload-container, .dest-card { cursor: none; }
+}
+.hovered-cursor {
+  width: 44px !important;
+  height: 44px !important;
+  background-color: rgba(0, 255, 170, 0.15) !important;
+  border-color: var(--neon) !important;
+  border-width: 1px !important;
+}
+
+/* BUSCADOR DE PRODUCTOS CLIENTE */
+.search-container {
+  max-width: 500px;
+  margin: 16px auto 0px;
+  padding: 0 16px;
+}
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid var(--borde);
+  border-radius: 50px;
+  padding: 0 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.search-box:focus-within {
+  border-color: var(--neon);
+  box-shadow: 0 6px 24px rgba(0, 255, 170, 0.12);
+  transform: translateY(-2px);
+}
+.search-icon {
+  font-size: 16px;
+  margin-right: 8px;
+  color: var(--muted);
+}
+.search-inp {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 12px 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  outline: none;
+  color: var(--texto);
+}
+.clear-search {
+  border: none;
+  background: none;
+  font-size: 20px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* CARDS CON RESPLANDOR Y DISEÑO FLUIDO */
+.card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.6) !important;
+  background: rgba(255,255,255,0.7) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.03) !important;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(300px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), rgba(0, 255, 170, 0.09), transparent 80%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.card:hover::before {
+  opacity: 1;
+}
+
+/* DETALLE DEL PRODUCTO BADGES */
+.d-badge {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* RASTREADOR DE PEDIDOS STEPPER LED */
+.tracker-timeline {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 32px 0 24px;
+  padding: 0 8px;
+}
+.tracker-timeline::before {
+  content: '';
+  position: absolute;
+  top: 15px; left: 0;
+  width: 100%; height: 4px;
+  background: #E5E7EB;
+  z-index: 1;
+}
+.tracker-progress-line {
+  position: absolute;
+  top: 15px; left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--v3), var(--neon));
+  z-index: 2;
+  width: 0%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
+}
+.tracker-step {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60px;
+}
+.tracker-node {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #9CA3AF;
+  transition: all 0.4s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.tracker-step.active .tracker-node {
+  border-color: var(--v3);
+  color: var(--v3);
+  background: var(--v5);
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(21, 128, 84, 0.25);
+}
+.tracker-step.completed .tracker-node {
+  border-color: var(--neon);
+  color: white;
+  background: var(--v2);
+  box-shadow: 0 0 14px rgba(0, 255, 170, 0.4);
+}
+.tracker-label {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+.tracker-step.active .tracker-label {
+  color: var(--v1);
+  font-weight: 700;
+}
+.tracker-step.completed .tracker-label {
+  color: var(--v2);
+  font-weight: 700;
+}
+.detail-close:hover {
+  background: rgba(0,0,0,0.6) !important;
+  transform: scale(1.1);
+  transition: all 0.2s;
+}
+
+/* TRANSICIONES DE PAGINAS MEJORADAS */
+.pg {
+  opacity: 0;
+  transform: translateY(20px) scale(0.98);
+  transition: opacity 0.5s cubic-bezier(0.165, 0.84, 0.44, 1), transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.pg.show-page {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
 </style>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -731,6 +961,8 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
+<div id="custom-cursor"></div>
+<div id="custom-cursor-dot"></div>
 <div id="leaves-container"></div>
 <div id="cerrado-banner" style="display:none; background:var(--rojo); color:white; text-align:center; padding:10px 16px; font-weight:bold; font-size:13px; z-index:1000; position:relative; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">⚠️ Taller Cerrado Temporalmente. No estamos recibiendo nuevos pedidos por el momento.</div>
 
@@ -744,6 +976,7 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <button class="nm" onclick="goPage('nosotros')">Nosotros</button>
     <button class="nm" onclick="goPage('blog')">Blog</button>
     <button class="nm" onclick="goPage('contacto')">Contacto</button>
+    <button class="nm" onclick="goPage('tracker')">📍 Rastrear</button>
   </div>
   <div class="nright">
     <button class="abtn" onclick="abrirLogin()">⚙️ Admin</button>
@@ -794,6 +1027,14 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <button class="cat" onclick="filtrar('pies',this)">🫐 Pies</button>
     <button class="cat" onclick="filtrar('manjares',this)">🍯 Manjares</button>
     <button class="cat" onclick="filtrar('packs',this)">📦 Packs</button>
+  </div>
+
+  <div class="search-container">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="clientSearch" class="search-inp" placeholder="Buscar empanadas, pies, packs..." oninput="buscarProductos(this.value)">
+      <button class="clear-search" id="clearSearch" onclick="borrarBusqueda()" style="display:none">&times;</button>
+    </div>
   </div>
 
   <p class="sec" id="prodsec">🌿 Nuestros productos</p>
@@ -877,7 +1118,73 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
   </div>
   <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
     <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('blog')">Blog</span></div>
+</div>
+
+<!-- TRACKER -->
+<div class="pg" id="pg-tracker">
+  <div class="phero" style="background: linear-gradient(135deg, var(--v1), var(--v2))">
+    <h1>Seguimiento de Pedido 🚚</h1>
+    <p>Revisa el estado de tu compra en tiempo real</p>
+  </div>
+  <div class="tracker-wrap" style="padding: 30px 16px; max-width: 600px; margin: 0 auto;">
+    <div class="glass-card" style="padding: 24px; border-radius: 20px; text-align: center; background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
+      <div style="font-size: 44px; margin-bottom: 12px;">🔍</div>
+      <p style="font-weight: 600; margin-bottom: 14px; font-size: 15px;">Ingresa el ID de tu pedido para rastrear:</p>
+      <div style="display: flex; gap: 8px; max-width: 400px; margin: 0 auto 16px;">
+        <input class="inp" style="margin:0; text-align:center; font-family:monospace; text-transform:uppercase; font-size:16px; letter-spacing:1px;" id="trackIdInput" placeholder="Ej: A7F89B" onkeypress="if(event.key==='Enter')buscarPedidoTracking()">
+        <button class="btn-sm btn-pri" style="height:42px; border-radius:10px; padding: 0 20px; font-weight:700;" onclick="buscarPedidoTracking()">Buscar 🚚</button>
+      </div>
+      <div id="trackerResult" style="display:none; text-align:left; margin-top:24px; border-top: 1px solid var(--borde); padding-top:20px;"></div>
+    </div>
+  </div>
+  <footer>
+    <strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('blog')">Blog</span></div>
   </footer>
+</div>
+
+<!-- MODAL DETALLE PRODUCTO (CLIENTE) -->
+<div class="modalov" id="detailov" onclick="cerrarDetailModal(event)">
+  <div class="modalbox" style="padding: 0; overflow: hidden; max-width: 450px;">
+    <div class="detail-header" id="detail_header_bg" style="position:relative; height:200px; display:flex; align-items:center; justify-content:center; background:#F0FFF4;">
+      <button class="detail-close" onclick="document.getElementById('detailov').classList.remove('open')" style="position:absolute; top:16px; right:16px; background:rgba(0,0,0,0.4); color:white; border:none; width:32px; height:32px; border-radius:50%; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:10;">&times;</button>
+      <div id="detail_img_container" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+        <img id="detail_img" style="width:100%; height:100%; object-fit:cover; display:none;">
+        <span id="detail_emoji" style="font-size:74px; z-index:1; transition: transform 0.4s ease;">🌱</span>
+      </div>
+      <span id="detail_tag" class="ctag tn" style="position:absolute; top:16px; left:16px; font-size:10px; padding:4px 10px; z-index:10;">Nuevo</span>
+    </div>
+    <div style="padding: 24px;">
+      <h2 id="detail_name" style="font-family:'Fraunces',serif; font-size:24px; color:var(--v1); margin-bottom:8px;">Producto</h2>
+      <p id="detail_desc" style="font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:18px;">Descripción del producto...</p>
+      
+      <div class="detail-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
+        <span class="d-badge" style="background:#E8F5E9; color:#2E7D32; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🌱 100% Vegano</span>
+        <span class="d-badge" id="badge_gluten" style="background:#FFF3E0; color:#E65100; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🌾 Sin Gluten</span>
+        <span class="d-badge" id="badge_nuts" style="background:#EFEBE9; color:#4E342E; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🥜 Sin Nueces</span>
+      </div>
+
+      <div style="border-top:1px solid var(--borde); border-bottom:1px solid var(--borde); padding:16px 0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size:12px; color:var(--muted); display:block; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Precio</span>
+          <span id="detail_price" style="font-family:'Fraunces',serif; font-size:24px; color:var(--v2); font-weight:700;">$0</span>
+          <span id="detail_price_old" style="font-size:14px; color:#ccc; text-decoration:line-through; margin-left:6px; display:none;">$0</span>
+        </div>
+        <div id="detail_stock_status" style="text-align:right;">
+          <span class="status-pill pill-nuevo" id="detail_stock_pill">Disponible</span>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px;">
+        <div class="qc" style="background:#F3F4F6; padding:8px 14px; border-radius:12px; display:flex; align-items:center; gap:12px;" id="detail_qty_control">
+          <button class="qb" style="background:none; font-size:18px; width:28px; height:28px;" id="detail_btn_minus" onclick="changeDetailQty(-1)">-</button>
+          <span class="qn" style="font-size:16px; min-width:20px;" id="detail_qty_val">0</span>
+          <button class="qb p" style="font-size:18px; width:28px; height:28px;" id="detail_btn_plus" onclick="changeDetailQty(1)">+</button>
+        </div>
+        <button class="btn-add" style="flex:1; justify-content:center; height:48px; border-radius:12px; font-size:14px;" id="detail_add_btn" onclick="addDetailToCart()">🛒 Agregar al carrito</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- CARRITO -->
@@ -963,8 +1270,28 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
     <div class="frow"><label class="flbl">Nombre *</label><input class="finp" id="fnombre" placeholder="Ej: Empanada Pino Soya"></div>
     <div class="frow"><label class="flbl">Descripción</label><input class="finp" id="fdesc" placeholder="Descripción corta del producto"></div>
     <div class="frow2">
-      <div><label class="flbl">Precio * ($)</label><input class="finp" id="fprecio" type="number" placeholder="2500"></div>
+      <div><label class="flbl">Precio * ($)</label><input class="finp" id="fprecio" type="number" placeholder="2500" oninput="calcularFinanzasProducto()"></div>
       <div><label class="flbl">Precio anterior ($)</label><input class="finp" id="fprecioant" type="number" placeholder="Opcional"></div>
+    </div>
+    <div class="frow2" style="background: rgba(0, 128, 96, 0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(0, 128, 96, 0.1); margin-top: 10px; margin-bottom: 5px;">
+      <div>
+        <label class="flbl" style="color:#008060">Costo Producción ($)</label>
+        <input class="finp" id="fcosto" type="number" placeholder="Ej: 800" oninput="calcularFinanzasProducto()">
+      </div>
+      <div>
+        <label class="flbl" style="color:#008060">IVA Estimado (19%)</label>
+        <div style="font-size:13px; font-weight:700; margin-top:8px; color:var(--texto)" id="fiva_calc">$0</div>
+      </div>
+    </div>
+    <div class="frow2" style="background: rgba(0, 128, 96, 0.05); padding: 10px; border-radius: 8px; border: 1px solid rgba(0, 128, 96, 0.1); margin-bottom: 10px;">
+      <div>
+        <label class="flbl" style="color:#008060">Ganancia / Margen Neto</label>
+        <div style="font-size:12px; line-height:1.4; color:var(--texto)" id="fmargen_calc">Ganancia: $0<br>Margen: 0%</div>
+      </div>
+      <div>
+        <label class="flbl" style="color:#008060">Markup comercial</label>
+        <div style="font-size:13px; font-weight:700; margin-top:8px; color:var(--texto)" id="fmarkup_calc">0%</div>
+      </div>
     </div>
     <div class="frow2">
       <div><label class="flbl">Categoría</label>
@@ -987,6 +1314,22 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
         </select>
       </div>
       <div><label class="flbl">Color fondo</label><input class="finp" id="fcolor" placeholder="#F0FFF4"></div>
+    </div>
+    <div class="frow2">
+      <div><label class="flbl">Gestión de Stock</label>
+        <select class="fsel" id="fmaneja_stock" onchange="toggleStockField(this.value)">
+          <option value="false">♾️ Ilimitado</option>
+          <option value="true">📦 Limitado</option>
+        </select>
+      </div>
+      <div id="fstock_container" style="display:none"><label class="flbl">Unidades Disponibles</label><input class="finp" id="fstock" type="number" placeholder="Ej: 20"></div>
+    </div>
+    <div class="frow" style="margin-bottom: 10px;">
+      <label class="flbl">Atributos Nutricionales</label>
+      <div style="display:flex; gap:16px; margin-top:4px;">
+        <label style="font-size:12px; display:inline-flex; align-items:center; gap:4px; cursor:pointer"><input type="checkbox" id="fgluten_free" checked> 🌾 Sin Gluten</label>
+        <label style="font-size:12px; display:inline-flex; align-items:center; gap:4px; cursor:pointer"><input type="checkbox" id="fnut_free" checked> 🥜 Sin Nueces</label>
+      </div>
     </div>
     <div class="frow">
       <label class="flbl">Imagen del Producto</label>
