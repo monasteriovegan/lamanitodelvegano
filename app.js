@@ -2473,50 +2473,7 @@ function renderTrackerMock(id) {
   renderTrackerData(id, mockData);
 }
 
-// ============================================================
-// CURSOR PERSONALIZADO INTERACTIVO Y LEAF PARALLAX BREEZE
-// ============================================================
-var cursorX = 0, cursorY = 0;
-var targetX = 0, targetY = 0;
-var speed = 0.14; // Lerp smoothing factor
 
-window.addEventListener('mousemove', function(e) {
-  targetX = e.clientX;
-  targetY = e.clientY;
-});
-
-function animateCursor() {
-  cursorX += (targetX - cursorX) * speed;
-  cursorY += (targetY - cursorY) * speed;
-  
-  var cursorEl = document.getElementById('custom-cursor');
-  var cursorDotEl = document.getElementById('custom-cursor-dot');
-  
-  if (cursorEl) {
-    cursorEl.style.left = cursorX + 'px';
-    cursorEl.style.top = cursorY + 'px';
-  }
-  if (cursorDotEl) {
-    cursorDotEl.style.left = targetX + 'px';
-    cursorDotEl.style.top = targetY + 'px';
-  }
-  
-  requestAnimationFrame(animateCursor);
-}
-requestAnimationFrame(animateCursor);
-
-// Delegated hover effects for the custom cursor (supports dynamic elements)
-document.body.addEventListener('mouseover', function(e) {
-  var target = e.target.closest('a, button, select, input, textarea, .card, .atab, .cat, .star-icon, .zitem, .upload-container, .dest-card');
-  var cursorEl = document.getElementById('custom-cursor');
-  if (cursorEl) {
-    if (target) {
-      cursorEl.classList.add('hovered-cursor');
-    } else {
-      cursorEl.classList.remove('hovered-cursor');
-    }
-  }
-});
 
 // Wind breeze responsive parallax on leaves based on cursor speed
 var lastMouseX = window.innerWidth / 2;
