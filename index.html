@@ -264,40 +264,375 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 .flinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
 .fl{color:rgba(255,255,255,0.45);cursor:pointer;font-size:10px}
 .fl:hover{color:white}
-/* SHOPIFY ADMIN DASHBOARD */
-.admin-dash { display:flex; height:100vh; background:#f4f6f8; color:#202223; font-family:-apple-system,BlinkMacSystemFont,"San Francisco","Segoe UI",Roboto,"Helvetica Neue",sans-serif; }
-.admin-side { width:240px; background:#ebebeb; color:#202223; padding:16px 8px; display:flex; flex-direction:column; border-right:1px solid #e1e3e5; }
-.admin-slogo { font-weight:700; font-size:18px; padding:12px 16px; margin-bottom:16px; color:#202223; display:flex; align-items:center; gap:8px; }
-.admin-smenu { flex:1; }
-.atab { padding:8px 12px; margin:4px 0; cursor:pointer; color:#434648; display:flex; align-items:center; gap:12px; transition:0.1s; font-weight:500; font-size:14px; border-radius:6px; }
-.atab:hover { background:#e1e3e5; color:#202223; }
-.atab.on { background:#f4f6f8; color:#202223; font-weight:600; }
-.admin-main { flex:1; padding:32px 48px; overflow-y:auto; }
-.admin-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
-.admin-tit { font-size:24px; font-weight:700; color:#202223; }
-.admin-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px; }
-.kpi-card { background:white; padding:16px 20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; }
-.kpi-val { font-size:28px; font-weight:600; color:#202223; margin-top:8px; }
-.kpi-lbl { font-size:13px; color:#6d7175; font-weight:500; }
-.admin-card { background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; overflow:hidden; margin-bottom:24px; }
-.admin-card-pad { padding:20px; }
-.atbl { width:100%; border-collapse:collapse; }
-.atbl th { text-align:left; padding:12px 16px; font-size:12px; color:#6d7175; font-weight:600; border-bottom:1px solid #e1e3e5; background:#f9fafb; }
-.atbl td { padding:12px 16px; font-size:14px; border-bottom:1px solid #e1e3e5; vertical-align:middle; color:#202223; }
-.atbl tr:last-child td { border-bottom:none; }
-.atbl tr:hover { background:#fafbfb; }
-.atbl-emoji { width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; border:1px solid #e1e3e5; }
-.btn-sm { padding:5px 10px; font-size:13px; font-weight:500; border-radius:4px; cursor:pointer; border:1px solid #c9cccf; display:inline-flex; align-items:center; gap:6px; transition:0.1s; background:white; color:#202223; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-.btn-sm:hover { background:#f4f6f8; }
-.btn-pri { background:#008060; color:white; border:1px solid #008060; }
-.btn-pri:hover { background:#006e52; color:white; }
-.btn-dan { background:white; color:#d82c0d; }
-.btn-dan:hover { background:#fbeae5; border-color:#d82c0d; }
-.btn-add { background:#008060; color:white; padding:8px 16px; font-weight:600; border-radius:4px; font-size:13px; cursor:pointer; border:1px solid #008060; display:inline-flex; align-items:center; gap:8px; transition:0.1s; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
-.btn-add:hover { background:#006e52; }
+/* 2026 ULTRA MODERN ADMIN DASHBOARD */
+.adminov {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #f4f6f8;
+  z-index: 600;
+  overflow: hidden;
+}
+.adminov.open {
+  display: block;
+}
+.admin-dash {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: #f8faf9;
+  color: #2c3e50;
+  font-family: 'Inter', 'DM Sans', sans-serif;
+  overflow: hidden;
+}
+/* Sidebar (Desktop) */
+.admin-side {
+  width: 260px;
+  background: linear-gradient(180deg, #0d1e16 0%, #06100c 100%);
+  color: #ecf0f1;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.admin-slogo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 18px;
+}
+.admin-slogo span {
+  font-size: 28px;
+  filter: drop-shadow(0 0 8px rgba(0, 128, 96, 0.4));
+  animation: float 3s ease-in-out infinite;
+}
+.admin-smenu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.admin-smenu::-webkit-scrollbar {
+  width: 4px;
+}
+.admin-smenu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+/* Tabs */
+.atab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  font-size: 13.5px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+.atab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  transform: translateX(4px);
+}
+.atab.on {
+  background: linear-gradient(90deg, rgba(0, 128, 96, 0.15) 0%, rgba(0, 128, 96, 0.05) 100%);
+  color: #2ecc71;
+  font-weight: 600;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+.adminclose-btn {
+  background: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.25);
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.adminclose-btn:hover {
+  background: #e74c3c;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+/* Main Content */
+.admin-main {
+  flex: 1;
+  padding: 40px 48px;
+  overflow-y: auto;
+  background: #f7f9fa;
+  position: relative;
+  scrollbar-width: thin;
+}
+.admin-main::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-main::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+}
+.acont {
+  animation: fadeInSlide 0.3s ease-out;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+/* KPIs & Cards */
+.admin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 20px;
+}
+.admin-tit {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a2521;
+}
+.admin-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+.kpi-card {
+  background: #fff;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+}
+.kpi-val {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #108060;
+  margin-top: 10px;
+}
+.kpi-lbl {
+  font-size: 13px;
+  color: #8c9692;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.admin-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  margin-bottom: 30px;
+}
+.admin-card-pad {
+  padding: 24px;
+}
+/* Tables */
+.atbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.atbl th {
+  text-align: left;
+  padding: 16px 20px;
+  font-size: 12.5px;
+  color: #727e79;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: #f9fbfb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.atbl td {
+  padding: 16px 20px;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  vertical-align: middle;
+  color: #2c3e50;
+  transition: background 0.15s ease;
+}
+.atbl tr:last-child td {
+  border-bottom: none;
+}
+.atbl tr:hover td {
+  background: #f8faf9;
+}
+.atbl-emoji {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fcfcfc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+/* Buttons */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.08);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  background: #fff;
+  color: #2c3e50;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.btn-sm:hover {
+  background: #f5f7f8;
+  border-color: rgba(0,0,0,0.15);
+}
+.btn-pri {
+  background: #008060;
+  color: #fff;
+  border: 1px solid #008060;
+}
+.btn-pri:hover {
+  background: #006e52;
+  box-shadow: 0 4px 10px rgba(0, 128, 96, 0.2);
+}
+.btn-dan {
+  background: #fff;
+  color: #d82c0d;
+  border: 1px solid rgba(216, 44, 13, 0.15);
+}
+.btn-dan:hover {
+  background: #fff5f5;
+  border-color: #d82c0d;
+}
+.btn-add {
+  background: #008060;
+  color: #fff;
+  padding: 10px 20px;
+  font-weight: 700;
+  border-radius: 10px;
+  font-size: 13.5px;
+  cursor: pointer;
+  border: 1px solid #008060;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 128, 96, 0.15);
+}
+.btn-add:hover {
+  background: #006e52;
+  transform: translateY(-1px);
+}
 .star-icon { cursor:pointer; opacity:0.3; transition:0.2s; font-size:18px; }
 .star-icon:hover { opacity:0.7; transform:scale(1.1); }
 .star-icon.active { opacity:1; color:#ffb800; }
+
+/* Mobile header & tabs scroll */
+.admin-mob-header {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  margin: -40px -48px 20px -48px;
+}
+.admin-mob-nav {
+  display: none;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 20px;
+  background: #f1f3f5;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  margin: -20px -48px 24px -48px;
+  scrollbar-width: none;
+}
+.admin-mob-nav::-webkit-scrollbar {
+  display: none;
+}
+.admin-mob-nav .atab {
+  background: white;
+  color: #555;
+  border: 1px solid rgba(0,0,0,0.08);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.admin-mob-nav .atab.on {
+  background: linear-gradient(135deg, #008060 0%, #004d40 100%);
+  color: white;
+  border-color: #008060;
+  box-shadow: 0 4px 10px rgba(0, 128, 96, 0.25);
+}
+
+@media (max-width: 900px) {
+  .admin-side {
+    display: none !important;
+  }
+  .admin-mob-header {
+    display: flex;
+  }
+  .admin-mob-nav {
+    display: flex;
+  }
+  .admin-main {
+    padding: 40px 20px 20px 20px;
+  }
+  .admin-mob-header {
+    margin: -40px -20px 20px -20px;
+  }
+  .admin-mob-nav {
+    margin: -20px -20px 24px -20px;
+  }
+  .admin-tit {
+    font-size: 22px;
+  }
+  .admin-head {
+    margin-bottom: 20px;
+  }
+}
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .status-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:500; }
 .pill-cat { background:#e4f0f6; color:#005e8a; }
 .pill-oferta { background:#ffea8a; color:#8a6116; }
@@ -569,21 +904,54 @@ footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-fa
 
 <!-- ADMIN -->
 <div class="adminov" id="adminov">
-  <div class="adminnav">
-    <h2>⚙️ Panel de Gestión</h2>
-    <button class="adminclose" onclick="cerrarAdmin()">✕ Cerrar</button>
+  <div class="admin-dash">
+    <!-- Sidebar (Desktop) -->
+    <div class="admin-side">
+      <div class="admin-slogo">
+        <span>🌱</span>
+        <div style="line-height:1.2">
+          <div style="font-weight:800; font-size:15px; letter-spacing:0.5px; color:white;">La Manito</div>
+          <div style="font-size:10px; opacity:0.65; font-weight:600; color:#2ecc71;">Panel de Control</div>
+        </div>
+      </div>
+      <div class="admin-smenu">
+        <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
+        <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
+        <div class="atab" onclick="aTab('categorias',this)">🏷️ Categorías</div>
+        <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
+        <div class="atab" onclick="aTab('pedidos',this)">📦 Pedidos</div>
+        <div class="atab" onclick="aTab('stats',this)">📊 Métricas</div>
+        <div class="atab" onclick="aTab('ajustes',this)">⚙️ Ajustes</div>
+        <div class="atab" onclick="aTab('cupones',this)">🎟️ Cupones & Promos</div>
+      </div>
+      <button class="adminclose-btn" onclick="cerrarAdmin()">✕ Salir del Panel</button>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="admin-main">
+      <!-- Mobile header and top tab scroll (Mobile Only) -->
+      <div class="admin-mob-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:22px;">🌱</span>
+          <span style="font-weight:800; font-size:16px; color:#1a2521;">La Manito Admin</span>
+        </div>
+        <button class="btn-sm btn-dan" style="padding: 6px 10px;" onclick="cerrarAdmin()">Salir ✕</button>
+      </div>
+      
+      <div class="admin-mob-nav">
+        <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
+        <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
+        <div class="atab" onclick="aTab('categorias',this)">🏷️ Categorías</div>
+        <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
+        <div class="atab" onclick="aTab('pedidos',this)">📦 Pedidos</div>
+        <div class="atab" onclick="aTab('stats',this)">📊 Métricas</div>
+        <div class="atab" onclick="aTab('ajustes',this)">⚙️ Ajustes</div>
+        <div class="atab" onclick="aTab('cupones',this)">🎟️ Cupones & Promos</div>
+      </div>
+      
+      <div class="acont" id="acont"></div>
+    </div>
   </div>
-  <div class="admintabs">
-    <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
-    <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
-    <div class="atab" onclick="aTab('categorias',this)">🏷️ Categorías</div>
-    <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
-    <div class="atab" onclick="aTab('pedidos',this)">📦 Pedidos</div>
-    <div class="atab" onclick="aTab('stats',this)">📊 Métricas</div>
-    <div class="atab" onclick="aTab('ajustes',this)">⚙️ Ajustes</div>
-    <div class="atab" onclick="aTab('cupones',this)">🎟️ Cupones & Promos</div>
-  </div>
-  <div class="acont" id="acont"></div>
 </div>
 
 <!-- MODAL PRODUCTO -->

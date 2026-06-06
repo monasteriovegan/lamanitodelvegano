@@ -984,12 +984,8 @@ function checkLogin() {
   }
 }
 function abrirAdmin() { 
-  adminTabActual = 'productos'; 
   document.getElementById('adminov').classList.add('open'); 
-  var tabs = document.querySelectorAll('.atab');
-  for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('on');
-  if(tabs[0]) tabs[0].classList.add('on');
-  renderAdminTab('productos'); 
+  aTab('productos', null);
 }
 function cerrarAdmin() { document.getElementById('adminov').classList.remove('open'); }
 
@@ -998,8 +994,11 @@ function aTab(tab, btn) {
   var tabs = document.querySelectorAll('.atab');
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].classList.remove('on');
+    var clickAttr = tabs[i].getAttribute('onclick');
+    if (clickAttr && clickAttr.indexOf("'" + tab + "'") !== -1) {
+      tabs[i].classList.add('on');
+    }
   }
-  if (btn) btn.classList.add('on');
   renderAdminTab(tab);
 }
 
