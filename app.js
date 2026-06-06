@@ -3,6 +3,20 @@ var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','
 var ADMIN_PASS = 'manito2024';
 var editandoId = null;
 
+function sanitizeHTML(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[&<>"']/g, function(m) {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#x27;';
+      default: return m;
+    }
+  });
+}
+
 // === CONFIGURACIÓN DE FIREBASE ===
 // Pega aquí los datos de tu proyecto de Firebase
 const firebaseConfig = {
@@ -572,10 +586,10 @@ function guardarInputsG() {
   var prevEmail = emailG;
   var prevTel = telG;
   
-  nombreG = document.getElementById('inpnom') ? document.getElementById('inpnom').value : '';
-  dirG = document.getElementById('inpdir') ? document.getElementById('inpdir').value : '';
-  telG = document.getElementById('inptel') ? document.getElementById('inptel').value : '';
-  emailG = document.getElementById('inpemail') ? document.getElementById('inpemail').value : '';
+  nombreG = document.getElementById('inpnom') ? sanitizeHTML(document.getElementById('inpnom').value) : '';
+  dirG = document.getElementById('inpdir') ? sanitizeHTML(document.getElementById('inpdir').value) : '';
+  telG = document.getElementById('inptel') ? sanitizeHTML(document.getElementById('inptel').value) : '';
+  emailG = document.getElementById('inpemail') ? sanitizeHTML(document.getElementById('inpemail').value) : '';
   
   if (emailG !== prevEmail || telG !== prevTel) {
     puntosVerificados = false;
@@ -951,10 +965,10 @@ function pagarMP() {
 function crearPedido(metodoPago, statusInicial) {
   if (!db || firebaseConfig.apiKey === "TU_API_KEY") return Promise.resolve(null);
   
-  var nombre = document.getElementById('inpnom') ? document.getElementById('inpnom').value.trim() : 'Cliente';
-  var dir = document.getElementById('inpdir') ? document.getElementById('inpdir').value.trim() : '';
-  var tel = document.getElementById('inptel') ? document.getElementById('inptel').value.trim() : '';
-  var email = document.getElementById('inpemail') ? document.getElementById('inpemail').value.trim() : '';
+  var nombre = document.getElementById('inpnom') ? sanitizeHTML(document.getElementById('inpnom').value.trim()) : 'Cliente';
+  var dir = document.getElementById('inpdir') ? sanitizeHTML(document.getElementById('inpdir').value.trim()) : '';
+  var tel = document.getElementById('inptel') ? sanitizeHTML(document.getElementById('inptel').value.trim()) : '';
+  var email = document.getElementById('inpemail') ? sanitizeHTML(document.getElementById('inpemail').value.trim()) : '';
   
   var fechas = genFechas();
   var fecha = fechas[fechaSel];
@@ -1600,15 +1614,15 @@ function guardarProd() {
   var nutFree = document.getElementById('fnut_free').checked;
 
   var data = {
-    nombre:nombre, descripcion:document.getElementById('fdesc').value,
-    precio:precio, precio_anterior:parseInt(document.getElementById('fprecioant').value)||null,
-    categoria:document.getElementById('fcat').value, emoji:document.getElementById('femoji').value||'🌿',
-    etiqueta:etiqueta||null, etiqueta_label:etiqueta_label,
-    color_fondo:document.getElementById('fcolor').value||'#F0FFF4',
-    imagen_url:document.getElementById('fimagen').value||null,
-    costo_produccion:costoProduccion,
-    maneja_stock:manejaStock,
-    stock:stock,
+    nombre: sanitizeHTML(nombre), descripcion: sanitizeHTML(document.getElementById('fdesc').value),
+    precio: precio, precio_anterior: parseInt(document.getElementById('fprecioant').value)||null,
+    categoria: sanitizeHTML(document.getElementById('fcat').value), emoji: sanitizeHTML(document.getElementById('femoji').value||'🌿'),
+    etiqueta: etiqueta||null, etiqueta_label: etiqueta_label,
+    color_fondo: sanitizeHTML(document.getElementById('fcolor').value||'#F0FFF4'),
+    imagen_url: sanitizeHTML(document.getElementById('fimagen').value||null),
+    costo_produccion: costoProduccion,
+    maneja_stock: manejaStock,
+    stock: stock,
     gluten_free:glutenFree,
     nut_free:nutFree
   };
@@ -2334,7 +2348,7 @@ var trackerListener = null;
 
 function buscarPedidoTracking() {
   var input = document.getElementById('trackIdInput');
-  var id = input ? input.value.trim().toLowerCase() : '';
+  var id = input ? sanitizeHTML(input.value.trim().toLowerCase()) : '';
   var resultDiv = document.getElementById('trackerResult');
   
   if (!id) {
@@ -2446,11 +2460,11 @@ function renderTrackerData(id, data) {
   h += '</div>';
 
   h += '<div style="background:#F9FAFB; border-radius:12px; padding:16px; font-size:12px; border:1px solid var(--borde); line-height:1.6;">';
-  h += '  <div>👤 <strong>Cliente:</strong> ' + data.cliente.nombre + '</div>';
-  h += '  <div>📍 <strong>Despacho:</strong> ' + data.cliente.direccion + ' (' + data.zonaEnvio + ')</div>';
-  h += '  <div>📅 <strong>Fecha Entrega:</strong> ' + data.fechaEntrega + '</div>';
+  h += '  <div>👤 <strong>Cliente:</strong> ' + sanitizeHTML(data.cliente.nombre) + '</div>';
+  h += '  <div>📍 <strong>Despacho:</strong> ' + sanitizeHTML(data.cliente.direccion) + ' (' + sanitizeHTML(data.zonaEnvio) + ')</div>';
+  h += '  <div>📅 <strong>Fecha Entrega:</strong> ' + sanitizeHTML(data.fechaEntrega) + '</div>';
   h += '  <div style="margin-top:6px; border-top:1px solid #ECEFF1; padding-top:6px;">';
-  h += '    <strong>Método Pago:</strong> ' + data.metodoPago + ' (' + status + ')';
+  h += '    <strong>Método Pago:</strong> ' + sanitizeHTML(data.metodoPago) + ' (' + sanitizeHTML(status) + ')';
   h += '  </div>';
   h += '  <div style="font-size:14px; font-weight:700; color:var(--v2); margin-top:4px;">';
   h += '    Total: $' + data.total.toLocaleString('es-CL');
