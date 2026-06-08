@@ -1236,6 +1236,29 @@ footer strong{color:white;font-size:14px;display:block;margin-bottom:6px;font-fa
 }
 /* Hover scale for dest-card with overlay inside img */
 .dest-card:hover .dest-img img { transform: scale(1.08); }
+
+/* Force fully visible inputs in admin panel */
+.adminov input.finp, 
+.adminov select.fsel, 
+.adminov textarea.ftextarea,
+.adminov input[type="text"], 
+.adminov input[type="number"], 
+.adminov select {
+  color: #0d1512 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #c4cbd4 !important;
+  opacity: 1 !important;
+}
+.adminov input.finp::placeholder,
+.adminov input[type="text"]::placeholder,
+.adminov input[type="number"]::placeholder {
+  color: #727e79 !important;
+  opacity: 1 !important;
+}
+.adminov label.flbl {
+  color: #2c3e50 !important;
+  font-weight: 700 !important;
+}
 </style>
 <!-- Supabase JS Library -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

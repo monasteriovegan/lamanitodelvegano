@@ -2026,8 +2026,15 @@ function eliminarCategoria(id) {
   if (!confirm('¿Eliminar esta categoría? Los productos asociados a ella no se borrarán pero quedarán sin categoría asignada.')) return;
   if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
   supabaseClient.from('categorias').delete().eq('id', id).then(function(res) {
-    if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('🗑 Categoría eliminada');
+    if (res.error) {
+      if (res.error.message && res.error.message.indexOf('row-level security') !== -1) {
+        showToast('🔒 Error de permisos en Supabase. Ve al panel de Supabase → Table Editor → categorias → RLS y agrega políticas de DELETE para el rol anon.');
+      } else {
+        showToast('❌ Error: ' + res.error.message);
+      }
+    } else {
+      showToast('🗑 Categoría eliminada');
+    }
   });
 }
 
