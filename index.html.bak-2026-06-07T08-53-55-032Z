@@ -1,0 +1,598 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Manito Del Vegano 🌱</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--v1:#1B4332;--v2:#2D6A4F;--v3:#40916C;--v5:#D8F3DC;--c1:#6B4226;--crema:#FAFAF7;--texto:#1B1B1B;--muted:#7A7A7A;--borde:#EBEBEB;--wa:#25D366;--wa2:#1DA851;--mp:#009EE3;--rojo:#E63946;--am:#F4A261}
+body{font-family:'DM Sans',sans-serif;background:var(--crema);color:var(--texto)}
+/* NAV */
+nav{background:var(--v1);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 16px rgba(0,0,0,0.3)}
+.nlogo{display:flex;align-items:center;gap:9px;cursor:pointer}
+.nic{width:34px;height:34px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ntxt{font-family:'Fraunces',serif;color:white;font-size:13px;line-height:1.2}
+.ntxt small{display:block;font-size:9px;font-family:'DM Sans',sans-serif;opacity:0.65;letter-spacing:1px;text-transform:uppercase}
+.nmenu{display:flex;gap:2px}
+.nm{color:rgba(255,255,255,0.7);padding:5px 8px;border-radius:7px;font-size:11px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.nm:hover,.nm.on{color:white;background:rgba(255,255,255,0.12)}
+.nright{display:flex;align-items:center;gap:5px}
+.cbtn{position:relative;background:rgba(255,255,255,0.12);border:none;color:white;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cbtn:hover{background:rgba(255,255,255,0.22)}
+.bdg{position:absolute;top:-3px;right:-3px;background:var(--rojo);color:white;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.bdg.h{display:none}
+.abtn{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.8);border:none;padding:5px 9px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.abtn:hover{background:rgba(255,255,255,0.2);color:white}
+/* PAGES */
+.pg{display:none}.pg.on{display:block}
+/* HERO */
+.hero{background:linear-gradient(155deg,var(--v1),var(--v2) 55%,var(--v3));padding:38px 18px 52px;text-align:center;position:relative;overflow:hidden}
+.hero::after{content:'🌿';position:absolute;font-size:100px;opacity:0.05;bottom:-15px;right:-8px;transform:rotate(-20deg)}
+.hpill{display:inline-block;background:rgba(255,255,255,0.13);color:white;padding:4px 13px;border-radius:50px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;border:1px solid rgba(255,255,255,0.22)}
+.hero h1{font-family:'Fraunces',serif;font-size:clamp(24px,7vw,40px);color:white;line-height:1.15;margin-bottom:9px}
+.hero h1 em{font-style:italic;color:#74C69D}
+.hero p{color:rgba(255,255,255,0.78);font-size:13px;margin-bottom:20px;line-height:1.6}
+.htags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
+.htag{background:rgba(255,255,255,0.11);color:white;padding:4px 11px;border-radius:50px;font-size:10px;border:1px solid rgba(255,255,255,0.18)}
+.hbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.btnw{background:white;color:var(--v2);padding:11px 20px;border-radius:50px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btno{background:transparent;color:white;padding:11px 20px;border-radius:50px;font-size:13px;font-weight:600;border:2px solid rgba(255,255,255,0.35);cursor:pointer;font-family:'DM Sans',sans-serif}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);background:white;border-bottom:1px solid var(--borde)}
+.st{text-align:center;padding:13px 4px;border-right:1px solid var(--borde)}
+.st:last-child{border-right:none}
+.stn{font-family:'Fraunces',serif;font-size:19px;color:var(--v2);font-weight:900}
+.stl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}
+/* DESTACADOS */
+.dest-sec{padding:16px}
+.dest-sec h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.dest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.dest-card{border-radius:16px;overflow:hidden;position:relative;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.12)}
+.dest-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative}
+.dest-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.dest-img-emoji{position:relative;z-index:1;font-size:64px}
+.dest-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%);display:flex;flex-direction:column;justify-content:flex-end;padding:14px}
+.dest-name{font-family:'Fraunces',serif;font-size:17px;color:white;margin-bottom:3px}
+.dest-price{font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:8px}
+.dest-btn{background:white;color:var(--v2);border:none;padding:7px 14px;border-radius:50px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.dest-badge{position:absolute;top:10px;left:10px;background:var(--rojo);color:white;padding:3px 9px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;z-index:2}
+/* ENVIO BANNER */
+.ebanner{margin:0 16px 16px;background:linear-gradient(135deg,#E8F4FD,#D6EAF8);border-radius:14px;padding:16px;border:1px solid #AED6F1}
+.ebtit{font-family:'Fraunces',serif;font-size:15px;color:#1A5276;margin-bottom:9px}
+.zgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.zitem{background:white;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center}
+.znom{font-size:11px;font-weight:600}
+.zcom{font-size:9px;color:var(--muted)}
+.zpre{font-family:'Fraunces',serif;font-size:13px;color:var(--v2);font-weight:700}
+.zgrat{font-family:'Fraunces',serif;font-size:12px;color:var(--wa);font-weight:700}
+/* CATS */
+.cats{display:flex;gap:7px;padding:12px 16px 6px;overflow-x:auto;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{white-space:nowrap;padding:6px 13px;border-radius:50px;border:2px solid var(--borde);background:white;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif}
+.cat.on,.cat:hover{background:var(--v2);border-color:var(--v2);color:white}
+/* GRID PRODUCTOS */
+.sec{font-family:'Fraunces',serif;font-size:16px;color:var(--c1);padding:11px 16px 9px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:10px;padding:0 16px 8px}
+.card{background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06);transition:transform 0.2s}
+.card:hover{transform:translateY(-3px)}
+.cimg{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
+.cimg img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.cimg-e{position:relative;z-index:1;font-size:42px}
+.ctag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:50px;font-size:8px;font-weight:700;text-transform:uppercase;z-index:2}
+.tn{background:var(--v2);color:white}.to{background:var(--rojo);color:white}.te{background:var(--am);color:white}
+.cbody{padding:9px 10px 10px}
+.cname{font-weight:600;font-size:11px;margin-bottom:2px}
+.cdesc{font-size:10px;color:var(--muted);margin-bottom:7px;line-height:1.3}
+.cfoot{display:flex;align-items:center;justify-content:space-between}
+.cprice{font-family:'Fraunces',serif;font-size:14px;color:var(--v2);font-weight:700}
+.cold{font-size:9px;color:#ccc;text-decoration:line-through;display:block}
+.badd{background:var(--v2);color:white;border:none;width:26px;height:26px;border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qc{display:flex;align-items:center;gap:4px}
+.qb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qb.p{background:var(--v2);color:white}
+.qn{font-weight:700;font-size:12px;color:var(--v2);min-width:12px;text-align:center}
+/* RESEÑAS */
+.reswrap{padding:0 16px 20px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.reswrap::-webkit-scrollbar{display:none}
+.res{background:white;border-radius:13px;padding:12px;min-width:195px;box-shadow:0 2px 7px rgba(0,0,0,0.05);flex-shrink:0}
+.ress{color:var(--am);font-size:11px;margin-bottom:5px}
+.rest{font-size:11px;color:var(--texto);line-height:1.5;margin-bottom:6px;font-style:italic}
+.resa{font-size:10px;color:var(--muted);font-weight:600}
+/* INFO */
+.infog{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 22px}
+.ic{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
+.ii{font-size:21px;margin-bottom:4px}
+.it{font-weight:600;font-size:11px;margin-bottom:2px}
+.id{font-size:10px;color:var(--muted);line-height:1.3}
+/* OTRAS PAGINAS */
+.phero{padding:30px 18px;text-align:center;background:linear-gradient(135deg,var(--v1),var(--v2))}
+.phero h1{font-family:'Fraunces',serif;font-size:24px;color:white;margin-bottom:5px}
+.phero p{color:rgba(255,255,255,0.78);font-size:13px}
+.hist{padding:20px 18px}
+.hist h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:10px}
+.hist p{font-size:13px;line-height:1.75;margin-bottom:10px}
+.vals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 18px}
+.val{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
+.vi{font-size:24px;margin-bottom:6px}
+.vt{font-weight:700;font-size:12px;color:var(--v2);margin-bottom:2px}
+.vd{font-size:10px;color:var(--muted);line-height:1.4}
+.blogg{display:grid;gap:12px;padding:16px}
+.bc{background:white;border-radius:15px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06)}
+.bimg{height:100px;display:flex;align-items:center;justify-content:center;font-size:48px}
+.bbody{padding:12px 14px 14px}
+.bcat{display:inline-block;background:var(--v5);color:var(--v2);padding:2px 8px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:6px}
+.btit{font-family:'Fraunces',serif;font-size:14px;margin-bottom:4px;line-height:1.3}
+.bex{font-size:11px;color:var(--muted);line-height:1.5}
+.contcards{display:grid;gap:10px;padding:16px}
+.cc{background:white;border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 9px rgba(0,0,0,0.06);text-decoration:none;color:inherit}
+.cci{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.cch3{font-weight:700;font-size:13px;margin-bottom:1px}
+.ccp{font-size:11px;color:var(--muted)}
+.faqsec{padding:0 16px 26px}
+.faqsec h2{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:11px}
+.fi{background:white;border-radius:11px;margin-bottom:6px;overflow:hidden}
+.fq{padding:12px 14px;font-weight:600;font-size:12px;cursor:pointer;display:flex;justify-content:space-between}
+.fa{padding:0 14px 12px;font-size:12px;color:var(--muted);line-height:1.6;display:none}
+.fa.open{display:block}
+/* CARRITO */
+.co{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:flex-end;justify-content:center}
+.co.open{display:flex}
+.cp{background:white;border-radius:20px 20px 0 0;padding:16px 15px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.hndl{width:32px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 14px}
+.ctit{font-family:'Fraunces',serif;font-size:20px;margin-bottom:12px}
+.cempty{text-align:center;padding:26px 0;color:var(--muted);font-size:13px}
+.cempty span{font-size:38px;display:block;margin-bottom:8px}
+.citem{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--borde)}
+.ciem{font-size:22px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;overflow:hidden}
+.ciem img{width:100%;height:100%;object-fit:cover}
+.ciin{flex:1}
+.cin{font-weight:600;font-size:12px}
+.cip{font-size:11px;color:var(--v2);font-weight:600}
+.cic{display:flex;align-items:center;gap:4px}
+.cb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cb.p{background:var(--v2);color:white}
+.cq{font-weight:700;font-size:12px;min-width:12px;text-align:center}
+.ensec{background:#F0F9FF;border-radius:12px;padding:12px;margin:10px 0}
+.entit{font-weight:700;font-size:12px;margin-bottom:8px;color:#1A5276}
+.selzona{width:100%;padding:9px 12px;border:2px solid #AED6F1;border-radius:9px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white;margin-bottom:7px}
+.endet{background:white;border-radius:9px;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
+.totwrap{padding:4px 0 8px}
+.totrow{display:flex;justify-content:space-between;padding:2px 0}
+.totsub{font-size:11px;color:var(--muted)}
+.totdiv{border-top:1px solid var(--borde);margin:7px 0}
+.totlbl{font-weight:700;font-size:14px}
+.totamt{font-family:'Fraunces',serif;font-size:24px;color:var(--v2)}
+.ftit{font-weight:600;font-size:12px;margin:12px 0 8px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:11px}
+.fb{padding:7px 3px;border-radius:9px;border:2px solid var(--borde);background:white;text-align:center;font-family:'DM Sans',sans-serif}
+.fb.ok{cursor:pointer}
+.fb.ok:hover,.fb.sel{border-color:var(--v2);background:var(--v5)}
+.fb.no{background:#F7F7F7;cursor:not-allowed;opacity:0.4}
+.fd{font-size:8px;color:var(--muted);text-transform:uppercase}
+.fn{font-size:15px;font-weight:700}
+.fm{font-size:8px;color:var(--muted)}
+.fs{font-size:8px;margin-top:1px}
+.fb.ok .fs{color:var(--v2)}.fb.no .fs,.fb.no .fn{color:#ccc}.fb.sel .fs{color:var(--v2);font-weight:700}
+.ilbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block}
+.inp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:8px}
+.inp:focus{border-color:var(--v2)}
+.alrt{background:#FFF8E7;border:1px solid var(--am);border-radius:9px;padding:8px 12px;font-size:11px;color:#8B5E3C;margin-bottom:8px}
+.bwab{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--wa);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
+.bwab:hover{background:var(--wa2)}
+.bmpb{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--mp);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
+.bclose{width:100%;background:#F3F3F3;border:none;padding:10px;border-radius:12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+/* ADMIN */
+.loginov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;align-items:center;justify-content:center;padding:20px}
+.loginov.open{display:flex}
+.loginbox{background:white;border-radius:20px;padding:30px 24px;text-align:center;max-width:320px;width:100%}
+.logintit{font-family:'Fraunces',serif;font-size:22px;margin-bottom:6px}
+.loginsub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.logininp{width:100%;padding:12px 14px;border:2px solid var(--borde);border-radius:11px;font-size:16px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;text-align:center;letter-spacing:4px}
+.logininp:focus{border-color:var(--v2)}
+.loginbtn{background:var(--v2);color:white;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif}
+.loginerr{color:var(--rojo);font-size:12px;margin-top:8px;display:none}
+.adminov{display:none;position:fixed;inset:0;background:#F8F9FA;z-index:600;overflow-y:auto}
+.adminov.open{display:block}
+.adminnav{background:var(--v1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.adminnav h2{font-family:'Fraunces',serif;color:white;font-size:17px}
+.adminclose{background:rgba(255,255,255,0.15);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px}
+.admintabs{display:flex;background:white;border-bottom:2px solid var(--borde);padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.admintabs::-webkit-scrollbar{display:none}
+.atab{padding:11px 13px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.atab.on{color:var(--v2);border-bottom-color:var(--v2)}
+.acont{padding:16px}
+.asub{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:5px}
+.adesc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.astats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.ast{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.astn{font-family:'Fraunces',serif;font-size:26px;color:var(--v2);font-weight:900}
+.astl{font-size:10px;color:var(--muted);margin-top:2px}
+.prodadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.pahead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.paemoji{font-size:26px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex-shrink:0;overflow:hidden}
+.paemoji img{width:100%;height:100%;object-fit:cover}
+.painfo{flex:1}
+.paname{font-weight:700;font-size:13px}
+.paprice{font-size:12px;color:var(--v2);font-weight:600}
+.pacat{font-size:10px;color:var(--muted)}
+.pabtns{display:flex;gap:6px;flex-wrap:wrap}
+.pabtn{padding:6px 11px;border-radius:8px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btnuevo{background:var(--v2);color:white;border:none;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;margin-bottom:13px}
+.zadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.zahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.zanom{font-weight:700;font-size:13px}
+/* MODAL */
+.modalov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:flex-end;justify-content:center}
+.modalov.open{display:flex}
+.modalbox{background:white;border-radius:20px 20px 0 0;padding:18px 16px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
+.modaltit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:14px}
+.frow{margin-bottom:10px}
+.flbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
+.finp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none}
+.finp:focus{border-color:var(--v2)}
+.fsel{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.bguardar{background:var(--v2);color:white;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;margin:10px 0 8px}
+.bcancelar{background:#F3F3F3;color:var(--muted);border:none;padding:11px;border-radius:12px;font-size:13px;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif}
+/* CONFIRM */
+.confov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:900;align-items:center;justify-content:center;padding:20px}
+.confov.open{display:flex}
+.confbox{background:white;border-radius:20px;padding:28px 20px;text-align:center;max-width:310px;width:100%;animation:pop 0.3s ease}
+@keyframes pop{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.cfic{font-size:50px;margin-bottom:11px}
+.cftit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:6px}
+.cfmsg{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;white-space:pre-line}
+.cfbtn{background:var(--v2);color:white;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+/* WA FLOAT */
+.waf{position:fixed;bottom:20px;right:16px;z-index:400;background:var(--wa);color:white;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,0.4);text-decoration:none}
+.waf svg{width:23px;height:23px;fill:white}
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--v2);color:white;padding:8px 16px;border-radius:50px;font-size:12px;z-index:1000;font-family:'DM Sans',sans-serif;pointer-events:none;opacity:0;transition:opacity 0.3s;white-space:nowrap}
+.toast.show{opacity:1}
+/* FOOTER */
+footer{background:var(--v1);color:rgba(255,255,255,0.6);padding:24px 16px;font-size:11px;line-height:1.8}
+footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-family:'Fraunces',serif}
+.flinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
+.fl{color:rgba(255,255,255,0.45);cursor:pointer;font-size:10px}
+.fl:hover{color:white}
+/* SHOPIFY ADMIN DASHBOARD */
+.admin-dash { display:flex; height:100vh; background:#f4f6f8; color:#202223; font-family:-apple-system,BlinkMacSystemFont,"San Francisco","Segoe UI",Roboto,"Helvetica Neue",sans-serif; }
+.admin-side { width:240px; background:#ebebeb; color:#202223; padding:16px 8px; display:flex; flex-direction:column; border-right:1px solid #e1e3e5; }
+.admin-slogo { font-weight:700; font-size:18px; padding:12px 16px; margin-bottom:16px; color:#202223; display:flex; align-items:center; gap:8px; }
+.admin-smenu { flex:1; }
+.atab { padding:8px 12px; margin:4px 0; cursor:pointer; color:#434648; display:flex; align-items:center; gap:12px; transition:0.1s; font-weight:500; font-size:14px; border-radius:6px; }
+.atab:hover { background:#e1e3e5; color:#202223; }
+.atab.on { background:#f4f6f8; color:#202223; font-weight:600; }
+.admin-main { flex:1; padding:32px 48px; overflow-y:auto; }
+.admin-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.admin-tit { font-size:24px; font-weight:700; color:#202223; }
+.admin-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px; }
+.kpi-card { background:white; padding:16px 20px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; }
+.kpi-val { font-size:28px; font-weight:600; color:#202223; margin-top:8px; }
+.kpi-lbl { font-size:13px; color:#6d7175; font-weight:500; }
+.admin-card { background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.05); border:1px solid #e1e3e5; overflow:hidden; margin-bottom:24px; }
+.admin-card-pad { padding:20px; }
+.atbl { width:100%; border-collapse:collapse; }
+.atbl th { text-align:left; padding:12px 16px; font-size:12px; color:#6d7175; font-weight:600; border-bottom:1px solid #e1e3e5; background:#f9fafb; }
+.atbl td { padding:12px 16px; font-size:14px; border-bottom:1px solid #e1e3e5; vertical-align:middle; color:#202223; }
+.atbl tr:last-child td { border-bottom:none; }
+.atbl tr:hover { background:#fafbfb; }
+.atbl-emoji { width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; border:1px solid #e1e3e5; }
+.btn-sm { padding:5px 10px; font-size:13px; font-weight:500; border-radius:4px; cursor:pointer; border:1px solid #c9cccf; display:inline-flex; align-items:center; gap:6px; transition:0.1s; background:white; color:#202223; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+.btn-sm:hover { background:#f4f6f8; }
+.btn-pri { background:#008060; color:white; border:1px solid #008060; }
+.btn-pri:hover { background:#006e52; color:white; }
+.btn-dan { background:white; color:#d82c0d; }
+.btn-dan:hover { background:#fbeae5; border-color:#d82c0d; }
+.btn-add { background:#008060; color:white; padding:8px 16px; font-weight:600; border-radius:4px; font-size:13px; cursor:pointer; border:1px solid #008060; display:inline-flex; align-items:center; gap:8px; transition:0.1s; box-shadow:0 1px 2px rgba(0,0,0,0.05); }
+.btn-add:hover { background:#006e52; }
+.star-icon { cursor:pointer; opacity:0.3; transition:0.2s; font-size:18px; }
+.star-icon:hover { opacity:0.7; transform:scale(1.1); }
+.star-icon.active { opacity:1; color:#ffb800; }
+.status-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:500; }
+.pill-cat { background:#e4f0f6; color:#005e8a; }
+.pill-oferta { background:#ffea8a; color:#8a6116; }
+.pill-nuevo { background:#aee9d1; color:#005c3b; }
+
+/* CHATBOT WIDGET */
+.chat-btn { position:fixed; bottom:24px; right:24px; width:60px; height:60px; background:var(--v3); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:0 8px 24px rgba(64,145,108,0.3); cursor:pointer; z-index:900; transition:0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.chat-btn:hover { transform:scale(1.1); background:var(--v2); }
+.chat-window { position:fixed; bottom:100px; right:24px; width:340px; height:480px; background:white; border-radius:20px; box-shadow:0 12px 40px rgba(0,0,0,0.15); z-index:900; display:flex; flex-direction:column; overflow:hidden; opacity:0; pointer-events:none; transform:translateY(20px); transition:0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.chat-window.open { opacity:1; pointer-events:auto; transform:translateY(0); }
+.chat-head { background:var(--v1); color:white; padding:20px; display:flex; align-items:center; gap:12px; }
+.chat-av { width:40px; height:40px; background:var(--v5); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.chat-htit { font-weight:700; font-family:Fraunces,serif; font-size:16px; margin-bottom:2px; }
+.chat-hsub { font-size:12px; color:rgba(255,255,255,0.7); display:flex; align-items:center; gap:4px; }
+.chat-dot { width:6px; height:6px; background:#4ADE80; border-radius:50%; }
+.chat-body { flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#F8FAFC; }
+.cmsg { max-width:85%; padding:12px 16px; border-radius:16px; font-size:14px; line-height:1.4; position:relative; }
+.cmsg.bot { background:white; color:var(--texto); border-bottom-left-radius:4px; align-self:flex-start; box-shadow:0 2px 8px rgba(0,0,0,0.04); border:1px solid #F1F5F9; }
+.cmsg.user { background:var(--v3); color:white; border-bottom-right-radius:4px; align-self:flex-end; box-shadow:0 2px 8px rgba(64,145,108,0.2); }
+.chat-foot { padding:16px; background:white; border-top:1px solid #F1F5F9; display:flex; gap:12px; align-items:center; }
+.chat-inp { flex:1; background:#F1F5F9; border:none; padding:12px 16px; border-radius:100px; font-family:'DM Sans',sans-serif; font-size:14px; outline:none; transition:0.2s; }
+.chat-inp:focus { background:#E2E8F0; }
+.chat-send { width:40px; height:40px; background:var(--v3); color:white; border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.2s; flex-shrink:0; }
+.chat-send:hover { background:var(--v2); }
+.chat-send:disabled { background:#CBD5E1; cursor:not-allowed; }
+.typing-dot { display:inline-block; width:4px; height:4px; background:#CBD5E1; border-radius:50%; margin:0 2px; animation:blink 1.4s infinite both; }
+.typing-dot:nth-child(2) { animation-delay:0.2s; }
+.typing-dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes blink { 0% { opacity:0.2; } 20% { opacity:1; } 100% { opacity:0.2; } }
+</style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nlogo" onclick="goPage('home')">
+    <div class="nic">🌱</div>
+    <div class="ntxt">La Manito Del Vegano<small>Plant Based · Chile</small></div>
+  </div>
+  <div class="nmenu">
+    <button class="nm on" onclick="goPage('home')">Inicio</button>
+    <button class="nm" onclick="goPage('nosotros')">Nosotros</button>
+    <button class="nm" onclick="goPage('blog')">Blog</button>
+    <button class="nm" onclick="goPage('contacto')">Contacto</button>
+  </div>
+  <div class="nright">
+    <button class="abtn" onclick="abrirLogin()">⚙️ Admin</button>
+    <button class="cbtn" onclick="abrirCarrito()">🛒<span class="bdg h" id="bdg">0</span></button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="pg on" id="pg-home">
+  <div class="hero">
+    <div class="hpill">🌿 Taller Plant Based</div>
+    <h1>Comida vegana<br>que <em>enamora</em></h1>
+    <p>Elaboramos con amor y conciencia.<br>Solo pedidos · Santiago y Pucón · Despacho propio</p>
+    <div class="htags">
+      <span class="htag">🌱 100% Vegano</span>
+      <span class="htag">✋ Artesanal</span>
+      <span class="htag">📅 Pedido anticipado</span>
+      <span class="htag">🚚 Despacho propio</span>
+    </div>
+    <div class="hbtns">
+      <button class="btnw" onclick="document.getElementById('prodsec').scrollIntoView({behavior:'smooth'})">Ver productos 🛒</button>
+      <button class="btno" onclick="goPage('nosotros')">Nuestra historia</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="stn">3.8K</div><div class="stl">Seguidores</div></div>
+    <div class="st"><div class="stn">125</div><div class="stl">Posts</div></div>
+    <div class="st"><div class="stn">100%</div><div class="stl">Vegano</div></div>
+    <div class="st"><div class="stn">⭐4.9</div><div class="stl">Rating</div></div>
+  </div>
+
+  <!-- DESTACADOS -->
+  <div class="dest-sec" id="dest-sec">
+    <h2>⭐ Destacados & Ofertas</h2>
+    <div class="dest-grid" id="dest-grid"></div>
+  </div>
+
+  <!-- ZONAS BANNER -->
+  <div class="ebanner">
+    <div class="ebtit">🚚 Despacho propio — Tarifas</div>
+    <div class="zgrid" id="zbanner"></div>
+  </div>
+
+  <!-- CATEGORIAS -->
+  <div class="cats">
+    <button class="cat on" onclick="filtrar('todos',this)">Todos</button>
+    <button class="cat" onclick="filtrar('empanadas',this)">🥟 Empanadas</button>
+    <button class="cat" onclick="filtrar('pies',this)">🫐 Pies</button>
+    <button class="cat" onclick="filtrar('manjares',this)">🍯 Manjares</button>
+    <button class="cat" onclick="filtrar('packs',this)">📦 Packs</button>
+  </div>
+
+  <p class="sec" id="prodsec">🌿 Nuestros productos</p>
+  <div class="grid" id="pgrid"></div>
+
+  <p class="sec">💬 Lo que dicen nuestros clientes</p>
+  <div class="reswrap">
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"Las empanadas de soya son increíbles. No puedo creer que sean veganas!"</div><div class="resa">— Valentina M., Santiago</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El manjar de cáñamo es lo mejor que he probado. Único en Chile."</div><div class="resa">— Rodrigo P., Pucón</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El pie de arándanos es una obra de arte."</div><div class="resa">— Camila R., Providencia</div></div>
+    <div class="res"><div class="ress">★★★★☆</div><div class="rest">"Super puntual el despacho. Se nota el amor."</div><div class="resa">— Felipe A., Ñuñoa</div></div>
+  </div>
+
+  <p class="sec">📦 Info importante</p>
+  <div class="infog">
+    <div class="ic"><div class="ii">⏰</div><div class="it">Anticipación</div><div class="id">Mínimo 3 días para tu pedido</div></div>
+    <div class="ic"><div class="ii">🚚</div><div class="it">Despacho propio</div><div class="id">Todo Santiago y Pucón con tarifas fijas</div></div>
+    <div class="ic"><div class="ii">💳</div><div class="it">Pagos</div><div class="id">Transferencia o Mercado Pago</div></div>
+    <div class="ic"><div class="ii">🌱</div><div class="it">Sin crueldad</div><div class="id">100% ingredientes vegetales</div></div>
+  </div>
+
+  <footer>
+    <strong>La Manito Del Vegano 🌱</strong>
+    Santiago y Pucón · Chile · @lamanitodelvegano<br>Taller 100% Plant Based · Solo pedidos bajo encargo
+    <div class="flinks">
+      <span class="fl" onclick="goPage('nosotros')">Nosotros</span>
+      <span class="fl" onclick="goPage('blog')">Blog</span>
+      <span class="fl" onclick="goPage('contacto')">Contacto</span>
+    </div>
+  </footer>
+</div>
+
+<!-- NOSOTROS -->
+<div class="pg" id="pg-nosotros">
+  <div class="phero"><h1>Nuestra Historia 🌱</h1><p>Más que comida — es un acto de amor</p></div>
+  <div class="hist">
+    <h2>Nuestra Misión y Legado</h2>
+    <p>Hubo un tiempo donde se creía que ser vegano significaba renunciar al sabor de nuestras tradiciones. <strong>La Manito Del Vegano</strong> nació para desafiar esa creencia. Todo comenzó en una pequeña cocina, con las manos manchadas de harina y el corazón puesto en crear una alternativa ética que mantuviera la esencia de la comida casera chilena.</p>
+    <p>Nuestra mayor victoria llegó después de meses de pruebas y errores: logramos crear el <strong>primer manjar de semilla de cáñamo de todo Chile</strong>. Una receta 100% libre de crueldad, cremosísima y nutritiva que hoy se ha convertido en nuestro sello.</p>
+    <p>Hoy, con mucho orgullo y esfuerzo, nuestro taller despacha cientos de pedidos en <strong>Santiago y Pucón</strong>. Creemos que la revolución comienza en nuestro plato, y cada empanada que elaboramos es un acto de amor hacia los animales, hacia nuestro planeta y hacia ti. 🌱</p>
+  </div>
+  <div class="vals">
+    <div class="val"><div class="vi">🌱</div><div class="vt">Plant Based</div><div class="vd">Cero ingredientes de origen animal</div></div>
+    <div class="val"><div class="vi">✋</div><div class="vt">Artesanal</div><div class="vd">Hecho a mano con amor</div></div>
+    <div class="val"><div class="vi">🌍</div><div class="vt">Consciente</div><div class="vd">Respeto por animales y planeta</div></div>
+    <div class="val"><div class="vi">💚</div><div class="vt">Con propósito</div><div class="vd">Cada bocado tiene una historia</div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('blog')">Blog</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div>
+  </footer>
+</div>
+
+<!-- BLOG -->
+<div class="pg" id="pg-blog">
+  <div class="phero"><h1>Blog Vegano 🌿</h1><p>Recetas, tips y todo sobre el mundo plant based</p></div>
+  <div class="blogg">
+    <div class="bc"><div class="bimg" style="background:#F0FFF4">🌿</div><div class="bbody"><span class="bcat">Nutrición</span><div class="btit">¿Por qué la semilla de cáñamo es el superalimento que necesitas?</div><div class="bex">Rica en proteína completa, Omega 3 y 6.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFF0F5">🥟</div><div class="bbody"><span class="bcat">Recetas</span><div class="btit">Cómo hacer empanadas veganas perfectas en casa</div><div class="bex">Todos los secretos de nuestra masa crocante.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFFBF0">🍯</div><div class="bbody"><span class="bcat">Curiosidades</span><div class="btit">El manjar vegano que nadie creía posible</div><div class="bex">La historia del primer manjar de cáñamo de Chile.</div></div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div>
+  </footer>
+</div>
+
+<!-- CONTACTO -->
+<div class="pg" id="pg-contacto">
+  <div class="phero"><h1>Contáctanos 💬</h1><p>Estamos para ayudarte</p></div>
+  <div class="contcards">
+    <a href="https://wa.me/56990816124" target="_blank" class="cc"><div class="cci" style="background:#D8F3DC">💬</div><div><div class="cch3">WhatsApp</div><div class="ccp">+56 9 9081 6124</div></div></a>
+    <a href="https://instagram.com/lamanitodelvegano" target="_blank" class="cc"><div class="cci" style="background:#FFF0F5">📸</div><div><div class="cch3">Instagram</div><div class="ccp">@lamanitodelvegano</div></div></a>
+    <div class="cc"><div class="cci" style="background:#FFF8E7">📍</div><div><div class="cch3">Ubicación</div><div class="ccp">Santiago y Pucón, Chile</div></div></div>
+  </div>
+  <div class="faqsec">
+    <h2>Preguntas frecuentes</h2>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Con cuánto tiempo debo pedir? <span>▼</span></div><div class="fa">Mínimo 3 días de anticipación.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Hacen despacho a domicilio? <span>▼</span></div><div class="fa">Sí, despacho propio en todo Santiago y Pucón con tarifas fijas.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Cómo pago? <span>▼</span></div><div class="fa">Transferencia bancaria o Mercado Pago.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Qué es el manjar de cáñamo? <span>▼</span></div><div class="fa">Nuestro producto estrella y único en Chile. Manjar 100% vegetal con semillas de cáñamo.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Puedo retirar en persona? <span>▼</span></div><div class="fa">Sí, coordina retiro por WhatsApp sin costo de envío.</div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('blog')">Blog</span></div>
+  </footer>
+</div>
+
+<!-- CARRITO -->
+<div class="co" id="cartov" onclick="cclick(event)">
+  <div class="cp">
+    <div class="hndl"></div>
+    <div class="ctit">🛒 Tu pedido</div>
+    <div id="cartbody"></div>
+    <button class="bclose" onclick="cerrarCarrito()">Seguir viendo productos</button>
+  </div>
+</div>
+
+<!-- LOGIN ADMIN -->
+<div class="loginov" id="loginov" onclick="loginClick(event)">
+  <div class="loginbox">
+    <div style="font-size:44px;margin-bottom:12px">🔐</div>
+    <div class="logintit">Panel Admin</div>
+    <div class="loginsub">La Manito Del Vegano</div>
+    <input class="logininp" id="loginpass" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')checkLogin()">
+    <button class="loginbtn" onclick="checkLogin()">Ingresar al panel</button>
+    <div class="loginerr" id="loginerr">❌ Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="adminov" id="adminov">
+  <div class="adminnav">
+    <h2>⚙️ Panel de Gestión</h2>
+    <button class="adminclose" onclick="cerrarAdmin()">✕ Cerrar</button>
+  </div>
+  <div class="admintabs">
+    <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
+    <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
+    <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
+    <div class="atab" onclick="aTab('stats',this)">📊 Stats</div>
+  </div>
+  <div class="acont" id="acont"></div>
+</div>
+
+<!-- MODAL PRODUCTO -->
+<div class="modalov" id="modalov" onclick="cerrarModal(event)">
+  <div class="modalbox">
+    <div class="hndl"></div>
+    <div class="modaltit" id="modaltit">Nuevo Producto</div>
+    <input type="hidden" id="fid">
+    <div class="frow"><label class="flbl">Nombre *</label><input class="finp" id="fnombre" placeholder="Ej: Empanada Pino Soya"></div>
+    <div class="frow"><label class="flbl">Descripción</label><input class="finp" id="fdesc" placeholder="Descripción corta del producto"></div>
+    <div class="frow2">
+      <div><label class="flbl">Precio * ($)</label><input class="finp" id="fprecio" type="number" placeholder="2500"></div>
+      <div><label class="flbl">Precio anterior ($)</label><input class="finp" id="fprecioant" type="number" placeholder="Opcional"></div>
+    </div>
+    <div class="frow2">
+      <div><label class="flbl">Categoría</label>
+        <select class="fsel" id="fcat">
+          <option value="empanadas">🥟 Empanadas</option>
+          <option value="pies">🫐 Pies</option>
+          <option value="manjares">🍯 Manjares</option>
+          <option value="packs">📦 Packs</option>
+        </select>
+      </div>
+      <div><label class="flbl">Emoji</label><input class="finp" id="femoji" placeholder="🥟"></div>
+    </div>
+    <div class="frow2">
+      <div><label class="flbl">Etiqueta</label>
+        <select class="fsel" id="fetiqueta">
+          <option value="">Sin etiqueta</option>
+          <option value="nuevo">🟢 Nuevo</option>
+          <option value="oferta">🔴 Oferta</option>
+          <option value="estrella">⭐ Estrella</option>
+        </select>
+      </div>
+      <div><label class="flbl">Color fondo</label><input class="finp" id="fcolor" placeholder="#F0FFF4"></div>
+    </div>
+    <div class="frow">
+      <label class="flbl">URL de imagen (opcional)</label>
+      <input class="finp" id="fimagen" placeholder="https://i.imgur.com/...">
+      <small style="color:var(--muted);font-size:10px;margin-top:4px;display:block">💡 Sube tu foto en imgur.com y pega el link directo aquí</small>
+    </div>
+    <button class="bguardar" onclick="guardarProd()">💾 Guardar producto</button>
+    <button class="bcancelar" onclick="document.getElementById('modalov').classList.remove('open')">Cancelar</button>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confov" id="confov">
+  <div class="confbox">
+    <div class="cfic" id="cfic"></div>
+    <div class="cftit" id="cftit"></div>
+    <div class="cfmsg" id="cfmsg"></div>
+    <button class="cfbtn" onclick="cerrarConf()">Perfecto</button>
+  </div>
+</div>
+
+<a href="https://wa.me/56990816124?text=Hola!%20Quiero%20hacer%20un%20pedido%20%F0%9F%8C%B1" target="_blank" class="waf">
+  <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+</a>
+<div class="toast" id="toast"></div>
+
+<!-- CHATBOT WIDGET -->
+<div class="chat-btn" onclick="toggleChat()" id="chatBtn">💬</div>
+<div class="chat-window" id="chatWin">
+  <div class="chat-head">
+    <div class="chat-av">🤖</div>
+    <div>
+      <div class="chat-htit">Asistente Vegano</div>
+      <div class="chat-hsub"><div class="chat-dot"></div> En línea</div>
+    </div>
+    <div style="margin-left:auto; cursor:pointer; font-size:24px; opacity:0.8" onclick="toggleChat()">&times;</div>
+  </div>
+  <div class="chat-body" id="chatBody">
+    <div class="cmsg bot">¡Hola! Soy tu asistente inteligente 🌱. ¿Te puedo ayudar a elegir algo rico hoy o tienes alguna duda?</div>
+  </div>
+  <div class="chat-foot">
+    <input type="text" class="chat-inp" id="chatInp" placeholder="Escribe tu mensaje..." onkeypress="if(event.key==='Enter') sendChat()">
+    <button class="chat-send" id="chatSend" onclick="sendChat()">
+      <svg style="width:18px;height:18px;fill:white" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
+

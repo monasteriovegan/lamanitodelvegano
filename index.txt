@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Manito Del Vegano 🌱</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--v1:#1B4332;--v2:#2D6A4F;--v3:#40916C;--v5:#D8F3DC;--c1:#6B4226;--crema:#FAFAF7;--texto:#1B1B1B;--muted:#7A7A7A;--borde:#EBEBEB;--wa:#25D366;--wa2:#1DA851;--mp:#009EE3;--rojo:#E63946;--am:#F4A261}
+body{font-family:'DM Sans',sans-serif;background:var(--crema);color:var(--texto)}
+/* NAV */
+nav{background:var(--v1);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:300;box-shadow:0 2px 16px rgba(0,0,0,0.3)}
+.nlogo{display:flex;align-items:center;gap:9px;cursor:pointer}
+.nic{width:34px;height:34px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ntxt{font-family:'Fraunces',serif;color:white;font-size:13px;line-height:1.2}
+.ntxt small{display:block;font-size:9px;font-family:'DM Sans',sans-serif;opacity:0.65;letter-spacing:1px;text-transform:uppercase}
+.nmenu{display:flex;gap:2px}
+.nm{color:rgba(255,255,255,0.7);padding:5px 8px;border-radius:7px;font-size:11px;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.nm:hover,.nm.on{color:white;background:rgba(255,255,255,0.12)}
+.nright{display:flex;align-items:center;gap:5px}
+.cbtn{position:relative;background:rgba(255,255,255,0.12);border:none;color:white;width:36px;height:36px;border-radius:9px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cbtn:hover{background:rgba(255,255,255,0.22)}
+.bdg{position:absolute;top:-3px;right:-3px;background:var(--rojo);color:white;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.bdg.h{display:none}
+.abtn{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.8);border:none;padding:5px 9px;border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.abtn:hover{background:rgba(255,255,255,0.2);color:white}
+/* PAGES */
+.pg{display:none}.pg.on{display:block}
+/* HERO */
+.hero{background:linear-gradient(155deg,var(--v1),var(--v2) 55%,var(--v3));padding:38px 18px 52px;text-align:center;position:relative;overflow:hidden}
+.hero::after{content:'🌿';position:absolute;font-size:100px;opacity:0.05;bottom:-15px;right:-8px;transform:rotate(-20deg)}
+.hpill{display:inline-block;background:rgba(255,255,255,0.13);color:white;padding:4px 13px;border-radius:50px;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;border:1px solid rgba(255,255,255,0.22)}
+.hero h1{font-family:'Fraunces',serif;font-size:clamp(24px,7vw,40px);color:white;line-height:1.15;margin-bottom:9px}
+.hero h1 em{font-style:italic;color:#74C69D}
+.hero p{color:rgba(255,255,255,0.78);font-size:13px;margin-bottom:20px;line-height:1.6}
+.htags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
+.htag{background:rgba(255,255,255,0.11);color:white;padding:4px 11px;border-radius:50px;font-size:10px;border:1px solid rgba(255,255,255,0.18)}
+.hbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.btnw{background:white;color:var(--v2);padding:11px 20px;border-radius:50px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btno{background:transparent;color:white;padding:11px 20px;border-radius:50px;font-size:13px;font-weight:600;border:2px solid rgba(255,255,255,0.35);cursor:pointer;font-family:'DM Sans',sans-serif}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);background:white;border-bottom:1px solid var(--borde)}
+.st{text-align:center;padding:13px 4px;border-right:1px solid var(--borde)}
+.st:last-child{border-right:none}
+.stn{font-family:'Fraunces',serif;font-size:19px;color:var(--v2);font-weight:900}
+.stl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}
+/* DESTACADOS */
+.dest-sec{padding:16px}
+.dest-sec h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.dest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.dest-card{border-radius:16px;overflow:hidden;position:relative;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.12)}
+.dest-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative}
+.dest-img img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.dest-img-emoji{position:relative;z-index:1;font-size:64px}
+.dest-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%);display:flex;flex-direction:column;justify-content:flex-end;padding:14px}
+.dest-name{font-family:'Fraunces',serif;font-size:17px;color:white;margin-bottom:3px}
+.dest-price{font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:8px}
+.dest-btn{background:white;color:var(--v2);border:none;padding:7px 14px;border-radius:50px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.dest-badge{position:absolute;top:10px;left:10px;background:var(--rojo);color:white;padding:3px 9px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;z-index:2}
+/* ENVIO BANNER */
+.ebanner{margin:0 16px 16px;background:linear-gradient(135deg,#E8F4FD,#D6EAF8);border-radius:14px;padding:16px;border:1px solid #AED6F1}
+.ebtit{font-family:'Fraunces',serif;font-size:15px;color:#1A5276;margin-bottom:9px}
+.zgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.zitem{background:white;border-radius:9px;padding:9px 11px;display:flex;justify-content:space-between;align-items:center}
+.znom{font-size:11px;font-weight:600}
+.zcom{font-size:9px;color:var(--muted)}
+.zpre{font-family:'Fraunces',serif;font-size:13px;color:var(--v2);font-weight:700}
+.zgrat{font-family:'Fraunces',serif;font-size:12px;color:var(--wa);font-weight:700}
+/* CATS */
+.cats{display:flex;gap:7px;padding:12px 16px 6px;overflow-x:auto;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{white-space:nowrap;padding:6px 13px;border-radius:50px;border:2px solid var(--borde);background:white;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif}
+.cat.on,.cat:hover{background:var(--v2);border-color:var(--v2);color:white}
+/* GRID PRODUCTOS */
+.sec{font-family:'Fraunces',serif;font-size:16px;color:var(--c1);padding:11px 16px 9px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:10px;padding:0 16px 8px}
+.card{background:white;border-radius:14px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06);transition:transform 0.2s}
+.card:hover{transform:translateY(-3px)}
+.cimg{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
+.cimg img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.cimg-e{position:relative;z-index:1;font-size:42px}
+.ctag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:50px;font-size:8px;font-weight:700;text-transform:uppercase;z-index:2}
+.tn{background:var(--v2);color:white}.to{background:var(--rojo);color:white}.te{background:var(--am);color:white}
+.cbody{padding:9px 10px 10px}
+.cname{font-weight:600;font-size:11px;margin-bottom:2px}
+.cdesc{font-size:10px;color:var(--muted);margin-bottom:7px;line-height:1.3}
+.cfoot{display:flex;align-items:center;justify-content:space-between}
+.cprice{font-family:'Fraunces',serif;font-size:14px;color:var(--v2);font-weight:700}
+.cold{font-size:9px;color:#ccc;text-decoration:line-through;display:block}
+.badd{background:var(--v2);color:white;border:none;width:26px;height:26px;border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qc{display:flex;align-items:center;gap:4px}
+.qb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qb.p{background:var(--v2);color:white}
+.qn{font-weight:700;font-size:12px;color:var(--v2);min-width:12px;text-align:center}
+/* RESEÑAS */
+.reswrap{padding:0 16px 20px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.reswrap::-webkit-scrollbar{display:none}
+.res{background:white;border-radius:13px;padding:12px;min-width:195px;box-shadow:0 2px 7px rgba(0,0,0,0.05);flex-shrink:0}
+.ress{color:var(--am);font-size:11px;margin-bottom:5px}
+.rest{font-size:11px;color:var(--texto);line-height:1.5;margin-bottom:6px;font-style:italic}
+.resa{font-size:10px;color:var(--muted);font-weight:600}
+/* INFO */
+.infog{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 22px}
+.ic{background:white;border-radius:12px;padding:12px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
+.ii{font-size:21px;margin-bottom:4px}
+.it{font-weight:600;font-size:11px;margin-bottom:2px}
+.id{font-size:10px;color:var(--muted);line-height:1.3}
+/* OTRAS PAGINAS */
+.phero{padding:30px 18px;text-align:center;background:linear-gradient(135deg,var(--v1),var(--v2))}
+.phero h1{font-family:'Fraunces',serif;font-size:24px;color:white;margin-bottom:5px}
+.phero p{color:rgba(255,255,255,0.78);font-size:13px}
+.hist{padding:20px 18px}
+.hist h2{font-family:'Fraunces',serif;font-size:18px;color:var(--c1);margin-bottom:10px}
+.hist p{font-size:13px;line-height:1.75;margin-bottom:10px}
+.vals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 18px}
+.val{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,0.05)}
+.vi{font-size:24px;margin-bottom:6px}
+.vt{font-weight:700;font-size:12px;color:var(--v2);margin-bottom:2px}
+.vd{font-size:10px;color:var(--muted);line-height:1.4}
+.blogg{display:grid;gap:12px;padding:16px}
+.bc{background:white;border-radius:15px;overflow:hidden;box-shadow:0 2px 9px rgba(0,0,0,0.06)}
+.bimg{height:100px;display:flex;align-items:center;justify-content:center;font-size:48px}
+.bbody{padding:12px 14px 14px}
+.bcat{display:inline-block;background:var(--v5);color:var(--v2);padding:2px 8px;border-radius:50px;font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:6px}
+.btit{font-family:'Fraunces',serif;font-size:14px;margin-bottom:4px;line-height:1.3}
+.bex{font-size:11px;color:var(--muted);line-height:1.5}
+.contcards{display:grid;gap:10px;padding:16px}
+.cc{background:white;border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 9px rgba(0,0,0,0.06);text-decoration:none;color:inherit}
+.cci{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.cch3{font-weight:700;font-size:13px;margin-bottom:1px}
+.ccp{font-size:11px;color:var(--muted)}
+.faqsec{padding:0 16px 26px}
+.faqsec h2{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:11px}
+.fi{background:white;border-radius:11px;margin-bottom:6px;overflow:hidden}
+.fq{padding:12px 14px;font-weight:600;font-size:12px;cursor:pointer;display:flex;justify-content:space-between}
+.fa{padding:0 14px 12px;font-size:12px;color:var(--muted);line-height:1.6;display:none}
+.fa.open{display:block}
+/* CARRITO */
+.co{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:flex-end;justify-content:center}
+.co.open{display:flex}
+.cp{background:white;border-radius:20px 20px 0 0;padding:16px 15px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.hndl{width:32px;height:4px;background:#E0E0E0;border-radius:2px;margin:0 auto 14px}
+.ctit{font-family:'Fraunces',serif;font-size:20px;margin-bottom:12px}
+.cempty{text-align:center;padding:26px 0;color:var(--muted);font-size:13px}
+.cempty span{font-size:38px;display:block;margin-bottom:8px}
+.citem{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--borde)}
+.ciem{font-size:22px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;flex-shrink:0;overflow:hidden}
+.ciem img{width:100%;height:100%;object-fit:cover}
+.ciin{flex:1}
+.cin{font-weight:600;font-size:12px}
+.cip{font-size:11px;color:var(--v2);font-weight:600}
+.cic{display:flex;align-items:center;gap:4px}
+.cb{background:var(--borde);border:none;width:22px;height:22px;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cb.p{background:var(--v2);color:white}
+.cq{font-weight:700;font-size:12px;min-width:12px;text-align:center}
+.ensec{background:#F0F9FF;border-radius:12px;padding:12px;margin:10px 0}
+.entit{font-weight:700;font-size:12px;margin-bottom:8px;color:#1A5276}
+.selzona{width:100%;padding:9px 12px;border:2px solid #AED6F1;border-radius:9px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white;margin-bottom:7px}
+.endet{background:white;border-radius:9px;padding:9px 12px;font-size:11px;display:flex;justify-content:space-between;align-items:center}
+.totwrap{padding:4px 0 8px}
+.totrow{display:flex;justify-content:space-between;padding:2px 0}
+.totsub{font-size:11px;color:var(--muted)}
+.totdiv{border-top:1px solid var(--borde);margin:7px 0}
+.totlbl{font-weight:700;font-size:14px}
+.totamt{font-family:'Fraunces',serif;font-size:24px;color:var(--v2)}
+.ftit{font-weight:600;font-size:12px;margin:12px 0 8px}
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:11px}
+.fb{padding:7px 3px;border-radius:9px;border:2px solid var(--borde);background:white;text-align:center;font-family:'DM Sans',sans-serif}
+.fb.ok{cursor:pointer}
+.fb.ok:hover,.fb.sel{border-color:var(--v2);background:var(--v5)}
+.fb.no{background:#F7F7F7;cursor:not-allowed;opacity:0.4}
+.fd{font-size:8px;color:var(--muted);text-transform:uppercase}
+.fn{font-size:15px;font-weight:700}
+.fm{font-size:8px;color:var(--muted)}
+.fs{font-size:8px;margin-top:1px}
+.fb.ok .fs{color:var(--v2)}.fb.no .fs,.fb.no .fn{color:#ccc}.fb.sel .fs{color:var(--v2);font-weight:700}
+.ilbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block}
+.inp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:8px}
+.inp:focus{border-color:var(--v2)}
+.alrt{background:#FFF8E7;border:1px solid var(--am);border-radius:9px;padding:8px 12px;font-size:11px;color:#8B5E3C;margin-bottom:8px}
+.bwab{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--wa);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
+.bwab:hover{background:var(--wa2)}
+.bmpb{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--mp);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'DM Sans',sans-serif}
+.bclose{width:100%;background:#F3F3F3;border:none;padding:10px;border-radius:12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+/* ADMIN */
+.loginov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;align-items:center;justify-content:center;padding:20px}
+.loginov.open{display:flex}
+.loginbox{background:white;border-radius:20px;padding:30px 24px;text-align:center;max-width:320px;width:100%}
+.logintit{font-family:'Fraunces',serif;font-size:22px;margin-bottom:6px}
+.loginsub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.logininp{width:100%;padding:12px 14px;border:2px solid var(--borde);border-radius:11px;font-size:16px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;text-align:center;letter-spacing:4px}
+.logininp:focus{border-color:var(--v2)}
+.loginbtn{background:var(--v2);color:white;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif}
+.loginerr{color:var(--rojo);font-size:12px;margin-top:8px;display:none}
+.adminov{display:none;position:fixed;inset:0;background:#F8F9FA;z-index:600;overflow-y:auto}
+.adminov.open{display:block}
+.adminnav{background:var(--v1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.adminnav h2{font-family:'Fraunces',serif;color:white;font-size:17px}
+.adminclose{background:rgba(255,255,255,0.15);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px}
+.admintabs{display:flex;background:white;border-bottom:2px solid var(--borde);padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.admintabs::-webkit-scrollbar{display:none}
+.atab{padding:11px 13px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.atab.on{color:var(--v2);border-bottom-color:var(--v2)}
+.acont{padding:16px}
+.asub{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:5px}
+.adesc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.astats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.ast{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.astn{font-family:'Fraunces',serif;font-size:26px;color:var(--v2);font-weight:900}
+.astl{font-size:10px;color:var(--muted);margin-top:2px}
+.prodadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.pahead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.paemoji{font-size:26px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex-shrink:0;overflow:hidden}
+.paemoji img{width:100%;height:100%;object-fit:cover}
+.painfo{flex:1}
+.paname{font-weight:700;font-size:13px}
+.paprice{font-size:12px;color:var(--v2);font-weight:600}
+.pacat{font-size:10px;color:var(--muted)}
+.pabtns{display:flex;gap:6px;flex-wrap:wrap}
+.pabtn{padding:6px 11px;border-radius:8px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btnuevo{background:var(--v2);color:white;border:none;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;margin-bottom:13px}
+.zadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.zahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.zanom{font-weight:700;font-size:13px}
+/* MODAL */
+.modalov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:700;align-items:flex-end;justify-content:center}
+.modalov.open{display:flex}
+.modalbox{background:white;border-radius:20px 20px 0 0;padding:18px 16px 36px;width:100%;max-width:500px;max-height:88vh;overflow-y:auto;animation:up 0.3s ease}
+.modaltit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:14px}
+.frow{margin-bottom:10px}
+.flbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
+.finp{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none}
+.finp:focus{border-color:var(--v2)}
+.fsel{width:100%;padding:10px 12px;border:2px solid var(--borde);border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:white}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.bguardar{background:var(--v2);color:white;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;margin:10px 0 8px}
+.bcancelar{background:#F3F3F3;color:var(--muted);border:none;padding:11px;border-radius:12px;font-size:13px;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif}
+/* CONFIRM */
+.confov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:900;align-items:center;justify-content:center;padding:20px}
+.confov.open{display:flex}
+.confbox{background:white;border-radius:20px;padding:28px 20px;text-align:center;max-width:310px;width:100%;animation:pop 0.3s ease}
+@keyframes pop{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.cfic{font-size:50px;margin-bottom:11px}
+.cftit{font-family:'Fraunces',serif;font-size:19px;margin-bottom:6px}
+.cfmsg{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;white-space:pre-line}
+.cfbtn{background:var(--v2);color:white;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+/* WA FLOAT */
+.waf{position:fixed;bottom:20px;right:16px;z-index:400;background:var(--wa);color:white;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,0.4);text-decoration:none}
+.waf svg{width:23px;height:23px;fill:white}
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--v2);color:white;padding:8px 16px;border-radius:50px;font-size:12px;z-index:1000;font-family:'DM Sans',sans-serif;pointer-events:none;opacity:0;transition:opacity 0.3s;white-space:nowrap}
+.toast.show{opacity:1}
+/* FOOTER */
+footer{background:var(--v1);color:rgba(255,255,255,0.6);padding:24px 16px;font-size:11px;line-height:1.8}
+footer strong{color:white;font-size:13px;display:block;margin-bottom:4px;font-family:'Fraunces',serif}
+.flinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
+.fl{color:rgba(255,255,255,0.45);cursor:pointer;font-size:10px}
+.fl:hover{color:white}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nlogo" onclick="goPage('home')">
+    <div class="nic">🌱</div>
+    <div class="ntxt">La Manito Del Vegano<small>Plant Based · Chile</small></div>
+  </div>
+  <div class="nmenu">
+    <button class="nm on" onclick="goPage('home')">Inicio</button>
+    <button class="nm" onclick="goPage('nosotros')">Nosotros</button>
+    <button class="nm" onclick="goPage('blog')">Blog</button>
+    <button class="nm" onclick="goPage('contacto')">Contacto</button>
+  </div>
+  <div class="nright">
+    <button class="abtn" onclick="abrirLogin()">⚙️ Admin</button>
+    <button class="cbtn" onclick="abrirCarrito()">🛒<span class="bdg h" id="bdg">0</span></button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="pg on" id="pg-home">
+  <div class="hero">
+    <div class="hpill">🌿 Taller Plant Based</div>
+    <h1>Comida vegana<br>que <em>enamora</em></h1>
+    <p>Elaboramos con amor y conciencia.<br>Solo pedidos · Santiago · Despacho propio</p>
+    <div class="htags">
+      <span class="htag">🌱 100% Vegano</span>
+      <span class="htag">✋ Artesanal</span>
+      <span class="htag">📅 Pedido anticipado</span>
+      <span class="htag">🚚 Despacho propio</span>
+    </div>
+    <div class="hbtns">
+      <button class="btnw" onclick="document.getElementById('prodsec').scrollIntoView({behavior:'smooth'})">Ver productos 🛒</button>
+      <button class="btno" onclick="goPage('nosotros')">Nuestra historia</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="stn">3.8K</div><div class="stl">Seguidores</div></div>
+    <div class="st"><div class="stn">125</div><div class="stl">Posts</div></div>
+    <div class="st"><div class="stn">100%</div><div class="stl">Vegano</div></div>
+    <div class="st"><div class="stn">⭐4.9</div><div class="stl">Rating</div></div>
+  </div>
+
+  <!-- DESTACADOS -->
+  <div class="dest-sec" id="dest-sec">
+    <h2>⭐ Destacados & Ofertas</h2>
+    <div class="dest-grid" id="dest-grid"></div>
+  </div>
+
+  <!-- ZONAS BANNER -->
+  <div class="ebanner">
+    <div class="ebtit">🚚 Despacho propio — Tarifas</div>
+    <div class="zgrid" id="zbanner"></div>
+  </div>
+
+  <!-- CATEGORIAS -->
+  <div class="cats">
+    <button class="cat on" onclick="filtrar('todos',this)">Todos</button>
+    <button class="cat" onclick="filtrar('empanadas',this)">🥟 Empanadas</button>
+    <button class="cat" onclick="filtrar('pies',this)">🫐 Pies</button>
+    <button class="cat" onclick="filtrar('manjares',this)">🍯 Manjares</button>
+    <button class="cat" onclick="filtrar('packs',this)">📦 Packs</button>
+  </div>
+
+  <p class="sec" id="prodsec">🌿 Nuestros productos</p>
+  <div class="grid" id="pgrid"></div>
+
+  <p class="sec">💬 Lo que dicen nuestros clientes</p>
+  <div class="reswrap">
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"Las empanadas de soya son increíbles. No puedo creer que sean veganas!"</div><div class="resa">— Valentina M., Santiago</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El manjar de cáñamo es lo mejor que he probado. Único en Chile."</div><div class="resa">— Rodrigo P., Pucón</div></div>
+    <div class="res"><div class="ress">★★★★★</div><div class="rest">"El pie de arándanos es una obra de arte."</div><div class="resa">— Camila R., Providencia</div></div>
+    <div class="res"><div class="ress">★★★★☆</div><div class="rest">"Super puntual el despacho. Se nota el amor."</div><div class="resa">— Felipe A., Ñuñoa</div></div>
+  </div>
+
+  <p class="sec">📦 Info importante</p>
+  <div class="infog">
+    <div class="ic"><div class="ii">⏰</div><div class="it">Anticipación</div><div class="id">Mínimo 3 días para tu pedido</div></div>
+    <div class="ic"><div class="ii">🚚</div><div class="it">Despacho propio</div><div class="id">Todo Santiago con tarifas fijas</div></div>
+    <div class="ic"><div class="ii">💳</div><div class="it">Pagos</div><div class="id">Transferencia o Mercado Pago</div></div>
+    <div class="ic"><div class="ii">🌱</div><div class="it">Sin crueldad</div><div class="id">100% ingredientes vegetales</div></div>
+  </div>
+
+  <footer>
+    <strong>La Manito Del Vegano 🌱</strong>
+    Santiago · Chile · @lamanitodelvegano<br>Taller 100% Plant Based · Solo pedidos bajo encargo
+    <div class="flinks">
+      <span class="fl" onclick="goPage('nosotros')">Nosotros</span>
+      <span class="fl" onclick="goPage('blog')">Blog</span>
+      <span class="fl" onclick="goPage('contacto')">Contacto</span>
+    </div>
+  </footer>
+</div>
+
+<!-- NOSOTROS -->
+<div class="pg" id="pg-nosotros">
+  <div class="phero"><h1>Nuestra Historia 🌱</h1><p>Más que comida — es un acto de amor</p></div>
+  <div class="hist">
+    <h2>¿Quiénes somos?</h2>
+    <p>La Manito Del Vegano nació de una convicción profunda: que la alimentación plant based puede ser deliciosa, accesible y llena de amor. Desde nuestra cocina en Santiago, elaboramos cada producto con ingredientes 100% vegetales.</p>
+    <p>Empezamos con una receta de empanadas y hoy tenemos un catálogo completo que incluye nuestro producto más especial: el manjar de semilla de cáñamo — el único en Chile.</p>
+  </div>
+  <div class="vals">
+    <div class="val"><div class="vi">🌱</div><div class="vt">Plant Based</div><div class="vd">Cero ingredientes de origen animal</div></div>
+    <div class="val"><div class="vi">✋</div><div class="vt">Artesanal</div><div class="vd">Hecho a mano con amor</div></div>
+    <div class="val"><div class="vi">🌍</div><div class="vt">Consciente</div><div class="vd">Respeto por animales y planeta</div></div>
+    <div class="val"><div class="vi">💚</div><div class="vt">Con propósito</div><div class="vd">Cada bocado tiene una historia</div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('blog')">Blog</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div>
+  </footer>
+</div>
+
+<!-- BLOG -->
+<div class="pg" id="pg-blog">
+  <div class="phero"><h1>Blog Vegano 🌿</h1><p>Recetas, tips y todo sobre el mundo plant based</p></div>
+  <div class="blogg">
+    <div class="bc"><div class="bimg" style="background:#F0FFF4">🌿</div><div class="bbody"><span class="bcat">Nutrición</span><div class="btit">¿Por qué la semilla de cáñamo es el superalimento que necesitas?</div><div class="bex">Rica en proteína completa, Omega 3 y 6.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFF0F5">🥟</div><div class="bbody"><span class="bcat">Recetas</span><div class="btit">Cómo hacer empanadas veganas perfectas en casa</div><div class="bex">Todos los secretos de nuestra masa crocante.</div></div></div>
+    <div class="bc"><div class="bimg" style="background:#FFFBF0">🍯</div><div class="bbody"><span class="bcat">Curiosidades</span><div class="btit">El manjar vegano que nadie creía posible</div><div class="bex">La historia del primer manjar de cáñamo de Chile.</div></div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('contacto')">Contacto</span></div>
+  </footer>
+</div>
+
+<!-- CONTACTO -->
+<div class="pg" id="pg-contacto">
+  <div class="phero"><h1>Contáctanos 💬</h1><p>Estamos para ayudarte</p></div>
+  <div class="contcards">
+    <a href="https://wa.me/56990816124" target="_blank" class="cc"><div class="cci" style="background:#D8F3DC">💬</div><div><div class="cch3">WhatsApp</div><div class="ccp">+56 9 9081 6124</div></div></a>
+    <a href="https://instagram.com/lamanitodelvegano" target="_blank" class="cc"><div class="cci" style="background:#FFF0F5">📸</div><div><div class="cch3">Instagram</div><div class="ccp">@lamanitodelvegano</div></div></a>
+    <div class="cc"><div class="cci" style="background:#FFF8E7">📍</div><div><div class="cch3">Ubicación</div><div class="ccp">Santiago, Chile</div></div></div>
+  </div>
+  <div class="faqsec">
+    <h2>Preguntas frecuentes</h2>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Con cuánto tiempo debo pedir? <span>▼</span></div><div class="fa">Mínimo 3 días de anticipación.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Hacen despacho a domicilio? <span>▼</span></div><div class="fa">Sí, despacho propio en todo Santiago con tarifas fijas.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Cómo pago? <span>▼</span></div><div class="fa">Transferencia bancaria o Mercado Pago.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Qué es el manjar de cáñamo? <span>▼</span></div><div class="fa">Nuestro producto estrella y único en Chile. Manjar 100% vegetal con semillas de cáñamo.</div></div>
+    <div class="fi"><div class="fq" onclick="tfaq(this)">¿Puedo retirar en persona? <span>▼</span></div><div class="fa">Sí, coordina retiro por WhatsApp sin costo de envío.</div></div>
+  </div>
+  <footer><strong>La Manito Del Vegano 🌱</strong>@lamanitodelvegano · Santiago
+    <div class="flinks"><span class="fl" onclick="goPage('home')">Inicio</span><span class="fl" onclick="goPage('nosotros')">Nosotros</span><span class="fl" onclick="goPage('blog')">Blog</span></div>
+  </footer>
+</div>
+
+<!-- CARRITO -->
+<div class="co" id="cartov" onclick="cclick(event)">
+  <div class="cp">
+    <div class="hndl"></div>
+    <div class="ctit">🛒 Tu pedido</div>
+    <div id="cartbody"></div>
+    <button class="bclose" onclick="cerrarCarrito()">Seguir viendo productos</button>
+  </div>
+</div>
+
+<!-- LOGIN ADMIN -->
+<div class="loginov" id="loginov" onclick="loginClick(event)">
+  <div class="loginbox">
+    <div style="font-size:44px;margin-bottom:12px">🔐</div>
+    <div class="logintit">Panel Admin</div>
+    <div class="loginsub">La Manito Del Vegano</div>
+    <input class="logininp" id="loginpass" type="password" placeholder="••••••" onkeypress="if(event.key==='Enter')checkLogin()">
+    <button class="loginbtn" onclick="checkLogin()">Ingresar al panel</button>
+    <div class="loginerr" id="loginerr">❌ Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="adminov" id="adminov">
+  <div class="adminnav">
+    <h2>⚙️ Panel de Gestión</h2>
+    <button class="adminclose" onclick="cerrarAdmin()">✕ Cerrar</button>
+  </div>
+  <div class="admintabs">
+    <div class="atab on" onclick="aTab('productos',this)">🌿 Productos</div>
+    <div class="atab" onclick="aTab('destacados',this)">⭐ Destacados</div>
+    <div class="atab" onclick="aTab('zonas',this)">🚚 Envíos</div>
+    <div class="atab" onclick="aTab('stats',this)">📊 Stats</div>
+  </div>
+  <div class="acont" id="acont"></div>
+</div>
+
+<!-- MODAL PRODUCTO -->
+<div class="modalov" id="modalov" onclick="cerrarModal(event)">
+  <div class="modalbox">
+    <div class="hndl"></div>
+    <div class="modaltit" id="modaltit">Nuevo Producto</div>
+    <input type="hidden" id="fid">
+    <div class="frow"><label class="flbl">Nombre *</label><input class="finp" id="fnombre" placeholder="Ej: Empanada Pino Soya"></div>
+    <div class="frow"><label class="flbl">Descripción</label><input class="finp" id="fdesc" placeholder="Descripción corta del producto"></div>
+    <div class="frow2">
+      <div><label class="flbl">Precio * ($)</label><input class="finp" id="fprecio" type="number" placeholder="2500"></div>
+      <div><label class="flbl">Precio anterior ($)</label><input class="finp" id="fprecioant" type="number" placeholder="Opcional"></div>
+    </div>
+    <div class="frow2">
+      <div><label class="flbl">Categoría</label>
+        <select class="fsel" id="fcat">
+          <option value="empanadas">🥟 Empanadas</option>
+          <option value="pies">🫐 Pies</option>
+          <option value="manjares">🍯 Manjares</option>
+          <option value="packs">📦 Packs</option>
+        </select>
+      </div>
+      <div><label class="flbl">Emoji</label><input class="finp" id="femoji" placeholder="🥟"></div>
+    </div>
+    <div class="frow2">
+      <div><label class="flbl">Etiqueta</label>
+        <select class="fsel" id="fetiqueta">
+          <option value="">Sin etiqueta</option>
+          <option value="nuevo">🟢 Nuevo</option>
+          <option value="oferta">🔴 Oferta</option>
+          <option value="estrella">⭐ Estrella</option>
+        </select>
+      </div>
+      <div><label class="flbl">Color fondo</label><input class="finp" id="fcolor" placeholder="#F0FFF4"></div>
+    </div>
+    <div class="frow">
+      <label class="flbl">URL de imagen (opcional)</label>
+      <input class="finp" id="fimagen" placeholder="https://i.imgur.com/...">
+      <small style="color:var(--muted);font-size:10px;margin-top:4px;display:block">💡 Sube tu foto en imgur.com y pega el link directo aquí</small>
+    </div>
+    <button class="bguardar" onclick="guardarProd()">💾 Guardar producto</button>
+    <button class="bcancelar" onclick="document.getElementById('modalov').classList.remove('open')">Cancelar</button>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confov" id="confov">
+  <div class="confbox">
+    <div class="cfic" id="cfic"></div>
+    <div class="cftit" id="cftit"></div>
+    <div class="cfmsg" id="cfmsg"></div>
+    <button class="cfbtn" onclick="cerrarConf()">Perfecto</button>
+  </div>
+</div>
+
+<a href="https://wa.me/56990816124?text=Hola!%20Quiero%20hacer%20un%20pedido%20%F0%9F%8C%B1" target="_blank" class="waf">
+  <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+</a>
+<div class="toast" id="toast"></div>
+
+<script>
+var DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+var MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+var ADMIN_PASS = 'manito2024';
+var editandoId = null;
+
+var productos = [
+  {id:1,nombre:'Empanada Pino Soya',descripcion:'Pino de soya jugoso, aceitunas y pimentón.',precio:2500,precio_anterior:null,categoria:'empanadas',emoji:'🥟',color_fondo:'#F0FFF4',etiqueta:'nuevo',etiqueta_label:'Nuevo',imagen_url:null,destacado:false},
+  {id:2,nombre:'Empanada Champiñón',descripcion:'Champiñones salteados, queso vegano y tomillo.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍄',color_fondo:'#F5FFF5',etiqueta:null,etiqueta_label:null,imagen_url:null,destacado:false},
+  {id:3,nombre:'Empanada Napolitana',descripcion:'Tomate, albahaca fresca y queso vegano.',precio:2800,precio_anterior:null,categoria:'empanadas',emoji:'🍅',color_fondo:'#FFF5F0',etiqueta:null,etiqueta_label:null,imagen_url:null,destacado:false},
+  {id:4,nombre:'Pie de Arándanos',descripcion:'Masa crocante, arándanos y crema de coco.',precio:18900,precio_anterior:22000,categoria:'pies',emoji:'🫐',color_fondo:'#F5F0FF',etiqueta:'oferta',etiqueta_label:'Oferta',imagen_url:null,destacado:true},
+  {id:5,nombre:'Manjar de Cáñamo',descripcion:'El único en Chile. 100% vegetal con semilla de cáñamo.',precio:8500,precio_anterior:null,categoria:'manjares',emoji:'🍯',color_fondo:'#FFFBF0',etiqueta:'estrella',etiqueta_label:'⭐ Único',imagen_url:null,destacado:true},
+  {id:6,nombre:'Pack 10 Empanadas',descripcion:'Elige 10 empanadas a tu gusto.',precio:23900,precio_anterior:28000,categoria:'packs',emoji:'📦',color_fondo:'#FFF0F5',etiqueta:'oferta',etiqueta_label:'Oferta',imagen_url:null,destacado:false}
+];
+
+var zonas = [
+  {nombre:'Centro / Providencia',comunas:'Santiago, Providencia, Ñuñoa, Macul',precio:2000},
+  {nombre:'Zona Oriente',comunas:'Las Condes, Vitacura, La Reina, Peñalolén',precio:2500},
+  {nombre:'Zona Sur',comunas:'La Florida, Puente Alto, San Bernardo',precio:3500},
+  {nombre:'Zona Poniente',comunas:'Maipú, Pudahuel, Cerrillos, Renca',precio:3500},
+  {nombre:'Zona Norte',comunas:'Quilicura, Recoleta, Independencia, Conchalí',precio:3000},
+  {nombre:'Retiro en persona',comunas:'Coordinar por WhatsApp',precio:0}
+];
+
+var carrito = {};
+var zonaSel = null;
+var fechaSel = null;
+var catActual = 'todos';
+var nombreG = '';
+var dirG = '';
+
+// ============================================================
+// NAVEGACIÓN
+// ============================================================
+function goPage(id) {
+  var pgs = document.querySelectorAll('.pg');
+  for (var i = 0; i < pgs.length; i++) pgs[i].classList.remove('on');
+  document.getElementById('pg-' + id).classList.add('on');
+  var nms = document.querySelectorAll('.nm');
+  for (var i = 0; i < nms.length; i++) nms[i].classList.remove('on');
+  var idx = {home:0,nosotros:1,blog:2,contacto:3};
+  if (nms[idx[id]]) nms[idx[id]].classList.add('on');
+  window.scrollTo(0,0);
+}
+
+// ============================================================
+// DESTACADOS
+// ============================================================
+function renderDestacados() {
+  var dest = productos.filter(function(p){ return p.destacado; });
+  var sec = document.getElementById('dest-sec');
+  var grid = document.getElementById('dest-grid');
+  if (dest.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  var h = '';
+  for (var i = 0; i < dest.length; i++) {
+    var p = dest[i];
+    h += '<div class="dest-card">';
+    h += '<div class="dest-img" style="background:' + p.color_fondo + '">';
+    if (p.etiqueta === 'oferta') h += '<span class="dest-badge">OFERTA</span>';
+    if (p.imagen_url) h += '<img src="' + p.imagen_url + '" onerror="this.style.display=\'none\'">';
+    h += '<span class="dest-img-emoji">' + p.emoji + '</span>';
+    h += '</div>';
+    h += '<div class="dest-overlay">';
+    h += '<div class="dest-name">' + p.nombre + '</div>';
+    h += '<div class="dest-price">';
+    if (p.precio_anterior) h += '<span style="text-decoration:line-through;opacity:0.7;margin-right:6px">$' + p.precio_anterior.toLocaleString('es-CL') + '</span>';
+    h += '$' + p.precio.toLocaleString('es-CL') + '</div>';
+    h += '<button class="dest-btn" onclick="addCart(' + p.id + ')">🛒 Agregar al carrito</button>';
+    h += '</div></div>';
+  }
+  grid.innerHTML = h;
+}
+
+// ============================================================
+// ZONAS BANNER
+// ============================================================
+function renderZonas() {
+  var z = zonas.slice(0,4);
+  var h = '';
+  for (var i = 0; i < z.length; i++) {
+    h += '<div class="zitem"><div><div class="znom">' + z[i].nombre + '</div>';
+    h += '<div class="zcom">' + z[i].comunas.split(',')[0] + '...</div></div>';
+    h += z[i].precio === 0 ? '<span class="zgrat">Gratis</span>' : '<span class="zpre">$' + z[i].precio.toLocaleString('es-CL') + '</span>';
+    h += '</div>';
+  }
+  document.getElementById('zbanner').innerHTML = h;
+}
+
+// ============================================================
+// GRID PRODUCTOS
+// ============================================================
+function filtrar(cat, btn) {
+  catActual = cat;
+  var cats = document.querySelectorAll('.cat');
+  for (var i = 0; i < cats.length; i++) cats[i].classList.remove('on');
+  btn.classList.add('on');
+  renderGrid();
+}
+
+function renderGrid() {
+  var g = document.getElementById('pgrid');
+  var f = catActual === 'todos' ? productos : productos.filter(function(p){ return p.categoria === catActual; });
+  if (f.length === 0) { g.innerHTML = '<p style="padding:20px;color:var(--muted);font-size:13px">No hay productos en esta categoría.</p>'; return; }
+  var h = '';
+  for (var i = 0; i < f.length; i++) {
+    var p = f[i];
+    var qty = carrito[p.id] ? carrito[p.id].qty : 0;
+    var tc = p.etiqueta === 'nuevo' ? 'tn' : p.etiqueta === 'oferta' ? 'to' : 'te';
+    h += '<div class="card"><div class="cimg" style="background:' + p.color_fondo + '">';
+    if (p.etiqueta) h += '<span class="ctag ' + tc + '">' + p.etiqueta_label + '</span>';
+    if (p.imagen_url) h += '<img src="' + p.imagen_url + '" onerror="this.style.display=\'none\'">';
+    h += '<span class="cimg-e">' + p.emoji + '</span>';
+    h += '</div><div class="cbody"><div class="cname">' + p.nombre + '</div>';
+    h += '<div class="cdesc">' + p.descripcion + '</div>';
+    h += '<div class="cfoot"><div>';
+    if (p.precio_anterior) h += '<span class="cold">$' + p.precio_anterior.toLocaleString('es-CL') + '</span>';
+    h += '<span class="cprice">$' + p.precio.toLocaleString('es-CL') + '</span></div>';
+    if (qty > 0) {
+      h += '<div class="qc"><button class="qb" onclick="chQty(' + p.id + ',-1)">-</button><span class="qn">' + qty + '</span><button class="qb p" onclick="chQty(' + p.id + ',1)">+</button></div>';
+    } else {
+      h += '<button class="badd" onclick="addCart(' + p.id + ')">+</button>';
+    }
+    h += '</div></div></div>';
+  }
+  g.innerHTML = h;
+}
+
+function addCart(id) {
+  var p = null;
+  for (var i = 0; i < productos.length; i++) { if (productos[i].id === id) { p = productos[i]; break; } }
+  if (!p) return;
+  if (!carrito[id]) carrito[id] = {id:p.id,nombre:p.nombre,precio:p.precio,emoji:p.emoji,color_fondo:p.color_fondo,imagen_url:p.imagen_url,qty:0};
+  carrito[id].qty++;
+  updBdg(); renderGrid();
+  showToast('✅ ' + p.nombre + ' agregado');
+}
+
+function chQty(id, d) {
+  if (!carrito[id]) return;
+  carrito[id].qty += d;
+  if (carrito[id].qty <= 0) delete carrito[id];
+  updBdg(); renderGrid();
+  if (Object.keys(carrito).length === 0) cerrarCarrito();
+  else renderCart();
+}
+
+function updBdg() {
+  var t = 0;
+  var keys = Object.keys(carrito);
+  for (var i = 0; i < keys.length; i++) t += carrito[keys[i]].qty;
+  var b = document.getElementById('bdg');
+  b.textContent = t;
+  t === 0 ? b.classList.add('h') : b.classList.remove('h');
+}
+
+function subtotal() {
+  var s = 0;
+  var keys = Object.keys(carrito);
+  for (var i = 0; i < keys.length; i++) s += carrito[keys[i]].qty * carrito[keys[i]].precio;
+  return s;
+}
+function costoEnvio() { return zonaSel !== null ? zonas[zonaSel].precio : 0; }
+function totalFinal() { return subtotal() + costoEnvio(); }
+
+// ============================================================
+// FECHAS
+// ============================================================
+function genFechas() {
+  var res = [];
+  var hoy = new Date();
+  var diasOk = [1,2,3,4,5,6];
+  for (var i = 1; res.length < 9; i++) {
+    var d = new Date(hoy);
+    d.setDate(hoy.getDate() + i);
+    var ok = i >= 3 && diasOk.indexOf(d.getDay()) !== -1;
+    res.push({fecha:d,ok:ok,dias:i});
+    if (res.filter(function(x){return x.ok;}).length >= 6 && i >= 5) break;
+  }
+  return res;
+}
+
+// ============================================================
+// CARRITO
+// ============================================================
+function abrirCarrito() { renderCart(); document.getElementById('cartov').classList.add('open'); }
+function cerrarCarrito() { document.getElementById('cartov').classList.remove('open'); }
+function cclick(e) { if (e.target.id === 'cartov') cerrarCarrito(); }
+
+function renderCart() {
+  var body = document.getElementById('cartbody');
+  var keys = Object.keys(carrito);
+  if (keys.length === 0) { body.innerHTML = '<div class="cempty"><span>🛒</span>Tu carrito está vacío</div>'; return; }
+  var fechas = genFechas();
+  var h = '';
+  for (var i = 0; i < keys.length; i++) {
+    var item = carrito[keys[i]];
+    h += '<div class="citem"><div class="ciem" style="background:' + item.color_fondo + '">';
+    if (item.imagen_url) h += '<img src="' + item.imagen_url + '" onerror="this.style.display=\'none\'">';
+    h += item.emoji + '</div>';
+    h += '<div class="ciin"><div class="cin">' + item.nombre + '</div><div class="cip">$' + (item.precio*item.qty).toLocaleString('es-CL') + '</div></div>';
+    h += '<div class="cic"><button class="cb" onclick="chQty(' + item.id + ',-1)">-</button><span class="cq">' + item.qty + '</span><button class="cb p" onclick="chQty(' + item.id + ',1)">+</button></div></div>';
+  }
+  h += '<div class="ensec"><div class="entit">🚚 Selecciona tu zona de envío</div>';
+  h += '<select class="selzona" id="selzona" onchange="selZona(this.value)"><option value="">— Elige tu zona —</option>';
+  for (var i = 0; i < zonas.length; i++) {
+    var sel = zonaSel === i ? ' selected' : '';
+    h += '<option value="' + i + '"' + sel + '>' + zonas[i].nombre + ' — ' + (zonas[i].precio === 0 ? 'Gratis' : '$' + zonas[i].precio.toLocaleString('es-CL')) + '</option>';
+  }
+  h += '</select>';
+  if (zonaSel !== null) {
+    var zz = zonas[zonaSel];
+    h += '<div class="endet"><span style="font-size:10px;color:var(--muted)">' + zz.comunas + '</span>';
+    h += '<span style="font-family:Fraunces,serif;font-size:15px;color:' + (zz.precio===0?'var(--wa)':'var(--v2)') + ';font-weight:700">' + (zz.precio===0?'¡Gratis!':'$'+zz.precio.toLocaleString('es-CL')) + '</span></div>';
+  }
+  h += '</div>';
+  h += '<div class="totwrap">';
+  h += '<div class="totrow"><span class="totsub">Subtotal</span><span class="totsub">$' + subtotal().toLocaleString('es-CL') + '</span></div>';
+  h += '<div class="totrow"><span class="totsub">Envío</span><span class="totsub">' + (zonaSel!==null?(costoEnvio()===0?'<span style="color:var(--wa);font-weight:700">Gratis</span>':'$'+costoEnvio().toLocaleString('es-CL')):'—') + '</span></div>';
+  h += '<div class="totdiv"></div>';
+  h += '<div class="totrow"><span class="totlbl">Total</span><span class="totamt">$' + totalFinal().toLocaleString('es-CL') + '</span></div></div>';
+  h += '<div class="ftit">📅 ¿Para qué fecha necesitas tu pedido?</div><div class="fgrid">';
+  for (var i = 0; i < fechas.length; i++) {
+    var f = fechas[i];
+    var sel = fechaSel === i ? ' sel' : '';
+    var cls = f.ok ? 'ok'+sel : 'no';
+    var st = f.ok ? '✅ Disponible' : (f.dias<3?'⏰ Muy pronto':'❌ Sin despacho');
+    var click = f.ok ? ' onclick="selFecha('+i+')"' : '';
+    h += '<div class="fb '+cls+'"'+click+'><div class="fd">'+DIAS[f.fecha.getDay()]+'</div><div class="fn">'+f.fecha.getDate()+'</div><div class="fm">'+MESES[f.fecha.getMonth()]+'</div><div class="fs">'+st+'</div></div>';
+  }
+  h += '</div>';
+  h += '<label class="ilbl">👤 Tu nombre</label><input class="inp" id="inpnom" placeholder="Ej: María González" value="'+nombreG+'">';
+  h += '<label class="ilbl">📍 Tu dirección</label><input class="inp" id="inpdir" placeholder="Ej: Av. Providencia 1234" value="'+dirG+'">';
+  h += '<label class="ilbl">📱 Tu teléfono (opcional)</label><input class="inp" id="inptel" placeholder="+56 9 1234 5678">';
+  if (zonaSel===null||fechaSel===null) {
+    h += '<div class="alrt">👆 '+(zonaSel===null?'Selecciona tu zona de envío':'')+(zonaSel===null&&fechaSel===null?' y ':'')+(fechaSel===null?'elige una fecha disponible':'')+'</div>';
+  }
+  var dis = (zonaSel===null||fechaSel===null) ? ' style="opacity:0.45;pointer-events:none"' : '';
+  h += '<button class="bwab"'+dis+' onclick="enviarWA()"><svg style="width:16px;height:16px;fill:white;flex-shrink:0" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.849L0 24l6.335-1.508C8.05 23.443 9.982 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.881 0-3.63-.498-5.145-1.367l-.368-.213-3.762.896.952-3.653-.24-.384A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg> Enviar pedido por WhatsApp</button>';
+  h += '<button class="bmpb"'+dis+' onclick="pagarMP()">💳 Pagar con Mercado Pago</button>';
+  body.innerHTML = h;
+}
+
+function selZona(val) {
+  nombreG = document.getElementById('inpnom')?document.getElementById('inpnom').value:'';
+  dirG = document.getElementById('inpdir')?document.getElementById('inpdir').value:'';
+  zonaSel = val===''?null:parseInt(val);
+  renderCart();
+}
+
+function selFecha(i) {
+  nombreG = document.getElementById('inpnom')?document.getElementById('inpnom').value:'';
+  dirG = document.getElementById('inpdir')?document.getElementById('inpdir').value:'';
+  fechaSel = i; renderCart();
+}
+
+function enviarWA() {
+  var nombre = document.getElementById('inpnom')?document.getElementById('inpnom').value:'Cliente';
+  var dir = document.getElementById('inpdir')?document.getElementById('inpdir').value:'';
+  var tel = document.getElementById('inptel')?document.getElementById('inptel').value:'';
+  var fechas = genFechas(); var fecha = fechas[fechaSel]; var zona = zonas[zonaSel];
+  var keys = Object.keys(carrito);
+  var msg = 'Hola! 🌱 Quiero hacer un pedido:\n\n';
+  msg += '👤 *'+nombre+'*\n';
+  if (tel) msg += '📱 '+tel+'\n';
+  msg += '📍 '+dir+'\n';
+  msg += '🚚 Zona: '+zona.nombre+'\n';
+  msg += '📅 Para el *'+DIAS[fecha.fecha.getDay()]+' '+fecha.fecha.getDate()+' '+MESES[fecha.fecha.getMonth()]+'*\n\n';
+  msg += '🛒 *Mi pedido:*\n';
+  for (var i=0;i<keys.length;i++) { var item=carrito[keys[i]]; msg+='• '+item.qty+'x '+item.nombre+' — $'+(item.precio*item.qty).toLocaleString('es-CL')+'\n'; }
+  msg += '\n📦 Subtotal: $'+subtotal().toLocaleString('es-CL')+'\n';
+  msg += '🚚 Envío: '+(costoEnvio()===0?'Gratis':'$'+costoEnvio().toLocaleString('es-CL'))+'\n';
+  msg += '💰 *Total: $'+totalFinal().toLocaleString('es-CL')+'*';
+  window.open('https://wa.me/56990816124?text='+encodeURIComponent(msg),'_blank');
+  cerrarCarrito();
+  showConf('💬','¡Pedido enviado!','Tu pedido fue enviado por WhatsApp\nFecha: '+DIAS[fecha.fecha.getDay()]+' '+fecha.fecha.getDate()+' '+MESES[fecha.fecha.getMonth()]+'\n\n¡Espera la confirmación de La Manito! 🌱');
+  carrito={}; zonaSel=null; fechaSel=null; nombreG=''; dirG='';
+  updBdg(); renderGrid();
+}
+
+function pagarMP() {
+  cerrarCarrito();
+  showConf('💳','Mercado Pago','Próximamente podrás pagar directo\ncon tarjeta o transferencia 🌱\n\nPor ahora usa WhatsApp para coordinar el pago.');
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function abrirLogin() {
+  document.getElementById('loginpass').value='';
+  document.getElementById('loginerr').style.display='none';
+  document.getElementById('loginov').classList.add('open');
+  setTimeout(function(){ document.getElementById('loginpass').focus(); },300);
+}
+function loginClick(e) { if(e.target.id==='loginov') document.getElementById('loginov').classList.remove('open'); }
+function checkLogin() {
+  var pass = document.getElementById('loginpass').value;
+  if (pass===ADMIN_PASS) {
+    document.getElementById('loginov').classList.remove('open');
+    abrirAdmin();
+  } else {
+    document.getElementById('loginerr').style.display='block';
+    document.getElementById('loginpass').value='';
+  }
+}
+function abrirAdmin() { document.getElementById('adminov').classList.add('open'); renderAdminTab('productos'); }
+function cerrarAdmin() { document.getElementById('adminov').classList.remove('open'); }
+
+function aTab(tab, btn) {
+  var tabs = document.querySelectorAll('.atab');
+  for (var i=0;i<tabs.length;i++) tabs[i].classList.remove('on');
+  btn.classList.add('on');
+  renderAdminTab(tab);
+}
+
+function renderAdminTab(tab) {
+  var c = document.getElementById('acont');
+  if (tab==='productos') {
+    var h = '<div class="asub">🌿 Productos</div>';
+    h += '<div class="adesc">Agrega, edita o elimina productos. Marca como "Destacado" para que aparezcan en la sección de ofertas.</div>';
+    h += '<button class="btnuevo" onclick="abrirModalProd(null)">➕ Agregar nuevo producto</button>';
+    for (var i=0;i<productos.length;i++) {
+      var p = productos[i];
+      h += '<div class="prodadmin"><div class="pahead">';
+      h += '<div class="paemoji" style="background:'+p.color_fondo+'">';
+      if (p.imagen_url) h += '<img src="'+p.imagen_url+'" onerror="this.style.display=\'none\'">';
+      h += p.emoji+'</div>';
+      h += '<div class="painfo"><div class="paname">'+p.nombre+'</div>';
+      h += '<div class="paprice">$'+p.precio.toLocaleString('es-CL')+'</div>';
+      h += '<div class="pacat">'+p.categoria+(p.destacado?' · ⭐ Destacado':'')+'</div></div></div>';
+      h += '<div class="pabtns">';
+      h += '<button class="pabtn" style="background:var(--v2);color:white" onclick="abrirModalProd('+p.id+')">✏️ Editar</button>';
+      h += '<button class="pabtn" style="background:'+(p.destacado?'var(--am)':'#F0F0F0')+';color:'+(p.destacado?'white':'var(--muted)')+'" onclick="toggleDestacado('+p.id+')">'+(p.destacado?'⭐ Destacado':'☆ Destacar')+'</button>';
+      h += '<button class="pabtn" style="background:#F0F0F0;color:var(--muted)" onclick="eliminarProd('+p.id+')">🗑</button>';
+      h += '</div></div>';
+    }
+    c.innerHTML = h;
+  } else if (tab==='destacados') {
+    var dest = productos.filter(function(p){return p.destacado;});
+    var h = '<div class="asub">⭐ Productos Destacados</div>';
+    h += '<div class="adesc">Estos productos aparecen en la sección de ofertas destacadas con imagen grande. Márcalos desde la pestaña Productos.</div>';
+    if (dest.length===0) {
+      h += '<div style="text-align:center;padding:30px;color:var(--muted);background:white;border-radius:13px">';
+      h += '<div style="font-size:36px;margin-bottom:10px">⭐</div>';
+      h += '<p style="font-size:13px">No hay productos destacados.<br>Ve a Productos y marca los que quieras destacar.</p></div>';
+    } else {
+      for (var i=0;i<dest.length;i++) {
+        var p = dest[i];
+        h += '<div class="prodadmin"><div class="pahead">';
+        h += '<div class="paemoji" style="background:'+p.color_fondo+';width:60px;height:60px;font-size:32px">';
+        if (p.imagen_url) h += '<img src="'+p.imagen_url+'">';
+        h += p.emoji+'</div>';
+        h += '<div class="painfo"><div class="paname">'+p.nombre+'</div><div class="paprice">$'+p.precio.toLocaleString('es-CL')+'</div></div></div>';
+        h += '<div class="pabtns"><button class="pabtn" style="background:var(--rojo);color:white" onclick="toggleDestacado('+p.id+')">✕ Quitar de destacados</button></div></div>';
+      }
+    }
+    c.innerHTML = h;
+  } else if (tab==='zonas') {
+    var h = '<div class="asub">🚚 Zonas de envío</div>';
+    h += '<div class="adesc">Edita, agrega o elimina zonas de despacho. Los cambios se ven inmediatamente en el carrito.</div>';
+    for (var i=0;i<zonas.length;i++) {
+      var z = zonas[i];
+      h += '<div class="zadmin">';
+      h += '<div class="zahead"><span class="zanom">Zona ' + (i+1) + '</span>';
+      h += '<button class="pabtn" style="background:var(--rojo);color:white;font-size:10px" onclick="eliminarZona('+i+')">🗑 Eliminar</button></div>';
+      h += '<div class="frow"><label class="flbl">Nombre</label><input class="finp" id="znom'+i+'" value="'+z.nombre+'"></div>';
+      h += '<div class="frow"><label class="flbl">Comunas que cubre</label><input class="finp" id="zcom'+i+'" value="'+z.comunas+'"></div>';
+      h += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
+      h += '<label class="flbl" style="margin:0">Precio despacho ($):</label>';
+      h += '<input class="finp" id="zpre'+i+'" type="number" value="'+z.precio+'" min="0" step="500" style="width:120px">';
+      h += '<button class="pabtn" style="background:var(--v2);color:white" onclick="guardarZona('+i+')">💾 Guardar</button></div>';
+      h += '</div>';
+    }
+    h += '<div class="zadmin" style="border:2px dashed var(--v3);background:#F8FFF9">';
+    h += '<div class="asub" style="font-size:15px;margin-bottom:10px;color:var(--v2)">➕ Agregar nueva zona</div>';
+    h += '<div class="frow"><label class="flbl">Nombre zona</label><input class="finp" id="nznom" placeholder="Ej: Zona Sur"></div>';
+    h += '<div class="frow"><label class="flbl">Comunas</label><input class="finp" id="nzcom" placeholder="Ej: La Florida, Puente Alto, San Bernardo"></div>';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">';
+    h += '<label class="flbl" style="margin:0">Precio ($):</label>';
+    h += '<input class="finp" id="nzpre" type="number" value="0" min="0" step="500" style="width:120px">';
+    h += '<button class="pabtn" style="background:var(--v3);color:white" onclick="agregarZona()">➕ Agregar</button></div>';
+    h += '</div>';
+    c.innerHTML = h;
+  } else if (tab==='stats') {
+    var h = '<div class="asub">📊 Estadísticas</div><br>';
+    h += '<div class="astats">';
+    h += '<div class="ast"><div class="astn">'+productos.length+'</div><div class="astl">Productos</div></div>';
+    h += '<div class="ast"><div class="astn">'+zonas.length+'</div><div class="astl">Zonas envío</div></div>';
+    h += '<div class="ast"><div class="astn">'+productos.filter(function(p){return p.destacado;}).length+'</div><div class="astl">Destacados</div></div>';
+    h += '<div class="ast"><div class="astn">'+productos.filter(function(p){return p.etiqueta==='oferta';}).length+'</div><div class="astl">En oferta</div></div>';
+    h += '</div>';
+    h += '<div style="background:white;border-radius:13px;padding:13px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:12px">';
+    h += '<p style="font-weight:600;font-size:13px;margin-bottom:10px">🌿 Todos los productos</p>';
+    for (var i=0;i<productos.length;i++) {
+      var p = productos[i];
+      h += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--borde);font-size:12px">';
+      h += '<span>'+p.emoji+' '+p.nombre+(p.destacado?' ⭐':'')+'</span>';
+      h += '<span style="color:var(--v2);font-weight:600">$'+p.precio.toLocaleString('es-CL')+'</span></div>';
+    }
+    h += '</div>';
+    h += '<div style="background:white;border-radius:13px;padding:13px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">';
+    h += '<p style="font-weight:600;font-size:13px;margin-bottom:10px">🚚 Zonas de envío</p>';
+    for (var i=0;i<zonas.length;i++) {
+      h += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--borde);font-size:12px">';
+      h += '<span>'+zonas[i].nombre+'</span>';
+      h += '<span style="color:var(--v2);font-weight:600">'+(zonas[i].precio===0?'Gratis':'$'+zonas[i].precio.toLocaleString('es-CL'))+'</span></div>';
+    }
+    h += '</div>';
+    c.innerHTML = h;
+  }
+}
+
+// ============================================================
+// ADMIN ACCIONES
+// ============================================================
+function abrirModalProd(id) {
+  editandoId = id;
+  if (id===null) {
+    document.getElementById('modaltit').textContent = '➕ Nuevo Producto';
+    document.getElementById('fnombre').value='';
+    document.getElementById('fdesc').value='';
+    document.getElementById('fprecio').value='';
+    document.getElementById('fprecioant').value='';
+    document.getElementById('fcat').value='empanadas';
+    document.getElementById('femoji').value='🥟';
+    document.getElementById('fetiqueta').value='';
+    document.getElementById('fcolor').value='#F0FFF4';
+    document.getElementById('fimagen').value='';
+  } else {
+    var p = null;
+    for (var i=0;i<productos.length;i++) { if(productos[i].id===id){p=productos[i];break;} }
+    if (!p) return;
+    document.getElementById('modaltit').textContent = '✏️ Editar Producto';
+    document.getElementById('fnombre').value=p.nombre;
+    document.getElementById('fdesc').value=p.descripcion;
+    document.getElementById('fprecio').value=p.precio;
+    document.getElementById('fprecioant').value=p.precio_anterior||'';
+    document.getElementById('fcat').value=p.categoria;
+    document.getElementById('femoji').value=p.emoji;
+    document.getElementById('fetiqueta').value=p.etiqueta||'';
+    document.getElementById('fcolor').value=p.color_fondo;
+    document.getElementById('fimagen').value=p.imagen_url||'';
+  }
+  document.getElementById('modalov').classList.add('open');
+}
+
+function guardarProd() {
+  var nombre = document.getElementById('fnombre').value.trim();
+  var precio = parseInt(document.getElementById('fprecio').value);
+  if (!nombre||!precio) { showToast('⚠️ Nombre y precio son obligatorios'); return; }
+  var etiqueta = document.getElementById('fetiqueta').value;
+  var etiqueta_label = etiqueta==='nuevo'?'Nuevo':etiqueta==='oferta'?'Oferta':etiqueta==='estrella'?'⭐ Único':null;
+  var data = {
+    nombre:nombre, descripcion:document.getElementById('fdesc').value,
+    precio:precio, precio_anterior:parseInt(document.getElementById('fprecioant').value)||null,
+    categoria:document.getElementById('fcat').value, emoji:document.getElementById('femoji').value||'🌿',
+    etiqueta:etiqueta||null, etiqueta_label:etiqueta_label,
+    color_fondo:document.getElementById('fcolor').value||'#F0FFF4',
+    imagen_url:document.getElementById('fimagen').value||null,
+    destacado:false
+  };
+  if (editandoId===null) {
+    data.id = Date.now();
+    productos.push(data);
+    showToast('✅ Producto agregado');
+  } else {
+    for (var i=0;i<productos.length;i++) {
+      if (productos[i].id===editandoId) { data.id=editandoId; data.destacado=productos[i].destacado; productos[i]=data; break; }
+    }
+    showToast('✅ Producto actualizado');
+  }
+  document.getElementById('modalov').classList.remove('open');
+  renderGrid(); renderDestacados(); renderAdminTab('productos');
+}
+
+function eliminarProd(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  productos = productos.filter(function(p){return p.id!==id;});
+  renderGrid(); renderDestacados(); renderAdminTab('productos');
+  showToast('🗑 Producto eliminado');
+}
+
+function toggleDestacado(id) {
+  for (var i=0;i<productos.length;i++) {
+    if (productos[i].id===id) { productos[i].destacado=!productos[i].destacado; break; }
+  }
+  renderGrid(); renderDestacados(); renderAdminTab(document.querySelector('.atab.on').getAttribute('onclick').replace("aTab('","").replace("',this)",""));
+  showToast('⭐ Destacado actualizado');
+}
+
+function guardarZona(i) {
+  var nom = document.getElementById('znom'+i)?document.getElementById('znom'+i).value:zonas[i].nombre;
+  var com = document.getElementById('zcom'+i)?document.getElementById('zcom'+i).value:zonas[i].comunas;
+  var pre = parseInt(document.getElementById('zpre'+i)?document.getElementById('zpre'+i).value:zonas[i].precio)||0;
+  zonas[i] = {nombre:nom,comunas:com,precio:pre};
+  renderZonas(); renderAdminTab('zonas');
+  showToast('✅ Zona guardada');
+}
+
+function agregarZona() {
+  var nom = document.getElementById('nznom').value.trim();
+  var com = document.getElementById('nzcom').value.trim();
+  var pre = parseInt(document.getElementById('nzpre').value)||0;
+  if (!nom) { showToast('⚠️ Ingresa el nombre de la zona'); return; }
+  zonas.push({nombre:nom,comunas:com,precio:pre});
+  renderZonas(); renderAdminTab('zonas');
+  showToast('✅ Zona agregada');
+}
+
+function eliminarZona(i) {
+  if (!confirm('¿Eliminar esta zona?')) return;
+  zonas.splice(i,1);
+  if (zonaSel!==null && zonaSel>=zonas.length) zonaSel=null;
+  renderZonas(); renderAdminTab('zonas');
+  showToast('🗑 Zona eliminada');
+}
+
+function cerrarModal(e) { if(e.target.id==='modalov') document.getElementById('modalov').classList.remove('open'); }
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showConf(ic,tit,msg) {
+  document.getElementById('cfic').textContent=ic;
+  document.getElementById('cftit').textContent=tit;
+  document.getElementById('cfmsg').textContent=msg;
+  document.getElementById('confov').classList.add('open');
+}
+function cerrarConf() { document.getElementById('confov').classList.remove('open'); }
+function tfaq(el) { var a=el.nextElementSibling; a.classList.toggle('open'); el.querySelector('span').textContent=a.classList.contains('open')?'▲':'▼'; }
+function showToast(msg) { var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2400); }
+
+// INIT
+renderGrid();
+renderDestacados();
+renderZonas();
+</script>
+</body>
+</html>
