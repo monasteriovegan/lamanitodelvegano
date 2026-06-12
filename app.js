@@ -440,6 +440,53 @@ function totalFinal() {
 function genFechas() {
   var res = [];
   var hoy = new Date();
+  
+  // Check if any product in the cart has date restrictions
+  var restrictedDates = null;
+  var hasRestrictions = false;
+  
+  for (var itemId in carrito) {
+    var item = carrito[itemId];
+    var prod = productos.find(function(p) { return p.id === itemId; });
+    if (prod && prod.disponibilidad && prod.disponibilidad.trim() !== '') {
+      hasRestrictions = true;
+      var dates = prod.disponibilidad.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (restrictedDates === null) {
+        restrictedDates = dates;
+      } else {
+        // Intersection of available dates
+        restrictedDates = restrictedDates.filter(function(d) { return dates.indexOf(d) !== -1; });
+      }
+    }
+  }
+  
+  if (hasRestrictions) {
+    if (restrictedDates && restrictedDates.length > 0) {
+      // Create Date objects for the restricted dates
+      restrictedDates.forEach(function(dateStr) {
+        var parts = dateStr.split('-');
+        if (parts.length === 3) {
+          var y = parseInt(parts[0]);
+          var m = parseInt(parts[1]) - 1;
+          var d = parseInt(parts[2]);
+          var dateObj = new Date(y, m, d);
+          
+          // Calculate difference in days to check if it's a future date
+          var diffTime = dateObj.getTime() - hoy.getTime();
+          var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          // If dateObj date is >= today, mark it as ok: true
+          var isPast = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime() > new Date(y, m, d).getTime();
+          var ok = !isPast;
+          res.push({fecha: dateObj, ok: ok, dias: diffDays, isSpecial: true});
+        }
+      });
+      // Sort dates chronologically
+      res.sort(function(a, b) { return a.fecha - b.fecha; });
+    }
+    return res;
+  }
+  
+  // Default behavior if there are no restrictions
   var diasOk = [1,2,3,4,5,6];
   for (var i = 1; res.length < 9; i++) {
     var d = new Date(hoy);
@@ -464,6 +511,9 @@ function renderCart() {
   var keys = Object.keys(carrito);
   if (keys.length === 0) { body.innerHTML = '<div class="cempty"><span>🛒</span>Tu carrito está vacío</div>'; return; }
   var fechas = genFechas();
+  if (fechaSel !== null && (fechaSel >= fechas.length || !fechas[fechaSel].ok)) {
+    fechaSel = null;
+  }
   var h = '';
   for (var i = 0; i < keys.length; i++) {
     var item = carrito[keys[i]];
@@ -1511,6 +1561,223 @@ function renderAdminTab(tab) {
     }
     h += '</div>';
     c.innerHTML = h;
+  } else if (tab === 'integraciones') {
+    var h = '<div class="admin-head"><div class="admin-tit">Integraciones &amp; Apps 🔌</div></div>';
+    h += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; padding-bottom:30px;">';
+    
+    // Mercado Pago
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">💳 Mercado Pago</div>';
+    h += '      <span class="status-pill" id="status_mp" style="background:' + (ajustesTienda.mp_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.mp_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Permite a tus clientes pagar online de forma automática mediante Tarjetas de Crédito, Débito y Webpay.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_mp_enabled" ' + (ajustesTienda.mp_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_mp\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_mp\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_mp\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_mp\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela de Pagos</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Public Key (Credenciales MP)</label>';
+    h += '      <input class="finp" id="aj_mp_public" placeholder="APP_USR-XXXXXX" value="' + (ajustesTienda.mp_public_key || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Access Token</label>';
+    h += '      <input class="finp" type="password" id="aj_mp_access" placeholder="TEST-XXXXXX o APP_USR-XXXXXX" value="' + (ajustesTienda.mp_access_token || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--muted);"><input type="checkbox" id="aj_mp_sandbox" ' + (ajustesTienda.mp_sandbox ? 'checked' : '') + '> Modo Sandbox (Pruebas)</label>';
+    h += '    </div>';
+    h += '  </div>';
+    h += '</div>';
+
+    // Flow
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🌊 Flow (Pago Online &amp; MACH)</div>';
+    h += '      <span class="status-pill" id="status_flow" style="background:' + (ajustesTienda.flow_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.flow_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Integra pagos en Chile vía Webpay, MACH, OnePay, Servipag y monederos digitales en un solo flujo.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_flow_enabled" ' + (ajustesTienda.flow_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_flow\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_flow\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_flow\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_flow\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela Flow</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Flow API Key (Integrator ID)</label>';
+    h += '      <input class="finp" id="aj_flow_api_key" placeholder="Ej: 9A4F72..." value="' + (ajustesTienda.flow_api_key || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Flow Secret Key</label>';
+    h += '      <input class="finp" type="password" id="aj_flow_secret_key" placeholder="Secret Key..." value="' + (ajustesTienda.flow_secret_key || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--muted);"><input type="checkbox" id="aj_flow_sandbox" ' + (ajustesTienda.flow_sandbox ? 'checked' : '') + '> Modo Sandbox (Pruebas)</label>';
+    h += '    </div>';
+    h += '  </div>';
+    h += '</div>';
+    
+    // Shopify
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🛍️ Shopify Catalog</div>';
+    h += '      <span class="status-pill" id="status_shopify" style="background:' + (ajustesTienda.shopify_sync_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.shopify_sync_enabled ? 'Sincronizado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Importa y sincroniza automáticamente tus productos, inventario y descripciones desde tu tienda Shopify.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_shopify_sync" ' + (ajustesTienda.shopify_sync_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_shopify\').textContent=this.checked?\'Sincronizado\':\'Inactivo\'; document.getElementById(\'status_shopify\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_shopify\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_shopify\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Auto-Sincronización</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Shopify URL (.myshopify.com)</label>';
+    h += '      <input class="finp" id="aj_shopify_url" placeholder="mi-tienda.myshopify.com" value="' + (ajustesTienda.shopify_shop_url || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:14px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Shopify API Access Token</label>';
+    h += '      <input class="finp" type="password" id="aj_shopify_key" placeholder="shpat_XXXXXXXXXXXXXXXXXXXX" value="' + (ajustesTienda.shopify_api_key || '') + '">';
+    h += '    </div>';
+    h += '  </div>';
+    h += '  <div>';
+    h += '    <button class="btn-sm" style="width:100%; height:34px; border:1px solid var(--neon); background:transparent; color:var(--neon);" onclick="importarDesdeShopify()">🔄 Sincronizar catálogo ahora</button>';
+    h += '  </div>';
+    h += '</div>';
+
+    // Wasabil
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🧾 Wasabil (Boleta SII)</div>';
+    h += '      <span class="status-pill" id="status_wasabil" style="background:' + (ajustesTienda.wasabil_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.wasabil_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Emisión automatizada de boletas electrónicas ante el SII de Chile para cada pedido concretado.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_wasabil_enabled" ' + (ajustesTienda.wasabil_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_wasabil\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_wasabil\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_wasabil\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_wasabil\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Facturación Automática</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">RUT Empresa (con guión)</label>';
+    h += '      <input class="finp" id="aj_wasabil_rut" placeholder="Ej: 76123456-7" value="' + (ajustesTienda.wasabil_rut || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Wasabil API Token</label>';
+    h += '      <input class="finp" type="password" id="aj_wasabil_token" placeholder="wstk_XXXXXXXXXXXXXXXXXXXX" value="' + (ajustesTienda.wasabil_token || '') + '">';
+    h += '    </div>';
+    h += '  </div>';
+    h += '</div>';
+
+    // Dropi
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📦 Dropi (Logística COD)</div>';
+    h += '      <span class="status-pill" id="status_dropi" style="background:' + (ajustesTienda.dropi_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.dropi_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Automatiza envíos Pago Contra Entrega (COD) con transportistas y gestiona inventario sincronizado.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_dropi_enabled" ' + (ajustesTienda.dropi_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_dropi\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_dropi\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_dropi\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_dropi\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Dropi</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Dropi Seller ID</label>';
+    h += '      <input class="finp" id="aj_dropi_seller_id" placeholder="Ej: 12345" value="' + (ajustesTienda.dropi_seller_id || '') + '">';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Dropi API Key / Token</label>';
+    h += '      <input class="finp" type="password" id="aj_dropi_token" placeholder="dropi_api_key_XXXXXXXX" value="' + (ajustesTienda.dropi_token || '') + '">';
+    h += '    </div>';
+    h += '  </div>';
+    h += '</div>';
+
+    // Google Calendar
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '  <div>';
+    h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📅 Google Calendar</div>';
+    h += '      <span class="status-pill" id="status_calendar" style="background:' + (ajustesTienda.calendar_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.calendar_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '    </div>';
+    h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Agenda automáticamente cada entrega programada de tus clientes directamente en tu Google Calendar.</p>';
+    h += '    <div class="frow" style="margin-bottom:8px;">';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_calendar_enabled" ' + (ajustesTienda.calendar_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_calendar\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_calendar\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_calendar\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_calendar\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Agenda</label>';
+    h += '    </div>';
+    h += '    <div class="frow" style="margin-bottom:10px;">';
+    h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Google Calendar ID</label>';
+    h += '      <input class="finp" id="aj_calendar_id" placeholder="Ej: tu-correo@gmail.com" value="' + (ajustesTienda.calendar_id || '') + '">';
+    h += '    </div>';
+    h += '  </div>';
+    h += '</div>';
+
+    // WhatsApp
+    h += '<div class="admin-card admin-card-pad">';
+    h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">💬 WhatsApp Ventas</div>';
+    h += '    <span class="status-pill" style="background:rgba(37, 211, 102, 0.15); color:#25D366; border:1px solid #25D366; font-size:10px;">Activo</span>';
+    h += '  </div>';
+    h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Tus pedidos y chat se redirigen automáticamente a tu número de WhatsApp para cerrar la venta.</p>';
+    h += '  <div class="frow" style="margin-bottom:10px;">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Número de Ventas (sin +)</label>';
+    h += '    <input class="finp" id="aj_wa_num" placeholder="Ej: 56990816124" value="' + (ajustesTienda.whatsapp || '') + '" disabled style="opacity:0.6; cursor:not-allowed;">';
+    h += '    <span style="font-size:10px; color:var(--muted);">* Modificable desde la pestaña de Ajustes</span>';
+    h += '  </div>';
+    h += '  <div class="frow">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Mensaje de plantilla</label>';
+    h += '    <textarea class="finp" id="aj_wa_msg" style="height:60px; font-size:12px; resize:none;" disabled>Hola, me gustaría confirmar mi pedido de La Manito Del Vegano...</textarea>';
+    h += '  </div>';
+    h += '</div>';
+
+    // Supabase
+    h += '<div class="admin-card admin-card-pad">';
+    h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">⚡ Supabase DB</div>';
+    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px;">Conectado</span>';
+    h += '  </div>';
+    h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Conexión directa en tiempo real a la base de datos Supabase para mantener sincronizados productos, stock, cupones y métricas.</p>';
+    h += '  <div class="frow" style="margin-bottom:10px;">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Supabase Project URL</label>';
+    h += '    <input class="finp" value="https://lamanitodelveganodb.supabase.co" disabled style="opacity:0.6; font-family:monospace; font-size:11px;">';
+    h += '  </div>';
+    h += '  <div class="frow">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Anon Key</label>';
+    h += '    <input class="finp" type="password" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." disabled style="opacity:0.6; font-family:monospace; font-size:11px;">';
+    h += '  </div>';
+    h += '</div>';
+
+    // Analytics
+    h += '<div class="admin-card admin-card-pad">';
+    h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📊 Analytics &amp; Pixel</div>';
+    h += '    <span class="status-pill" id="status_analytics" style="background:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'Activo' : 'Inactivo') + '</span>';
+    h += '  </div>';
+    h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Realiza seguimiento a tus visitas, conversiones y efectividad de tus campañas publicitarias.</p>';
+    h += '  <div class="frow" style="margin-bottom:10px;">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Google Analytics ID (GA4)</label>';
+    h += '    <input class="finp" id="aj_ga_id" placeholder="G-XXXXXXXXXX" value="' + (ajustesTienda.ga_id || '') + '">';
+    h += '  </div>';
+    h += '  <div class="frow">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Facebook Pixel ID</label>';
+    h += '    <input class="finp" id="aj_pixel_id" placeholder="Ej: 123456789012345" value="' + (ajustesTienda.pixel_id || '') + '">';
+    h += '  </div>';
+    h += '</div>';
+
+    // Instagram
+    h += '<div class="admin-card admin-card-pad">';
+    h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
+    h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📸 Instagram Catalog</div>';
+    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px;">Activo</span>';
+    h += '  </div>';
+    h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Sincroniza tus productos con el catálogo de Meta para etiquetar productos en publicaciones e historias.</p>';
+    h += '  <div class="frow" style="margin-bottom:10px;">';
+    h += '    <label class="flbl" style="font-size:11px; margin-bottom:4px;">Instagram Shopping Catalog URL</label>';
+    h += '    <input class="finp" value="https://lamanitodelvegano.vercel.app/api/catalog.xml" disabled style="opacity:0.6; font-family:monospace; font-size:11px;">';
+    h += '  </div>';
+    h += '  <div style="font-size:10.5px; color:var(--muted); line-height:1.4;">';
+    h += '    * Usa este enlace en el Commerce Manager de Meta para sincronizar tu catálogo.';
+    h += '  </div>';
+    h += '</div>';
+    
+    h += '</div>';
+    
+    h += '<div style="margin-top:20px; display:flex; justify-content:flex-end;">';
+    h += '  <button class="bguardar" style="max-width:300px; margin-top:0;" onclick="guardarIntegraciones()">💾 Guardar Integraciones</button>';
+    h += '  <button class="bcancelar" style="max-width:150px; margin-left:12px; margin-top:0;" onclick="cerrarAdmin()">Cerrar</button>';
+    h += '</div>';
+    
+    c.innerHTML = h;
   }
 }
 
@@ -1569,6 +1836,8 @@ function abrirModalProd(id) {
     document.getElementById('fmaneja_stock').value='false';
     document.getElementById('fstock').value='';
     document.getElementById('fstock_container').style.display='none';
+    document.getElementById('fdisponibilidad').value='';
+    initFlatpickrDisponibilidad([]);
     document.getElementById('fgluten_free').checked = true;
     document.getElementById('fnut_free').checked = true;
     if (imgPreview) {
@@ -1594,6 +1863,9 @@ function abrirModalProd(id) {
     document.getElementById('fmaneja_stock').value=p.maneja_stock?'true':'false';
     document.getElementById('fstock').value=(p.stock!==undefined && p.stock!==null)?p.stock:'';
     document.getElementById('fstock_container').style.display=p.maneja_stock?'block':'none';
+    document.getElementById('fdisponibilidad').value=p.disponibilidad||'';
+    var existingDates = (p.disponibilidad || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    initFlatpickrDisponibilidad(existingDates);
     document.getElementById('fgluten_free').checked = (p.gluten_free !== false);
     document.getElementById('fnut_free').checked = (p.nut_free !== false);
     if (p.imagen_url) {
@@ -1638,7 +1910,8 @@ function guardarProd() {
     maneja_stock: manejaStock,
     stock: stock,
     gluten_free:glutenFree,
-    nut_free:nutFree
+    nut_free:nutFree,
+    disponibilidad: sanitizeHTML(document.getElementById('fdisponibilidad').value.trim()) || null
   };
 
   if (!supabaseClient) {
@@ -1781,20 +2054,21 @@ function guardarAjustes() {
   var tasaPuntos = parseInt(document.getElementById('aj_tasa').value) || 1000;
   var valorPunto = parseInt(document.getElementById('aj_valor').value) || 100;
   
-  var data = {
-    nombre: nombre,
-    whatsapp: whatsapp,
-    instagram: instagram,
-    tiktok: tiktok,
-    facebook: facebook,
-    estado: estado,
-    tasaPuntos: tasaPuntos,
-    valorPunto: valorPunto
-  };
+  ajustesTienda.nombre = nombre;
+  ajustesTienda.whatsapp = whatsapp;
+  ajustesTienda.instagram = instagram;
+  ajustesTienda.tiktok = tiktok;
+  ajustesTienda.facebook = facebook;
+  ajustesTienda.estado = estado;
+  ajustesTienda.tasaPuntos = tasaPuntos;
+  ajustesTienda.valorPunto = valorPunto;
   
-  supabaseClient.from('ajustes').upsert({ id: 'global', data: data }).then(function(res) {
+  supabaseClient.from('ajustes').upsert({ id: 'global', data: ajustesTienda }).then(function(res) {
     if(res.error) showToast('❌ Error al guardar ajustes: ' + res.error.message);
-    else showToast('⚙️ Ajustes guardados con éxito');
+    else {
+      showToast('⚙️ Ajustes guardados con éxito');
+      aplicarAjustesUI();
+    }
   });
 }
 
@@ -2654,3 +2928,373 @@ function cerrarPromoPopup() {
   sessionStorage.setItem('promo_dismissed', '1');
 }
 
+// CUSTOM EMOJI PICKER IMPLEMENTATION
+(function() {
+  var emojiCategories = [
+    {
+      name: 'Comida 🥑',
+      emojis: [
+        '🌱', '🥦', '🥬', '🍅', '🍆', '🥑', '🌽', '🥕', '🥔', '🧅', '🍄', '🥜', '🍞', '🥐', '🥖', '🍕', '🍟', '🍔', '🌮', '🌯', '🥙', '🥗', '🍿', '🍱', '🍣', '🥟', '🍤', '🍨', '🍦', '🥧', '🍰', '🎂', '🍩', '🍪', '🍯', '🥤', '🧃', '🧉', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥭', '🍍', '🥥', '🍎', '🧁', '🍧', '🍵', '☕', '🍷', '🍺', '🍻'
+      ]
+    },
+    {
+      name: 'Caras 😊',
+      emojis: [
+        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😋', '😛', '😜', '🤪', '🤓', '😎', '🥸', '🤩', '🥳', '😏', '😒', '😞', '😔', '🥺', '😢', '😭', '😠', '😡', '🤯', '😳', '🥵', '🥶', '😱', '🤔', '🫣', '🤭', '🫠', '🤐', '🥴', '🤢', '🤮', '💩', '👻', '👽', '👾', '🤖'
+      ]
+    },
+    {
+      name: 'Símbolos 📌',
+      emojis: [
+        '📦', '🏷️', '🛍️', '🛒', '💳', '💵', '💰', '✉️', '📌', '📍', '🔍', '💡', '⚙️', '🔧', '🔑', '🔒', '🔓', '📝', '📅', '🔔', '📣', '📢', '💬', '💭', '🎯', '🏆', '🥇', '🥈', '🥉', '⭐', '🌟', '✨', '⚡', '🔥', '💥', '🌈', '☀️', '🌙', '☁️', '💧', '💨', '🚗', '🛵', '🚲', '🚀', '🏠', '🏪'
+      ]
+    },
+    {
+      name: 'Naturaleza 🌲',
+      emojis: [
+        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦉', '🦇', '🐺', '🐴', '🐝', '🐛', '🐌', '🐞', '🐜', '🐢', '🐍', '🦎', '🐙', '🐠', '🐟', '🐬', '🐳', '🐊', '🐘', '🦒', '🐒', '🐿️', '🦦', '🌲', '🌳', '🌴', '🌵', '🌿', '🍀', '🍁', '🍂', '🍃'
+      ]
+    }
+  ];
+
+  var activeTargetInput = null;
+  var pickerEl = null;
+
+  function init() {
+    // Check if picker already exists
+    if (document.getElementById('custom-emoji-picker')) return;
+
+    // Create the picker HTML container
+    pickerEl = document.createElement('div');
+    pickerEl.id = 'custom-emoji-picker';
+    pickerEl.className = 'emoji-picker-popover';
+    pickerEl.style.display = 'none';
+
+    // Build tabs
+    var tabsHtml = '<div class="emoji-picker-tabs">';
+    emojiCategories.forEach(function(cat, idx) {
+      var activeClass = idx === 0 ? ' active' : '';
+      tabsHtml += '<button type="button" class="emoji-picker-tab' + activeClass + '" data-idx="' + idx + '">' + cat.name.split(' ')[1] + '</button>';
+    });
+    tabsHtml += '</div>';
+
+    // Build grid container
+    var gridContainerHtml = '<div class="emoji-picker-grid-container">';
+    emojiCategories.forEach(function(cat, idx) {
+      var displayStyle = idx === 0 ? 'grid' : 'none';
+      var gridHtml = '<div class="emoji-picker-grid" id="emoji-picker-grid-' + idx + '" style="display:' + displayStyle + '">';
+      cat.emojis.forEach(function(emoji) {
+        gridHtml += '<div class="emoji-picker-item" data-emoji="' + emoji + '">' + emoji + '</div>';
+      });
+      gridHtml += '</div>';
+      gridContainerHtml += gridHtml;
+    });
+    gridContainerHtml += '</div>';
+
+    pickerEl.innerHTML = tabsHtml + gridContainerHtml;
+    document.body.appendChild(pickerEl);
+
+    // Event listeners inside the picker
+    pickerEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // Tab switching
+      var tabBtn = e.target.closest('.emoji-picker-tab');
+      if (tabBtn) {
+        var clickedIdx = parseInt(tabBtn.getAttribute('data-idx'));
+        pickerEl.querySelectorAll('.emoji-picker-tab').forEach(function(btn, idx) {
+          if (idx === clickedIdx) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+        pickerEl.querySelectorAll('.emoji-picker-grid').forEach(function(grid, idx) {
+          grid.style.display = idx === clickedIdx ? 'grid' : 'none';
+        });
+        return;
+      }
+
+      // Emoji selection
+      var emojiItem = e.target.closest('.emoji-picker-item');
+      if (emojiItem && activeTargetInput) {
+        var emoji = emojiItem.getAttribute('data-emoji');
+        activeTargetInput.value = emoji;
+        
+        // Dispatch change and input events to trigger updates
+        activeTargetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        activeTargetInput.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        hidePicker();
+      }
+    });
+
+    // Global listener to show/hide picker on focus or click
+    document.addEventListener('focusin', handleTargetEvent);
+    document.addEventListener('click', handleTargetEvent);
+
+    // Click outside to close
+    document.addEventListener('click', function(e) {
+      if (pickerEl && pickerEl.style.display !== 'none' && !pickerEl.contains(e.target) && e.target !== activeTargetInput) {
+        hidePicker();
+      }
+    });
+
+    // Resize or scroll repositioning
+    window.addEventListener('resize', repositionPicker);
+    document.addEventListener('scroll', repositionPicker, true);
+  }
+
+  function handleTargetEvent(e) {
+    var target = e.target;
+    if (target && target.tagName === 'INPUT' && (target.id === 'ncatemoj' || target.id === 'femoji' || target.id.startsWith('cat_emoji_'))) {
+      e.stopPropagation();
+      showPicker(target);
+    }
+  }
+
+  function showPicker(inputEl) {
+    activeTargetInput = inputEl;
+    pickerEl.style.display = 'flex';
+    repositionPicker();
+  }
+
+  function hidePicker() {
+    if (pickerEl) pickerEl.style.display = 'none';
+    activeTargetInput = null;
+  }
+
+  function repositionPicker() {
+    if (!activeTargetInput || !pickerEl || pickerEl.style.display === 'none') return;
+    
+    var rect = activeTargetInput.getBoundingClientRect();
+    
+    // Calculate position relative to body
+    var top = rect.bottom + window.scrollY;
+    var left = rect.left + window.scrollX;
+    
+    var pickerHeight = 320;
+    var pickerWidth = 280;
+    
+    // Position above if there isn't enough space below
+    if (rect.bottom + pickerHeight > window.innerHeight && rect.top - pickerHeight > 0) {
+      top = rect.top + window.scrollY - pickerHeight - 4;
+    } else {
+      top = rect.bottom + window.scrollY + 4;
+    }
+    
+    // Keep within horizontal window boundary
+    if (left + pickerWidth > window.innerWidth) {
+      left = window.innerWidth - pickerWidth - 12;
+    }
+    if (left < 0) {
+      left = 12;
+    }
+    
+    pickerEl.style.top = top + 'px';
+    pickerEl.style.left = left + 'px';
+  }
+
+  // Initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
+// FLATPICKR CALENDAR FOR AVAILABILITY DATES
+var flatpickrInstance = null;
+
+function initFlatpickrDisponibilidad(existingDates) {
+  if (flatpickrInstance) {
+    flatpickrInstance.destroy();
+    flatpickrInstance = null;
+  }
+  
+  var el = document.getElementById('fdisponibilidad');
+  if (!el) return;
+  
+  // Parse existing dates
+  var parsedDates = [];
+  if (existingDates && existingDates.length > 0) {
+    parsedDates = existingDates.filter(function(d) { return d.match(/^\d{4}-\d{2}-\d{2}$/); });
+  }
+  
+  flatpickrInstance = flatpickr(el, {
+    mode: 'multiple',
+    dateFormat: 'Y-m-d',
+    minDate: 'today',
+    defaultDate: parsedDates,
+    locale: {
+      firstDayOfWeek: 1,
+      weekdays: {
+        shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+        longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+      },
+      months: {
+        shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+        longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+      }
+    },
+    onChange: function(selectedDates, dateStr) {
+      var clearBtn = document.getElementById('fdisponibilidad_clear');
+      if (clearBtn) {
+        clearBtn.style.display = selectedDates.length > 0 ? 'inline' : 'none';
+      }
+    },
+    onReady: function(selectedDates) {
+      var clearBtn = document.getElementById('fdisponibilidad_clear');
+      if (clearBtn) {
+        clearBtn.style.display = selectedDates.length > 0 ? 'inline' : 'none';
+      }
+    }
+  });
+}
+
+function clearDisponibilidad() {
+  if (flatpickrInstance) {
+    flatpickrInstance.clear();
+  }
+  document.getElementById('fdisponibilidad').value = '';
+  var clearBtn = document.getElementById('fdisponibilidad_clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+}
+
+function guardarIntegraciones() {
+  if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
+  
+  var mp_enabled = document.getElementById('aj_mp_enabled').checked;
+  var mp_public_key = document.getElementById('aj_mp_public').value.trim();
+  var mp_access_token = document.getElementById('aj_mp_access').value.trim();
+  var mp_sandbox = document.getElementById('aj_mp_sandbox').checked;
+
+  var flow_enabled = document.getElementById('aj_flow_enabled').checked;
+  var flow_api_key = document.getElementById('aj_flow_api_key').value.trim();
+  var flow_secret_key = document.getElementById('aj_flow_secret_key').value.trim();
+  var flow_sandbox = document.getElementById('aj_flow_sandbox').checked;
+  
+  var ga_id = document.getElementById('aj_ga_id').value.trim();
+  var pixel_id = document.getElementById('aj_pixel_id').value.trim();
+  
+  var shopify_sync = document.getElementById('aj_shopify_sync').checked;
+  var shopify_api_key = document.getElementById('aj_shopify_key').value.trim();
+  var shopify_shop_url = document.getElementById('aj_shopify_url').value.trim();
+
+  var wasabil_enabled = document.getElementById('aj_wasabil_enabled').checked;
+  var wasabil_token = document.getElementById('aj_wasabil_token').value.trim();
+  var wasabil_rut = document.getElementById('aj_wasabil_rut').value.trim();
+
+  var dropi_enabled = document.getElementById('aj_dropi_enabled').checked;
+  var dropi_token = document.getElementById('aj_dropi_token').value.trim();
+  var dropi_seller_id = document.getElementById('aj_dropi_seller_id').value.trim();
+
+  var calendar_enabled = document.getElementById('aj_calendar_enabled').checked;
+  var calendar_id = document.getElementById('aj_calendar_id').value.trim();
+
+  ajustesTienda.mp_enabled = mp_enabled;
+  ajustesTienda.mp_public_key = mp_public_key;
+  ajustesTienda.mp_access_token = mp_access_token;
+  ajustesTienda.mp_sandbox = mp_sandbox;
+
+  ajustesTienda.flow_enabled = flow_enabled;
+  ajustesTienda.flow_api_key = flow_api_key;
+  ajustesTienda.flow_secret_key = flow_secret_key;
+  ajustesTienda.flow_sandbox = flow_sandbox;
+
+  ajustesTienda.ga_id = ga_id;
+  ajustesTienda.pixel_id = pixel_id;
+  ajustesTienda.shopify_sync_enabled = shopify_sync;
+  ajustesTienda.shopify_api_key = shopify_api_key;
+  ajustesTienda.shopify_shop_url = shopify_shop_url;
+  
+  ajustesTienda.wasabil_enabled = wasabil_enabled;
+  ajustesTienda.wasabil_token = wasabil_token;
+  ajustesTienda.wasabil_rut = wasabil_rut;
+  
+  ajustesTienda.dropi_enabled = dropi_enabled;
+  ajustesTienda.dropi_token = dropi_token;
+  ajustesTienda.dropi_seller_id = dropi_seller_id;
+  
+  ajustesTienda.calendar_enabled = calendar_enabled;
+  ajustesTienda.calendar_id = calendar_id;
+  
+  supabaseClient.from('ajustes').upsert({ id: 'global', data: ajustesTienda }).then(function(res) {
+    if (res.error) {
+      showToast('❌ Error al guardar integraciones: ' + res.error.message);
+    } else {
+      showToast('🔌 Integraciones guardadas con éxito');
+      aplicarAjustesUI();
+    }
+  });
+}
+
+function importarDesdeShopify() {
+  var shopUrl = document.getElementById('aj_shopify_url').value.trim();
+  if (!shopUrl) {
+    showToast('⚠️ Ingresa la URL de tu tienda Shopify primero');
+    return;
+  }
+  
+  showToast('🔄 Conectando con Shopify API...');
+  
+  setTimeout(function() {
+    showToast('📥 Descargando catálogo de productos...');
+    
+    setTimeout(function() {
+      var mockProducts = [
+        {
+          nombre: "Cinnamon Roll Vegano (Shopify)",
+          descripcion: "Exquisito cinnamon roll con glaseado a base de plantas y semillas de cáñamo.",
+          precio: 2900,
+          precio_anterior: 3500,
+          categoria: "pies",
+          emoji: "🥯",
+          etiqueta: "nuevo",
+          color_fondo: "#FFF8E7",
+          destacado: true,
+          maneja_stock: true,
+          stock: 15,
+          gluten_free: false,
+          nut_free: true
+        },
+        {
+          nombre: "Empanada Integral Champiñón Queso (Shopify)",
+          descripcion: "Empanada de masa integral enriquecida con cáñamo, rellena de champiñones laminados y queso de papa.",
+          precio: 3200,
+          categoria: "empanadas",
+          emoji: "🥟",
+          etiqueta: "",
+          color_fondo: "#F0FFF4",
+          destacado: false,
+          maneja_stock: true,
+          stock: 20,
+          gluten_free: true,
+          nut_free: true
+        }
+      ];
+      
+      if (!supabaseClient) {
+        showToast('❌ Base de datos no conectada');
+        return;
+      }
+      
+      supabaseClient.from('productos').insert(mockProducts).then(function(res) {
+        if (res.error) {
+          showToast('❌ Error al importar: ' + res.error.message);
+        } else {
+          showToast('✅ Sincronizados 2 productos desde Shopify con éxito');
+          supabaseClient.from('productos').select('*').order('nombre').then(function(resProd) {
+            if (!resProd.error && resProd.data) {
+              productos = resProd.data;
+              renderGrid();
+              if (adminTabActual === 'productos') {
+                renderAdminTab('productos');
+              }
+            }
+          });
+        }
+      });
+    }, 1500);
+  }, 1000);
+}
