@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Manito del Vegano — CRM</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',sans-serif;background:#F8F4EC;color:#12221A;min-height:100vh}
+:root{--green:#2D6A4F;--lime:#52B788;--sand:#E9DCC9;--cream:#F8F4EC;--soft:#EEF6F1;--dark:#12221A;--muted:#7A8F82;--white:#fff;--red:#D64045;--amber:#E8A838;--blue:#2176AE;--purple:#6B4FA0;--hemp:#9C6933}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--sand);border-radius:4px}
+
+/* HEADER */
+header{background:var(--dark);padding:0 16px;display:flex;align-items:center;gap:10px;height:54px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--lime));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.logo-text{color:#fff;font-weight:800;font-size:14px}
+.logo-text span{color:var(--lime)}
+.nav-btn{background:transparent;border:none;border-radius:7px;color:var(--muted);padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
+.nav-btn.active{background:var(--green);color:#fff}
+select.model-sel{background:rgba(255,255,255,.08);border:1px solid rgba(82,183,136,.35);border-radius:8px;color:var(--lime);padding:5px 10px;font-size:12px;cursor:pointer;outline:none}
+.btn-add{background:var(--green);border:none;border-radius:8px;color:#fff;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+
+/* VISTAS */
+.view{display:none;padding:20px;max-width:1100px;margin:0 auto}
+.view.active{display:block}
+#view-chat{display:none;flex-direction:column;height:calc(100vh - 54px);padding:0;max-width:100%}
+#view-chat.active{display:flex}
+
+/* CARDS / TABLA */
+.card{background:#fff;border-radius:12px;border:1px solid var(--sand);padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:#fff;border-radius:12px;border:1px solid var(--sand);padding:14px}
+.kpi-icon{font-size:22px;margin-bottom:6px}
+.kpi-val{font-size:22px;font-weight:800}
+.kpi-label{font-size:11px;color:var(--muted);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.section-title{font-weight:700;font-size:14px;margin-bottom:12px}
+.lead-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--sand);cursor:pointer}
+.lead-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.lead-name{font-weight:700;font-size:13px}
+.lead-sub{font-size:11px;color:var(--muted)}
+.badge{display:inline-block;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap}
+.empty{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+
+/* PIPELINE */
+.pipeline-wrap{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
+.pipeline-col{min-width:210px;flex:0 0 210px}
+.stage-header{border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.stage-header span{font-weight:700;font-size:13px}
+.lead-card{background:#fff;border:1px solid var(--sand);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.lead-card-name{font-weight:700;font-size:13px;margin-bottom:4px}
+.lead-card-sub{font-size:11px;color:var(--muted);margin-bottom:6px}
+.lead-card-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.stage-btns{display:flex;gap:4px;flex-wrap:wrap}
+.stage-btn{border-radius:6px;padding:2px 7px;font-size:10px;cursor:pointer;font-weight:600;border:1px solid}
+.lead-card-meta{font-size:10px;color:var(--muted);margin-top:6px}
+.col-empty{text-align:center;padding:18px 8px;color:var(--muted);font-size:12px;border:1.5px dashed var(--sand);border-radius:10px}
+
+/* TABLA LEADS */
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;background:var(--soft)}
+td{padding:10px 14px;border-top:1px solid var(--sand);font-size:13px}
+.action-btn{border:none;border-radius:7px;color:#fff;padding:5px 9px;font-size:12px;cursor:pointer;margin-right:4px}
+
+/* SEGUIMIENTOS */
+.fu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.fu-card{background:#fff;border-radius:12px;border:1px solid var(--sand);padding:14px}
+.fu-card.urgent{border:2px solid var(--red)}
+.fu-top{display:flex;justify-content:space-between;align-items:flex-start}
+.fu-name{font-weight:700;font-size:13px}
+.fu-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.fu-date{font-size:12px;font-weight:700;text-align:right}
+.fu-days{font-size:10px;text-align:right}
+.fu-actions{margin-top:10px;display:flex;gap:8px}
+
+/* CHAT */
+.chat-header{background:#fff;padding:10px 16px;border-bottom:1px solid var(--sand);display:flex;align-items:center;gap:10px}
+.back-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px}
+.chat-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--lime));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.chat-lead-name{font-weight:700;font-size:14px}
+.chat-lead-sub{font-size:11px;color:var(--muted)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg-wrap{display:flex;align-items:flex-end;gap:8px}
+.msg-wrap.user{justify-content:flex-end}
+.msg-bot-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--lime));display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.bubble{max-width:75%;padding:10px 14px;font-size:13px;line-height:1.6;word-break:break-word;white-space:pre-wrap}
+.bubble.bot{background:#fff;border-radius:18px 18px 18px 4px;border:1px solid var(--sand)}
+.bubble.user{background:var(--green);color:#fff;border-radius:18px 18px 4px 18px}
+.bubble-time{font-size:10px;margin-top:4px;opacity:.6}
+.quick-replies{padding:6px 12px;background:var(--soft);border-top:1px solid var(--sand);display:flex;gap:8px;overflow-x:auto}
+.qr-btn{background:#fff;border:1.5px solid var(--sand);border-radius:20px;padding:4px 12px;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.chat-input-area{display:flex;gap:10px;padding:10px 16px;background:#fff;border-top:2px solid var(--sand);align-items:flex-end}
+#chat-input{flex:1;resize:none;border:1.5px solid var(--sand);border-radius:12px;padding:10px 14px;font-size:13px;font-family:inherit;outline:none;background:var(--soft);line-height:1.5;max-height:120px;overflow-y:auto}
+.send-btn{background:var(--green);border:none;border-radius:12px;padding:10px 18px;color:#fff;font-size:20px;cursor:pointer;flex-shrink:0}
+.send-btn:disabled{background:var(--sand);cursor:not-allowed}
+.typing{display:flex;gap:5px;align-items:center;padding:12px 16px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:bounce 1.2s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(18,34,26,.55);display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-title{font-weight:700;font-size:16px}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)}
+.field{margin-bottom:12px}
+.field label{font-size:11px;font-weight:700;color:var(--hemp);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:8px 12px;border:1.5px solid var(--sand);border-radius:8px;font-size:13px;background:var(--soft);outline:none;font-family:inherit}
+.field textarea{resize:vertical}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.btn{border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid}
+.btn-primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn-amber{background:var(--amber);border-color:var(--amber);color:#fff}
+.btn-outline{background:transparent;color:var(--muted);border-color:var(--muted)}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+/* TOAST */
+#toast{position:fixed;top:16px;right:16px;z-index:9999;padding:10px 18px;border-radius:10px;font-weight:600;font-size:13px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);display:none;animation:fadeIn .2s ease}
+
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">🌿</div>
+  <span class="logo-text">La Manito <span>CRM</span></span>
+  <div style="flex:1"></div>
+  <button class="nav-btn active" onclick="showView('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showView('pipeline')">🔄 Pipeline</button>
+  <button class="nav-btn" onclick="showView('leads')">👥 Leads</button>
+  <button class="nav-btn" id="nav-fu" onclick="showView('followups')">🔔 Seguimientos</button>
+  <select class="model-sel" id="model-sel">
+    <option value="claude-sonnet-4-6">Sonnet 4.6 ⚡</option>
+    <option value="claude-opus-4-6">Opus 4.6 🧠</option>
+    <option value="claude-haiku-4-5-20251001">Haiku 4.5 🚀</option>
+  </select>
+  <button class="btn-add" onclick="openLeadModal()">+ Lead</button>
+</header>
+
+<!-- DASHBOARD -->
+<div class="view active" id="view-dashboard">
+  <h2 style="margin-bottom:4px;font-size:22px">Panel de ventas</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:20px" id="dash-date"></p>
+  <div class="grid-kpi" id="kpis"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="section-title">🌱 Leads recientes</div>
+      <div id="recent-leads"><div class="empty">Sin leads aún</div></div>
+    </div>
+    <div class="card">
+      <div class="section-title">🔔 Seguimientos pendientes</div>
+      <div id="recent-fu"><div class="empty">Todo al día 🎉</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PIPELINE -->
+<div class="view" id="view-pipeline">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:20px">🔄 Pipeline</h2>
+    <button class="btn-add" onclick="openLeadModal()">+ Nuevo lead</button>
+  </div>
+  <div class="pipeline-wrap" id="pipeline-board"></div>
+</div>
+
+<!-- LEADS -->
+<div class="view" id="view-leads">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:20px">👥 Leads (<span id="leads-count">0</span>)</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="openFUModal()">+ Seguimiento</button>
+      <button class="btn-add" onclick="openLeadModal()">+ Lead</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Nombre</th><th>Canal</th><th>Producto</th><th>Etapa</th>
+          <th>Valor</th><th>Interac.</th><th>Última act.</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="leads-table"></tbody>
+      </table>
+      <div id="leads-empty" class="empty" style="display:none">
+        <div style="font-size:40px;margin-bottom:10px">🌱</div>
+        Sin leads aún — agrega el primero
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEGUIMIENTOS -->
+<div class="view" id="view-followups">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:20px">🔔 Seguimientos</h2>
+    <button class="btn-add" onclick="openFUModal()">+ Agendar</button>
+  </div>
+  <div style="font-weight:700;font-size:14px;color:var(--amber);margin-bottom:10px" id="fu-pending-title">⏳ Pendientes</div>
+  <div class="fu-grid" id="fu-pending-list"></div>
+  <div style="font-weight:700;font-size:14px;color:var(--muted);margin:20px 0 10px" id="fu-done-title">✅ Completados</div>
+  <div class="fu-grid" id="fu-done-list"></div>
+</div>
+
+<!-- CHAT -->
+<div class="view" id="view-chat">
+  <div class="chat-header">
+    <button class="back-btn" onclick="showView('leads')">←</button>
+    <div class="chat-avatar" id="chat-avatar">?</div>
+    <div style="flex:1">
+      <div class="chat-lead-name" id="chat-lead-name">—</div>
+      <div class="chat-lead-sub" id="chat-lead-sub">—</div>
+    </div>
+    <select id="chat-stage-sel" onchange="updateStageFromChat(this.value)" style="border:1px solid var(--sand);border-radius:8px;padding:4px 8px;font-size:12px;outline:none;cursor:pointer"></select>
+    <button class="btn btn-outline btn-sm" onclick="openFUFromChat()" style="margin-left:8px">🔔</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="quick-replies">
+    <button class="qr-btn" onclick="setInput('¿Cuánto cuesta?')">¿Cuánto cuesta?</button>
+    <button class="qr-btn" onclick="setInput('¿Hacen despacho?')">¿Hacen despacho?</button>
+    <button class="qr-btn" onclick="setInput('Quiero hacer un pedido')">Quiero hacer un pedido</button>
+    <button class="qr-btn" onclick="setInput('¿Tienen oferta?')">¿Tienen oferta?</button>
+    <button class="qr-btn" onclick="setInput('¿Cuándo llega mi pedido?')">¿Cuándo llega?</button>
+  </div>
+  <div class="chat-input-area">
+    <textarea id="chat-input" rows="1" placeholder="Simula al cliente o consulta como vendedor..." oninput="autoResize(this)" onkeydown="chatKeydown(event)"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<!-- MODAL LEAD -->
+<div class="modal-overlay" id="modal-lead">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-lead-title">🌱 Nuevo lead</div>
+      <button class="modal-close" onclick="closeModal('modal-lead')">×</button>
+    </div>
+    <div class="field"><label>Nombre *</label><input id="lf-name" placeholder="María González"></div>
+    <div class="field"><label>Teléfono / WhatsApp</label><input id="lf-phone" placeholder="+56 9 1234 5678"></div>
+    <div class="field"><label>Canal</label>
+      <select id="lf-channel"><option>Instagram DM</option><option>WhatsApp</option><option>Web</option><option>Referido</option><option>TikTok</option><option>Facebook</option><option>Presencial</option></select>
+    </div>
+    <div class="field"><label>Producto</label>
+      <select id="lf-product"><option>Manjar de cáñamo</option><option>Empanadas veganas</option><option>Pack Dúo</option><option>Box regalo vegano</option><option>Semillas de cáñamo</option><option>Otro / Consulta</option></select>
+    </div>
+    <div class="field"><label>Etapa</label>
+      <select id="lf-stage"><option value="nuevo">🌱 Nuevo</option><option value="contactado">📨 Contactado</option><option value="interesado">🔥 Interesado</option><option value="cotizado">📋 Cotizado</option><option value="cerrado">🎉 Cerrado</option><option value="perdido">❌ Perdido</option></select>
+    </div>
+    <div class="field"><label>Valor estimado ($CLP)</label><input id="lf-value" type="number" placeholder="9000"></div>
+    <div class="field"><label>Tono del agente</label>
+      <select id="lf-tone"><option>amigable y cercano</option><option>profesional</option><option>divertido y juvenil</option><option>apasionado y activista</option><option>empático y cálido</option></select>
+    </div>
+    <div class="field"><label>Notas</label><textarea id="lf-notes" rows="3" placeholder="Contexto relevante..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-lead')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLead()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FOLLOWUP -->
+<div class="modal-overlay" id="modal-fu">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔔 Agendar seguimiento</div>
+      <button class="modal-close" onclick="closeModal('modal-fu')">×</button>
+    </div>
+    <div class="field"><label>Lead *</label>
+      <select id="ff-lead"></select>
+    </div>
+    <div class="field"><label>Tipo</label>
+      <select id="ff-type"><option>WhatsApp</option><option>Llamada</option><option>Instagram DM</option><option>Email</option><option>Visita presencial</option><option>Envío muestra</option></select>
+    </div>
+    <div class="field"><label>Fecha y hora *</label><input id="ff-date" type="datetime-local"></div>
+    <div class="field"><label>Nota / objetivo</label><textarea id="ff-note" rows="2" placeholder="¿Qué quieres lograr?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-fu')">Cancelar</button>
+      <button class="btn btn-amber" onclick="saveFollowup()">Agendar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONSTANTES
+// ═══════════════════════════════════════════
+const STAGES = [
+  {id:'nuevo',    label:'Nuevo',      color:'#7A8F82', emoji:'🌱'},
+  {id:'contactado',label:'Contactado',color:'#2176AE', emoji:'📨'},
+  {id:'interesado',label:'Interesado',color:'#E8A838', emoji:'🔥'},
+  {id:'cotizado', label:'Cotizado',   color:'#6B4FA0', emoji:'📋'},
+  {id:'cerrado',  label:'Cerrado ✓',  color:'#2D6A4F', emoji:'🎉'},
+  {id:'perdido',  label:'Perdido',    color:'#D64045', emoji:'❌'},
+];
+
+// ═══════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════
+let leads = JSON.parse(localStorage.getItem('lm_leads')||'[]');
+let followups = JSON.parse(localStorage.getItem('lm_fu')||'[]');
+let convs = JSON.parse(localStorage.getItem('lm_convs')||'{}');
+let activeLead = null;
+let editLeadId = null;
+
+function saveLeads(){ localStorage.setItem('lm_leads', JSON.stringify(leads)); }
+function saveFU(){ localStorage.setItem('lm_fu', JSON.stringify(followups)); }
+function saveConvs(){ localStorage.setItem('lm_convs', JSON.stringify(convs)); }
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+const uid = ()=>`${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+const nowISO = ()=>new Date().toISOString();
+const fmtDate = iso=>iso?new Date(iso).toLocaleDateString('es-CL',{day:'2-digit',month:'short'}):'—';
+const fmtTime = iso=>iso?new Date(iso).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}):'';
+const daysLeft = iso=>iso?Math.ceil((new Date(iso)-new Date())/86400000):null;
+const getStage = id=>STAGES.find(s=>s.id===id)||STAGES[0];
+const fmtCLP = v=>v>0?'$'+Number(v).toLocaleString('es-CL'):'—';
+
+function toast(msg, color='#2D6A4F'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color; t.style.display='block';
+  setTimeout(()=>t.style.display='none',3000);
+}
+
+function badge(color, text){
+  return `<span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${text}</span>`;
+}
+
+// ═══════════════════════════════════════════
+//  NAVEGACIÓN
+// ═══════════════════════════════════════════
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  const navMap={dashboard:'📊 Dashboard',pipeline:'🔄 Pipeline',leads:'👥 Leads'};
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    if(Object.values(navMap).some(l=>b.textContent.includes(l.split(' ')[1])) || b.textContent.includes('Seguimientos')){
+      if(b.textContent.includes(name==='dashboard'?'Dashboard':name==='pipeline'?'Pipeline':name==='leads'?'Leads':name==='followups'?'Seguimientos':'')) b.classList.add('active');
+    }
+  });
+  if(name==='dashboard') renderDashboard();
+  if(name==='pipeline') renderPipeline();
+  if(name==='leads') renderLeads();
+  if(name==='followups') renderFollowups();
+}
+
+// ═══════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════
+function renderDashboard(){
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
+  const cerrados = leads.filter(l=>l.stage==='cerrado');
+  const revenue = cerrados.reduce((s,l)=>s+(l.value||0),0);
+  const pipeline = leads.filter(l=>!['cerrado','perdido'].includes(l.stage)).reduce((s,l)=>s+(l.value||0),0);
+  const pendFU = followups.filter(f=>!f.done);
+  const urgFU = pendFU.filter(f=>daysLeft(f.dueDate)<=1);
+
+  const kpiData = [
+    {icon:'👥',val:leads.length,label:'Leads totales',color:'#2176AE'},
+    {icon:'🔥',val:leads.filter(l=>l.stage==='interesado').length,label:'Interesados',color:'#E8A838'},
+    {icon:'🎉',val:cerrados.length,label:'Cerrados',color:'#2D6A4F'},
+    {icon:'💰',val:'$'+revenue.toLocaleString('es-CL'),label:'Revenue',color:'#2D6A4F'},
+    {icon:'📈',val:'$'+pipeline.toLocaleString('es-CL'),label:'En pipeline',color:'#6B4FA0'},
+    {icon:'🔔',val:pendFU.length,label:'Seguimientos',color:urgFU.length>0?'#D64045':'#7A8F82'},
+  ];
+  document.getElementById('kpis').innerHTML = kpiData.map(k=>`
+    <div class="kpi">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`).join('');
+
+  const rl = document.getElementById('recent-leads');
+  if(!leads.length){ rl.innerHTML='<div class="empty">Sin leads aún</div>'; }
+  else { rl.innerHTML = leads.slice(0,5).map(l=>{
+    const s=getStage(l.stage);
+    return `<div class="lead-row" onclick="openChat('${l.id}')">
+      <div class="lead-avatar" style="background:${s.color}22">${s.emoji}</div>
+      <div style="flex:1;min-width:0"><div class="lead-name">${l.name}</div><div class="lead-sub">${l.product} · ${l.channel}</div></div>
+      ${badge(s.color, s.label)}
+    </div>`;
+  }).join(''); }
+
+  const rf = document.getElementById('recent-fu');
+  const pfu = followups.filter(f=>!f.done).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate)).slice(0,5);
+  if(!pfu.length){ rf.innerHTML='<div class="empty">Todo al día 🎉</div>'; }
+  else { rf.innerHTML = pfu.map(f=>{
+    const lead=leads.find(l=>l.id===f.leadId);
+    const days=daysLeft(f.dueDate); const urg=days!==null&&days<=1;
+    return `<div class="lead-row">
+      <div style="font-size:18px">${urg?'🚨':'📅'}</div>
+      <div style="flex:1"><div class="lead-name" style="color:${urg?'#D64045':'#12221A'}">${lead?.name||'—'}</div><div class="lead-sub">${f.type} · ${f.note||''}</div></div>
+      <div style="font-size:11px;font-weight:700;color:${urg?'#D64045':'#7A8F82'}">${days<=0?'Hoy':days+'d'}</div>
+      <button onclick="toggleFU('${f.id}')" style="background:#2D6A4F;border:none;border-radius:6px;color:#fff;padding:3px 8px;font-size:11px;cursor:pointer;margin-left:8px">✓</button>
+    </div>`;
+  }).join(''); }
+}
+
+// ═══════════════════════════════════════════
+//  PIPELINE
+// ═══════════════════════════════════════════
+function renderPipeline(){
+  const board = document.getElementById('pipeline-board');
+  board.innerHTML = STAGES.map(s=>{
+    const sLeads = leads.filter(l=>l.stage===s.id);
+    const cards = sLeads.length ? sLeads.map(l=>{
+      const fu=followups.filter(f=>f.leadId===l.id&&!f.done);
+      const otherStages = STAGES.filter(st=>st.id!==s.id).slice(0,3);
+      return `<div class="lead-card" onclick="openChat('${l.id}')">
+        <div class="lead-card-name">${l.name}</div>
+        <div class="lead-card-sub">${l.product}</div>
+        <div class="lead-card-badges">
+          ${badge('#2176AE',l.channel)}
+          ${l.value>0?badge('#2D6A4F',fmtCLP(l.value)):''}
+          ${fu.length>0?badge('#E8A838','🔔'+fu.length):''}
+        </div>
+        <div class="stage-btns">
+          ${otherStages.map(st=>`<button class="stage-btn" onclick="event.stopPropagation();updateStage('${l.id}','${st.id}')" style="background:${st.color}18;border-color:${st.color}44;color:${st.color}">→${st.emoji}</button>`).join('')}
+        </div>
+        <div class="lead-card-meta">${l.interactions||0} interac. · ${fmtDate(l.updatedAt)}</div>
+      </div>`;
+    }).join('') : '<div class="col-empty">Vacío</div>';
+
+    return `<div class="pipeline-col">
+      <div class="stage-header" style="background:${s.color}18;border:1.5px solid ${s.color}44">
+        <span style="color:${s.color}">${s.emoji} ${s.label}</span>
+        ${badge(s.color, sLeads.length)}
+      </div>
+      ${cards}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  LEADS TABLA
+// ═══════════════════════════════════════════
+function renderLeads(){
+  document.getElementById('leads-count').textContent = leads.length;
+  const tbody = document.getElementById('leads-table');
+  const empty = document.getElementById('leads-empty');
+  if(!leads.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = leads.map((l,i)=>{
+    const s=getStage(l.stage);
+    const fu=followups.filter(f=>f.leadId===l.id&&!f.done);
+    const stageOpts = STAGES.map(st=>`<option value="${st.id}"${st.id===l.stage?' selected':''}>${st.emoji} ${st.label}</option>`).join('');
+    return `<tr style="background:${i%2===0?'#fff':'#FAFAF8'}">
+      <td><div style="font-weight:700">${l.name}</div>${l.phone?`<div style="font-size:11px;color:var(--muted)">${l.phone}</div>`:''}</td>
+      <td>${badge('#2176AE',l.channel)}</td>
+      <td style="color:#3D5A47">${l.product}</td>
+      <td><select onchange="updateStage('${l.id}',this.value)" style="background:${s.color}18;border:1px solid ${s.color}44;border-radius:8px;padding:3px 8px;font-size:12px;color:${s.color};font-weight:700;cursor:pointer;outline:none">${stageOpts}</select></td>
+      <td style="font-weight:700;color:var(--green)">${fmtCLP(l.value)}</td>
+      <td style="text-align:center"><strong>${l.interactions||0}</strong>${fu.length>0?' '+badge('#E8A838','🔔'+fu.length):''}</td>
+      <td style="color:var(--muted)">${fmtDate(l.updatedAt)}</td>
+      <td>
+        <button class="action-btn" style="background:var(--green)" onclick="openChat('${l.id}')">💬</button>
+        <button class="action-btn" style="background:var(--amber)" onclick="openFUModalForLead('${l.id}')">🔔</button>
+        <button class="action-btn" style="background:var(--blue)" onclick="editLead('${l.id}')">✏️</button>
+        <button class="action-btn" style="background:var(--red)" onclick="deleteLead('${l.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  SEGUIMIENTOS
+// ═══════════════════════════════════════════
+function renderFollowups(){
+  const pending = followups.filter(f=>!f.done).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+  const done = followups.filter(f=>f.done).slice(0,20);
+  document.getElementById('fu-pending-title').textContent = `⏳ Pendientes (${pending.length})`;
+  document.getElementById('fu-done-title').textContent = `✅ Completados (${done.length})`;
+
+  const renderFU = (list, isDone) => list.map(f=>{
+    const lead=leads.find(l=>l.id===f.leadId);
+    const days=daysLeft(f.dueDate); const urg=!isDone&&days!==null&&days<=1;
+    return `<div class="fu-card${urg?' urgent':''}" style="opacity:${isDone?.6:1}">
+      <div class="fu-top">
+        <div><div class="fu-name" style="color:${urg?'#D64045':'#12221A'}">${lead?.name||'Lead eliminado'}</div>
+        <div class="fu-sub">${f.type} · ${f.note||'Sin nota'}</div></div>
+        <div><div class="fu-date" style="color:${urg?'#D64045':'#7A8F82'}">${fmtDate(f.dueDate)}</div>
+        ${!isDone&&days!==null?`<div class="fu-days" style="color:${urg?'#D64045':'#7A8F82'}">${days<=0?'¡Hoy!':'en '+days+'d'}</div>`:''}</div>
+      </div>
+      ${!isDone?`<div class="fu-actions">
+        <button class="btn btn-primary btn-sm" onclick="toggleFU('${f.id}')">✓ Listo</button>
+        ${lead?`<button class="btn btn-outline btn-sm" onclick="openChat('${lead.id}')">💬 Chat</button>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('') || `<div style="color:var(--muted);font-size:13px;padding:10px">${isDone?'Sin completados':'Todo al día 🎉'}</div>`;
+
+  document.getElementById('fu-pending-list').innerHTML = renderFU(pending, false);
+  document.getElementById('fu-done-list').innerHTML = renderFU(done, true);
+
+  // Actualizar badge de nav
+  const urgCount = followups.filter(f=>!f.done&&daysLeft(f.dueDate)<=1).length;
+  const pendCount = followups.filter(f=>!f.done).length;
+  document.getElementById('nav-fu').textContent = `🔔 Seguimientos${urgCount>0?' ⚠️':pendCount>0?' ('+pendCount+')':''}`;
+}
+
+// ═══════════════════════════════════════════
+//  CRUD LEADS
+// ═══════════════════════════════════════════
+function openLeadModal(id=null){
+  editLeadId = id;
+  document.getElementById('modal-lead-title').textContent = id ? '✏️ Editar lead' : '🌱 Nuevo lead';
+  if(id){
+    const l=leads.find(x=>x.id===id);
+    document.getElementById('lf-name').value=l.name||'';
+    document.getElementById('lf-phone').value=l.phone||'';
+    document.getElementById('lf-channel').value=l.channel||'Instagram DM';
+    document.getElementById('lf-product').value=l.product||'Manjar de cáñamo';
+    document.getElementById('lf-stage').value=l.stage||'nuevo';
+    document.getElementById('lf-value').value=l.value||'';
+    document.getElementById('lf-tone').value=l.tone||'amigable y cercano';
+    document.getElementById('lf-notes').value=l.notes||'';
+  } else {
+    ['lf-name','lf-phone','lf-value','lf-notes'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('modal-lead').classList.add('open');
+}
+
+function editLead(id){ openLeadModal(id); }
+
+function saveLead(){
+  const name=document.getElementById('lf-name').value.trim();
+  if(!name){ toast('Nombre requerido','#D64045'); return; }
+  const data={
+    name, phone:document.getElementById('lf-phone').value,
+    channel:document.getElementById('lf-channel').value,
+    product:document.getElementById('lf-product').value,
+    stage:document.getElementById('lf-stage').value,
+    value:Number(document.getElementById('lf-value').value)||0,
+    tone:document.getElementById('lf-tone').value,
+    notes:document.getElementById('lf-notes').value,
+    updatedAt:nowISO(),
+  };
+  if(editLeadId){
+    leads=leads.map(l=>l.id===editLeadId?{...l,...data}:l);
+    toast('Lead actualizado ✓');
+  } else {
+    leads=[{...data,id:uid(),createdAt:nowISO(),interactions:0},...leads];
+    toast('Lead creado ✓');
+  }
+  saveLeads(); closeModal('modal-lead'); renderLeads(); renderDashboard();
+}
+
+function deleteLead(id){
+  if(!confirm('¿Eliminar este lead?')) return;
+  leads=leads.filter(l=>l.id!==id);
+  saveLeads(); toast('Eliminado','#D64045'); renderLeads(); renderDashboard();
+}
+
+function updateStage(id, stage){
+  leads=leads.map(l=>l.id===id?{...l,stage,updatedAt:nowISO()}:l);
+  saveLeads();
+  toast('→ '+getStage(stage).label);
+  renderLeads(); renderPipeline(); renderDashboard();
+  if(activeLead?.id===id){ activeLead={...activeLead,stage}; updateChatHeader(); }
+}
+
+// ═══════════════════════════════════════════
+//  CRUD FOLLOWUPS
+// ═══════════════════════════════════════════
+function openFUModal(){
+  populateFULeadSelect();
+  document.getElementById('ff-note').value='';
+  document.getElementById('ff-date').value='';
+  document.getElementById('modal-fu').classList.add('open');
+}
+
+function openFUModalForLead(leadId){
+  populateFULeadSelect(leadId);
+  document.getElementById('ff-note').value='';
+  document.getElementById('ff-date').value='';
+  document.getElementById('modal-fu').classList.add('open');
+}
+
+function openFUFromChat(){
+  if(activeLead) openFUModalForLead(activeLead.id);
+}
+
+function populateFULeadSelect(selectedId=null){
+  const sel=document.getElementById('ff-lead');
+  sel.innerHTML='<option value="">— Selecciona —</option>'+leads.map(l=>`<option value="${l.id}"${l.id===selectedId?' selected':''}>${l.name} · ${l.product}</option>`).join('');
+}
+
+function saveFollowup(){
+  const leadId=document.getElementById('ff-lead').value;
+  const dueDate=document.getElementById('ff-date').value;
+  if(!leadId||!dueDate){ toast('Completa lead y fecha','#D64045'); return; }
+  followups=[{
+    id:uid(), leadId, type:document.getElementById('ff-type').value,
+    note:document.getElementById('ff-note').value,
+    dueDate, done:false, createdAt:nowISO(),
+  },...followups];
+  saveFU(); toast('Seguimiento agendado 🔔','#E8A838');
+  closeModal('modal-fu'); renderFollowups(); renderDashboard();
+}
+
+function toggleFU(id){
+  followups=followups.map(f=>f.id===id?{...f,done:!f.done,doneAt:nowISO()}:f);
+  saveFU(); renderFollowups(); renderDashboard();
+}
+
+// ═══════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════
+function openChat(id){
+  activeLead = leads.find(l=>l.id===id);
+  if(!activeLead) return;
+  if(!convs[id]){
+    convs[id]=[{role:'assistant',content:`¡Hola${activeLead.name?', '+activeLead.name.split(' ')[0]:''}! 👋 Soy tu asistente de ventas de La Manito del Vegano.\n\nVeo que tu interés es **${activeLead.product}** y estás en etapa "${getStage(activeLead.stage).label}". ¿En qué te puedo ayudar?`,ts:nowISO()}];
+    saveConvs();
+  }
+  updateChatHeader();
+  renderMessages();
+  showView('chat');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+}
+
+function updateChatHeader(){
+  if(!activeLead) return;
+  const s=getStage(activeLead.stage);
+  document.getElementById('chat-avatar').textContent=activeLead.name?.[0]?.toUpperCase()||'?';
+  document.getElementById('chat-lead-name').textContent=activeLead.name;
+  document.getElementById('chat-lead-sub').textContent=`${activeLead.product} · ${s.emoji} ${s.label} · ${activeLead.interactions||0} interacciones`;
+  const sel=document.getElementById('chat-stage-sel');
+  sel.innerHTML=STAGES.map(st=>`<option value="${st.id}"${st.id===activeLead.stage?' selected':''}>${st.emoji} ${st.label}</option>`).join('');
+}
+
+function updateStageFromChat(stage){
+  if(activeLead){ updateStage(activeLead.id, stage); }
+}
+
+function renderMessages(){
+  const container=document.getElementById('chat-messages');
+  const msgs=convs[activeLead?.id]||[];
+  container.innerHTML=msgs.map(m=>`
+    <div class="msg-wrap ${m.role==='user'?'user':''}">
+      ${m.role==='assistant'?'<div class="msg-bot-avatar">🌿</div>':''}
+      <div class="bubble ${m.role==='bot'?'bot':m.role}" style="${m.role==='assistant'?'background:#fff;border-radius:18px 18px 18px 4px;border:1px solid var(--sand)':''}">
+        ${m.content.replace(/\*\*(.*?)\*\*/g,'$1')}
+        <div class="bubble-time">${fmtTime(m.ts)}</div>
+      </div>
+    </div>`).join('');
+  container.scrollTop=container.scrollHeight;
+}
+
+function buildSystemPrompt(){
+  const s=getStage(activeLead?.stage);
+  return `Eres el agente de ventas IA de "La Manito del Vegano" (@lamanitodelvegano), marca chilena artesanal de productos veganos a base de semillas de cáñamo. Productos estrella: manjar de cáñamo y empanadas veganas. Operas en Santiago y Pucón, Chile.
+
+CLIENTE: ${activeLead?.name} | Canal: ${activeLead?.channel} | Producto: ${activeLead?.product} | Etapa: ${s.emoji} ${s.label} | Interacciones: ${activeLead?.interactions||0} | Notas: ${activeLead?.notes||'ninguna'} | Valor: ${fmtCLP(activeLead?.value)}
+
+ESTRATEGIA:
+- nuevo: genera curiosidad, pregunta qué los llevó aquí
+- contactado: profundiza la necesidad
+- interesado: presenta beneficios, maneja objeciones, cotiza
+- cotizado: seguimiento, resuelve dudas, cierra con urgencia
+- cerrado: felicita, pide reseña, ofrece recompra
+- perdido: recupera con nueva propuesta de valor
+
+OBJECIONES:
+- "Es caro" → "El manjar rinde mucho, una tapa dura semanas. ¿Cuánto pagas hoy por algo así?"
+- "No conozco el cáñamo" → "Es la semilla más completa nutricionalmente. ¿Nunca probaste algo así?"
+- "Sin delivery" → "Despachamos a Santiago y Pucón, ¿dónde estás?"
+
+PRECIOS: manjar $4.500-6.000 | empanadas $2.500-3.500 c/u | pack dúo $9.000
+PAGO: transferencia, MercadoPago, efectivo
+TONO: ${activeLead?.tone||'amigable y cercano'} | Español chileno natural. Máx 4 párrafos. Termina siempre con CTA claro.`;
+}
+
+async function sendChat(){
+  const input=document.getElementById('chat-input');
+  const text=input.value.trim();
+  if(!text||!activeLead) return;
+
+  const userMsg={role:'user',content:text,ts:nowISO()};
+  convs[activeLead.id]=[...(convs[activeLead.id]||[]),userMsg];
+  saveConvs(); input.value=''; input.style.height='auto';
+  renderMessages();
+
+  // typing indicator
+  const container=document.getElementById('chat-messages');
+  const typingEl=document.createElement('div');
+  typingEl.className='msg-wrap'; typingEl.id='typing-indicator';
+  typingEl.innerHTML='<div class="msg-bot-avatar">🌿</div><div class="bubble bot"><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
+  container.appendChild(typingEl);
+  container.scrollTop=container.scrollHeight;
+  document.getElementById('send-btn').disabled=true;
+
+  try {
+    const model=document.getElementById('model-sel').value;
+    const msgs=convs[activeLead.id].map(m=>({role:m.role,content:m.content}));
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model,max_tokens:1000,system:buildSystemPrompt(),messages:msgs})
+    });
+    const data=await res.json();
+    const reply=data.content?.map(b=>b.text||'').join('')||'Sin respuesta.';
+    const aMsg={role:'assistant',content:reply,ts:nowISO()};
+    convs[activeLead.id]=[...convs[activeLead.id],aMsg];
+
+    // incrementa interacciones
+    leads=leads.map(l=>l.id===activeLead.id?{...l,interactions:(l.interactions||0)+1,lastContact:nowISO(),updatedAt:nowISO()}:l);
+    activeLead={...activeLead,interactions:(activeLead.interactions||0)+1};
+    saveLeads(); saveConvs();
+  } catch(e) {
+    const errMsg={role:'assistant',content:'❌ Error al conectar. Verifica tu API key de Anthropic en el servidor.',ts:nowISO()};
+    convs[activeLead.id]=[...convs[activeLead.id],errMsg];
+    saveConvs();
+  } finally {
+    document.getElementById('typing-indicator')?.remove();
+    document.getElementById('send-btn').disabled=false;
+    renderMessages(); updateChatHeader();
+  }
+}
+
+function chatKeydown(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } }
+function setInput(text){ document.getElementById('chat-input').value=text; document.getElementById('chat-input').focus(); }
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+// ═══════════════════════════════════════════
+//  MODALES
+// ═══════════════════════════════════════════
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
+renderDashboard();
+</script>
+</body>
+</html>
