@@ -1,148 +1,70 @@
-/**
- * /pages/api/chat.js
- * Proxy multi-proveedor para el CRM de La Manito del Vegano
- * Soporta: Claude (Anthropic), GPT (OpenAI), Gemini (Google), Grok (xAI), Qwen (Alibaba)
- *
- * Variables de entorno requeridas en Vercel:
- *   ANTHROPIC_API_KEY
- *   OPENAI_API_KEY
- *   GOOGLE_API_KEY
- *   XAI_API_KEY
- *   DASHSCOPE_API_KEY
- */
-
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const { model, messages, system, max_tokens = 1000 } = req.body;
+  // Si viene 'mensaje' (versión antigua) o 'history' (versión nueva)
+  const { mensaje, history } = req.body;
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
-  if (!model || !messages) {
-    return res.status(400).json({ error: "Faltan campos: model, messages" });
-  }
+  if (!apiKey) return res.status(200).json({ respuesta: "Faltó la llave." });
 
   try {
-    let result;
+    const systemContext = `Eres el asistente experto en ventas de "La Manito Del Vegano", tienda plant-based en Santiago y Pucón. Eres muy persuasivo, amigable y usas emojis.
+Ofrecen productos 100% veganos como Empanadas de Pino Soya, Pies de Arándanos, Tartas, etc.
+Tu objetivo es responder de forma breve, empática y guiar al cliente a comprar.
+Si piden el "botón de pagar" o "dónde pago", diles que primero deben agregar los productos al carrito haciendo clic en el botón de "Agregar al carrito" en la página, y luego abrir el carrito (el ícono del supermercado arriba a la derecha) para completar el pedido.
+Tienes buena memoria, recuerda lo que el cliente te dijo antes. No seas repetitivo.`;
 
-    // ── ANTHROPIC (Claude) ──────────────────────────────────
-    if (model.startsWith("claude")) {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) throw new Error("ANTHROPIC_API_KEY no configurada");
-
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({ model, messages, system, max_tokens }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || "Error Anthropic");
-      result = data.content?.[0]?.text || "";
+    let contents = [];
+    if (history && history.length > 0) {
+        contents = [...history];
+        // Inyectar el contexto del sistema en el primer mensaje del usuario para asegurar que la IA sepa quién es.
+        contents[0] = {
+            role: "user",
+            parts: [{ text: systemContext + "\n\nMensaje del cliente: " + history[0].parts[0].text }]
+        };
+    } else {
+        // Fallback por si acaso el frontend no mandó history
+        contents = [{ role: "user", parts: [{ text: systemContext + "\n\nMensaje del cliente: " + (mensaje || "Hola") }] }];
     }
 
-    // ── OPENAI (GPT) ────────────────────────────────────────
-    else if (model.startsWith("gpt") || model.startsWith("o1") || model.startsWith("o3")) {
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) throw new Error("OPENAI_API_KEY no configurada");
+    let modelName = 'gemini-1.5-flash';
+    let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    
+    let response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: contents })
+    });
 
-      const oaiMessages = system
-        ? [{ role: "system", content: system }, ...messages]
-        : messages;
-
-      const r = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ model, messages: oaiMessages, max_tokens }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || "Error OpenAI");
-      result = data.choices?.[0]?.message?.content || "";
+    if (response.status === 404) {
+      // Fallback: Buscar dinámicamente qué modelos tiene permitidos esta API Key
+      const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (modelsRes.ok) {
+        const modelsData = await modelsRes.json();
+        const validModel = (modelsData.models || []).find(m => 
+            m.supportedGenerationMethods && 
+            m.supportedGenerationMethods.includes('generateContent') &&
+            m.name.includes('gemini')
+        );
+        
+        if (validModel) {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: contents })
+            });
+        }
+      }
     }
 
-    // ── GOOGLE (Gemini) ─────────────────────────────────────
-    else if (model.startsWith("gemini")) {
-      const apiKey = process.env.GOOGLE_API_KEY;
-      if (!apiKey) throw new Error("GOOGLE_API_KEY no configurada");
-
-      const geminiMessages = messages.map(m => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-          contents: geminiMessages,
-          generationConfig: { maxOutputTokens: max_tokens },
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || "Error Gemini");
-      result = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    if (!response.ok) {
+        const errTxt = await response.text();
+        throw new Error(`Google Error ${response.status}: ${errTxt}`);
     }
 
-    // ── xAI (Grok) ──────────────────────────────────────────
-    else if (model.startsWith("grok")) {
-      const apiKey = process.env.XAI_API_KEY;
-      if (!apiKey) throw new Error("XAI_API_KEY no configurada");
-
-      const grokMessages = system
-        ? [{ role: "system", content: system }, ...messages]
-        : messages;
-
-      const r = await fetch("https://api.x.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ model, messages: grokMessages, max_tokens }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || "Error Grok");
-      result = data.choices?.[0]?.message?.content || "";
-    }
-
-    // ── ALIBABA (Qwen) ──────────────────────────────────────
-    else if (model.startsWith("qwen")) {
-      const apiKey = process.env.DASHSCOPE_API_KEY;
-      if (!apiKey) throw new Error("DASHSCOPE_API_KEY no configurada");
-
-      const qwenMessages = system
-        ? [{ role: "system", content: system }, ...messages]
-        : messages;
-
-      const r = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ model, messages: qwenMessages, max_tokens }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message || "Error Qwen");
-      result = data.choices?.[0]?.message?.content || "";
-    }
-
-    else {
-      throw new Error(`Modelo no reconocido: ${model}`);
-    }
-
-    return res.status(200).json({ text: result });
-
-  } catch (err) {
-    console.error("[chat proxy error]", err.message);
-    return res.status(500).json({ error: err.message });
+    const data = await response.json();
+    res.status(200).json({ respuesta: data.candidates[0].content.parts[0].text.trim() });
+  } catch (error) {
+    res.status(500).json({ respuesta: `Error técnico exacto: ${error.message}` });
   }
 }
