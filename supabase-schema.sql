@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS productos (
     stock integer,
     gluten_free boolean DEFAULT true,
     nut_free boolean DEFAULT true,
-    disponibilidad text
+    disponibilidad text,
+    gramaje text,
+    variedades text
 );
 
 -- 3. Tabla de Zonas de Envío
