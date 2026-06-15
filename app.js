@@ -24,6 +24,7 @@ var SUPABASE_BUCKET = 'productos';
 
 var supabaseClient = null;
 var supabaseStorageBucket = SUPABASE_BUCKET;
+var dbSoportaGramaje = true;
 try {
   if (window.supabase) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -73,6 +74,20 @@ function updateStatsTimeFilter(val) {
   renderAdminTab('stats');
 }
 
+function verificarColumnasBaseDatos() {
+  if (!supabaseClient) return Promise.resolve();
+  return supabaseClient.from('productos').select('gramaje').limit(1).then(function(res) {
+    if (res.error && res.error.code === '42703') { // 42703: undefined_column
+      dbSoportaGramaje = false;
+      console.warn("⚠️ La columna 'gramaje' no existe en la tabla 'productos' de Supabase.");
+    } else {
+      dbSoportaGramaje = true;
+    }
+  }).catch(function(err) {
+    console.error("Error verificando columnas de base de datos:", err);
+  });
+}
+
 function loadData() {
   if (!supabaseClient) {
     productos = [
@@ -87,14 +102,16 @@ function loadData() {
     return;
   }
   
-  supabaseClient.from('productos').select('*').order('nombre').then(function(res) {
-    if (!res.error) {
-      productos = res.data || [];
-      renderGrid(); renderDestacados();
-      if (adminTabActual === 'productos' || adminTabActual === 'destacados' || adminTabActual === 'stats') {
-        renderAdminTab(adminTabActual);
+  verificarColumnasBaseDatos().then(function() {
+    supabaseClient.from('productos').select('*').order('nombre').then(function(res) {
+      if (!res.error) {
+        productos = res.data || [];
+        renderGrid(); renderDestacados();
+        if (adminTabActual === 'productos' || adminTabActual === 'destacados' || adminTabActual === 'stats') {
+          renderAdminTab(adminTabActual);
+        }
       }
-    }
+    });
   });
 
   supabaseClient.from('zonas').select('*').order('nombre').then(function(res) {
@@ -1281,6 +1298,13 @@ function renderAdminTab(tab) {
   var c = document.getElementById('acont');
   if (tab==='productos') {
     var h = '<div class="admin-head"><div class="admin-tit">Productos</div><button class="btn-add" onclick="abrirModalProd(null)">Agregar producto</button></div>';
+    if (!dbSoportaGramaje) {
+      h += '<div class="alrt" style="background:#FFF9E6; border:1px solid #FFE082; color:#B78103; padding:12px; border-radius:12px; margin-bottom:16px; font-size:12px; line-height:1.5;">';
+      h += '  ⚠️ <strong>Base de datos desactualizada:</strong> No se han detectado las columnas <code>gramaje</code> y <code>variedades</code> en tu tabla de Supabase.<br>';
+      h += '  Para poder guardar gramaje y sabores en tus productos, por favor ve al <strong>SQL Editor</strong> en tu panel de Supabase y ejecuta este código:<br>';
+      h += '  <pre style="background:rgba(0,0,0,0.05); padding:8px; border-radius:6px; margin-top:6px; overflow-x:auto; font-family:monospace; user-select:all; color:var(--texto);">ALTER TABLE productos ADD COLUMN IF NOT EXISTS gramaje text;\nALTER TABLE productos ADD COLUMN IF NOT EXISTS variedades text;</pre>';
+      h += '</div>';
+    }
     h += '<div class="admin-card"><table class="atbl"><thead><tr><th>Producto</th><th>Categoría</th><th>Estado</th><th>Stock</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>';
     for (var i=0;i<productos.length;i++) {
       var p = productos[i];
@@ -1952,6 +1976,18 @@ function abrirModalProd(id) {
   var imgPreview = document.getElementById('fimagen_preview');
   var uploadText = document.querySelector('.upload-text');
 
+  // Disable inputs if database columns are missing
+  var gramajeInp = document.getElementById('fgramaje');
+  var varInp = document.getElementById('fvariedades');
+  if (gramajeInp) {
+    gramajeInp.disabled = !dbSoportaGramaje;
+    gramajeInp.placeholder = dbSoportaGramaje ? 'Ej: 500 grs, 1 Kilo, 1 Litro' : '⚠️ Desactivado (Ejecuta el script SQL en Supabase)';
+  }
+  if (varInp) {
+    varInp.disabled = !dbSoportaGramaje;
+    varInp.placeholder = dbSoportaGramaje ? 'Ej: Barbacoa, Mostaza, Clásico' : '⚠️ Desactivado (Ejecuta el script SQL en Supabase)';
+  }
+
   if (id===null) {
     document.getElementById('modaltit').textContent = 'Nuevo Producto';
     document.getElementById('fnombre').value='';
@@ -2046,10 +2082,13 @@ function guardarProd() {
     stock: stock,
     gluten_free:glutenFree,
     nut_free:nutFree,
-    disponibilidad: sanitizeHTML(document.getElementById('fdisponibilidad').value.trim()) || null,
-    gramaje: sanitizeHTML(document.getElementById('fgramaje').value.trim()) || null,
-    variedades: sanitizeHTML(document.getElementById('fvariedades').value.trim()) || null
+    disponibilidad: sanitizeHTML(document.getElementById('fdisponibilidad').value.trim()) || null
   };
+
+  if (dbSoportaGramaje) {
+    data.gramaje = sanitizeHTML(document.getElementById('fgramaje').value.trim()) || null;
+    data.variedades = sanitizeHTML(document.getElementById('fvariedades').value.trim()) || null;
+  }
 
   if (!supabaseClient) {
     showToast('⚠️ Base de datos no conectada'); return;
