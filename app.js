@@ -88,6 +88,79 @@ function verificarColumnasBaseDatos() {
   });
 }
 
+function loadProductos() {
+  if (!supabaseClient) return;
+  return supabaseClient.from('productos').select('*').order('nombre').then(function(res) {
+    if (!res.error) {
+      productos = res.data || [];
+      renderGrid(); renderDestacados();
+      if (adminTabActual === 'productos' || adminTabActual === 'destacados' || adminTabActual === 'stats') {
+        renderAdminTab(adminTabActual);
+      }
+    }
+  });
+}
+
+function loadZonas() {
+  if (!supabaseClient) return;
+  return supabaseClient.from('zonas').select('*').order('nombre').then(function(res) {
+    if (!res.error) {
+      zonas = res.data || [];
+      renderZonas();
+      if (adminTabActual === 'zonas' || adminTabActual === 'stats') {
+        renderAdminTab(adminTabActual);
+      }
+    }
+  });
+}
+
+function loadPedidos() {
+  if (!supabaseClient) return;
+  return supabaseClient.from('pedidos').select('*').order('createdAt', { ascending: false }).then(function(res) {
+    if (!res.error) {
+      pedidos = res.data || [];
+      if (adminTabActual === 'pedidos' || adminTabActual === 'stats') {
+        renderAdminTab(adminTabActual);
+      }
+    }
+  });
+}
+
+function loadCategorias() {
+  if (!supabaseClient) return;
+  return supabaseClient.from('categorias').select('*').order('nombre').then(function(res) {
+    if (!res.error) {
+      categorias = res.data || [];
+      if (categorias.length === 0) {
+        var defaultCats = [
+          { nombre: 'Empanadas', emoji: '🥟', slug: 'empanadas' },
+          { nombre: 'Pies', emoji: '🫐', slug: 'pies' },
+          { nombre: 'Manjares', emoji: '🍯', slug: 'manjares' },
+          { nombre: 'Packs', emoji: '📦', slug: 'packs' }
+        ];
+        supabaseClient.from('categorias').insert(defaultCats).then(function() { loadCategorias(); });
+        return;
+      }
+      renderCategoriasUI();
+      if (adminTabActual === 'categorias' || adminTabActual === 'productos') {
+        renderAdminTab(adminTabActual);
+      }
+    }
+  });
+}
+
+function loadCupones() {
+  if (!supabaseClient) return;
+  return supabaseClient.from('cupones').select('*').then(function(res) {
+    if (!res.error) {
+      cupones = res.data || [];
+      if (adminTabActual === 'cupones') {
+        renderAdminTab('cupones');
+      }
+    }
+  });
+}
+
 function loadData() {
   if (!supabaseClient) {
     productos = [
@@ -103,55 +176,12 @@ function loadData() {
   }
   
   verificarColumnasBaseDatos().then(function() {
-    supabaseClient.from('productos').select('*').order('nombre').then(function(res) {
-      if (!res.error) {
-        productos = res.data || [];
-        renderGrid(); renderDestacados();
-        if (adminTabActual === 'productos' || adminTabActual === 'destacados' || adminTabActual === 'stats') {
-          renderAdminTab(adminTabActual);
-        }
-      }
-    });
+    loadProductos();
   });
 
-  supabaseClient.from('zonas').select('*').order('nombre').then(function(res) {
-    if (!res.error) {
-      zonas = res.data || [];
-      renderZonas();
-      if (adminTabActual === 'zonas' || adminTabActual === 'stats') {
-        renderAdminTab(adminTabActual);
-      }
-    }
-  });
-
-  supabaseClient.from('pedidos').select('*').order('createdAt', { ascending: false }).then(function(res) {
-    if (!res.error) {
-      pedidos = res.data || [];
-      if (adminTabActual === 'pedidos' || adminTabActual === 'stats') {
-        renderAdminTab(adminTabActual);
-      }
-    }
-  });
-
-  supabaseClient.from('categorias').select('*').order('nombre').then(function(res) {
-    if (!res.error) {
-      categorias = res.data || [];
-      if (categorias.length === 0) {
-        var defaultCats = [
-          { nombre: 'Empanadas', emoji: '🥟', slug: 'empanadas' },
-          { nombre: 'Pies', emoji: '🫐', slug: 'pies' },
-          { nombre: 'Manjares', emoji: '🍯', slug: 'manjares' },
-          { nombre: 'Packs', emoji: '📦', slug: 'packs' }
-        ];
-        supabaseClient.from('categorias').insert(defaultCats).then(function() { loadData(); });
-        return;
-      }
-      renderCategoriasUI();
-      if (adminTabActual === 'categorias' || adminTabActual === 'productos') {
-        renderAdminTab(adminTabActual);
-      }
-    }
-  });
+  loadZonas();
+  loadPedidos();
+  loadCategorias();
 
   supabaseClient.from('ajustes').select('*').eq('id', 'global').maybeSingle().then(function(res) {
     if (!res.error && res.data) {
@@ -165,14 +195,7 @@ function loadData() {
     }
   });
 
-  supabaseClient.from('cupones').select('*').then(function(res) {
-    if (!res.error) {
-      cupones = res.data || [];
-      if (adminTabActual === 'cupones') {
-        renderAdminTab('cupones');
-      }
-    }
-  });
+  loadCupones();
 
   setupRealtime();
 }
@@ -352,7 +375,7 @@ function renderGrid() {
     }
     h += '</div><div class="cbody"><div class="cname">' + p.nombre + '</div>';
     if (p.gramaje) {
-      h += '<div style="font-size:11px; color:var(--neon); margin-bottom:4px; font-weight:600;">' + p.gramaje + '</div>';
+      h += '<div style="font-size:11px; color:var(--neon); margin-bottom:4px; font-weight:600;">' + cleanGramajeLabel(p.gramaje) + '</div>';
     }
     h += '<div class="cdesc">' + p.descripcion + '</div>';
     
@@ -368,7 +391,7 @@ function renderGrid() {
     
     if (isAgotado) {
       h += '<span style="font-size:10px; font-weight:700; color:var(--rojo);">Agotado</span>';
-    } else if (p.variedades && p.variedades.trim().length > 0) {
+    } else if ((p.variedades && p.variedades.trim().length > 0) || (p.gramaje && hasMultipleFormats(p.gramaje))) {
       if (qty > 0) {
         h += '<button class="badd" style="width:auto; padding:4px 8px; font-size:11px; border-radius:12px; background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon);" onclick="abrirDetailModal(\'' + p.id + '\', event)">' + qty + ' en carro</button>';
       } else {
@@ -387,7 +410,7 @@ function renderGrid() {
 function addCart(id) {
   var p = productos.find(function(x){return x.id === id;});
   if (!p) return;
-  if (p.variedades && p.variedades.trim().length > 0) {
+  if ((p.variedades && p.variedades.trim().length > 0) || (p.gramaje && hasMultipleFormats(p.gramaje))) {
     abrirDetailModal(id);
     return;
   }
@@ -403,6 +426,7 @@ function addCart(id) {
   if (!carrito[id]) carrito[id] = {id:p.id,nombre:p.nombre,precio:p.precio,emoji:p.emoji,color_fondo:p.color_fondo,imagen_url:p.imagen_url,qty:0};
   carrito[id].qty++;
   updBdg(); renderGrid();
+  abrirCarrito();
   showToast('✅ ' + p.nombre + ' agregado');
 }
 
@@ -564,7 +588,10 @@ function renderCart() {
       h += item.emoji;
     }
     h += '</div>';
-    var displayName = item.nombre + (item.variedad ? ' <span style="font-size:11px;color:var(--neon)">(' + item.variedad + ')</span>' : '');
+    var details = [];
+    if (item.variedad) details.push(item.variedad);
+    if (item.formato) details.push(item.formato);
+    var displayName = item.nombre + (details.length > 0 ? ' <span style="font-size:11px;color:var(--neon)">(' + details.join(' - ') + ')</span>' : '');
     h += '<div class="ciin"><div class="cin">' + displayName + '</div><div class="cip">$' + (item.precio*item.qty).toLocaleString('es-CL') + '</div></div>';
     h += '<div class="cic"><button class="cb" onclick="chQty(\'' + keys[i] + '\',-1)">-</button><span class="cq">' + item.qty + '</span><button class="cb p" onclick="chQty(\'' + keys[i] + '\',1)">+</button></div></div>';
   }
@@ -934,7 +961,10 @@ function enviarWA() {
     msg += '🛒 *Mi pedido:*\n';
     for (var i=0;i<keys.length;i++) { 
       var item=carrito[keys[i]]; 
-      var displayName = item.nombre + (item.variedad ? ' (' + item.variedad + ')' : '');
+      var details = [];
+      if (item.variedad) details.push(item.variedad);
+      if (item.formato) details.push(item.formato);
+      var displayName = item.nombre + (details.length > 0 ? ' (' + details.join(' - ') + ')' : '');
       msg+='• '+item.qty+'x '+displayName+' — $'+(item.precio*item.qty).toLocaleString('es-CL')+'\n'; 
     }
     
@@ -1177,13 +1207,19 @@ function crearPedido(metodoPago, statusInicial) {
   var keys = Object.keys(carrito);
   for (var i = 0; i < keys.length; i++) {
     var item = carrito[keys[i]];
+    var nameDetails = [];
+    if (item.variedad) nameDetails.push(item.variedad);
+    if (item.formato) nameDetails.push(item.formato);
+    var itemNombre = item.nombre + (nameDetails.length > 0 ? ' (' + nameDetails.join(' - ') + ')' : '');
+
     itemsArray.push({
       id: item.id,
-      nombre: item.nombre + (item.variedad ? ' (' + item.variedad + ')' : ''),
+      nombre: itemNombre,
       precio: item.precio,
       qty: item.qty,
       emoji: item.emoji || '🌱',
-      variedad: item.variedad || null
+      variedad: item.variedad || null,
+      formato: item.formato || null
     });
   }
 
@@ -1721,15 +1757,15 @@ function renderAdminTab(tab) {
     h += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; padding-bottom:30px;">';
     
     // Mercado Pago
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">💳 Mercado Pago</div>';
-    h += '      <span class="status-pill" id="status_mp" style="background:' + (ajustesTienda.mp_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.mp_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_mp" style="background:' + (ajustesTienda.mp_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.mp_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.mp_enabled ? '<span class="pulse-dot-green"></span> Conectado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Permite a tus clientes pagar online de forma automática mediante Tarjetas de Crédito, Débito y Webpay.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_mp_enabled" ' + (ajustesTienda.mp_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_mp\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_mp\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_mp\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_mp\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela de Pagos</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_mp_enabled" ' + (ajustesTienda.mp_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_mp\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Conectado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_mp\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_mp\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_mp\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela de Pagos</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Public Key (Credenciales MP)</label>';
@@ -1746,15 +1782,15 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Flow
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🌊 Flow (Pago Online &amp; MACH)</div>';
-    h += '      <span class="status-pill" id="status_flow" style="background:' + (ajustesTienda.flow_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.flow_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_flow" style="background:' + (ajustesTienda.flow_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.flow_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.flow_enabled ? '<span class="pulse-dot-green"></span> Conectado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Integra pagos en Chile vía Webpay, MACH, OnePay, Servipag y monederos digitales en un solo flujo.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_flow_enabled" ' + (ajustesTienda.flow_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_flow\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_flow\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_flow\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_flow\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela Flow</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_flow_enabled" ' + (ajustesTienda.flow_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_flow\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Conectado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_flow\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_flow\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_flow\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Pasarela Flow</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Flow API Key (Integrator ID)</label>';
@@ -1771,15 +1807,15 @@ function renderAdminTab(tab) {
     h += '</div>';
     
     // Shopify
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🛍️ Shopify Catalog</div>';
-    h += '      <span class="status-pill" id="status_shopify" style="background:' + (ajustesTienda.shopify_sync_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.shopify_sync_enabled ? 'Sincronizado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_shopify" style="background:' + (ajustesTienda.shopify_sync_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.shopify_sync_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.shopify_sync_enabled ? '<span class="pulse-dot-green"></span> Sincronizado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Importa y sincroniza automáticamente tus productos, inventario y descripciones desde tu tienda Shopify.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_shopify_sync" ' + (ajustesTienda.shopify_sync_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_shopify\').textContent=this.checked?\'Sincronizado\':\'Inactivo\'; document.getElementById(\'status_shopify\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_shopify\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_shopify\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Auto-Sincronización</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_shopify_sync" ' + (ajustesTienda.shopify_sync_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_shopify\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Sincronizado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_shopify\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_shopify\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_shopify\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Auto-Sincronización</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Shopify URL (.myshopify.com)</label>';
@@ -1796,15 +1832,15 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Wasabil
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">🧾 Wasabil (Boleta SII)</div>';
-    h += '      <span class="status-pill" id="status_wasabil" style="background:' + (ajustesTienda.wasabil_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.wasabil_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_wasabil" style="background:' + (ajustesTienda.wasabil_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.wasabil_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.wasabil_enabled ? '<span class="pulse-dot-green"></span> Conectado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Emisión automatizada de boletas electrónicas ante el SII de Chile para cada pedido concretado.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_wasabil_enabled" ' + (ajustesTienda.wasabil_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_wasabil\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_wasabil\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_wasabil\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_wasabil\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Facturación Automática</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_wasabil_enabled" ' + (ajustesTienda.wasabil_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_wasabil\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Conectado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_wasabil\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_wasabil\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_wasabil\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Facturación Automática</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">RUT Empresa (con guión)</label>';
@@ -1818,15 +1854,15 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Dropi
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📦 Dropi (Logística COD)</div>';
-    h += '      <span class="status-pill" id="status_dropi" style="background:' + (ajustesTienda.dropi_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.dropi_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_dropi" style="background:' + (ajustesTienda.dropi_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.dropi_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.dropi_enabled ? '<span class="pulse-dot-green"></span> Conectado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Automatiza envíos Pago Contra Entrega (COD) con transportistas y gestiona inventario sincronizado.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_dropi_enabled" ' + (ajustesTienda.dropi_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_dropi\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_dropi\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_dropi\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_dropi\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Dropi</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_dropi_enabled" ' + (ajustesTienda.dropi_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_dropi\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Conectado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_dropi\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_dropi\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_dropi\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Dropi</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Dropi Seller ID</label>';
@@ -1840,15 +1876,15 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Google Calendar
-    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between;">';
+    h += '<div class="admin-card admin-card-pad" style="display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div>';
     h += '    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '      <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📅 Google Calendar</div>';
-    h += '      <span class="status-pill" id="status_calendar" style="background:' + (ajustesTienda.calendar_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + (ajustesTienda.calendar_enabled ? 'Conectado' : 'Inactivo') + '</span>';
+    h += '      <span class="status-pill" id="status_calendar" style="background:' + (ajustesTienda.calendar_enabled ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + (ajustesTienda.calendar_enabled ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + (ajustesTienda.calendar_enabled ? '<span class="pulse-dot-green"></span> Conectado' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '    </div>';
     h += '    <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Agenda automáticamente cada entrega programada de tus clientes directamente en tu Google Calendar.</p>';
     h += '    <div class="frow" style="margin-bottom:8px;">';
-    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_calendar_enabled" ' + (ajustesTienda.calendar_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_calendar\').textContent=this.checked?\'Conectado\':\'Inactivo\'; document.getElementById(\'status_calendar\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_calendar\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_calendar\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Agenda</label>';
+    h += '      <label style="font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--neon);"><input type="checkbox" id="aj_calendar_enabled" ' + (ajustesTienda.calendar_enabled ? 'checked' : '') + ' onchange="document.getElementById(\'status_calendar\').innerHTML=this.checked?\'<span class=\\\'pulse-dot-green\\\'></span> Conectado\':\'<span class=\\\'pulse-dot-gray\\\'></span> Inactivo\'; document.getElementById(\'status_calendar\').style.background=this.checked?\'rgba(0, 255, 179, 0.15)\':\'rgba(255,255,255,0.05)\'; document.getElementById(\'status_calendar\').style.color=this.checked?\'var(--neon)\':\'var(--muted)\'; document.getElementById(\'status_calendar\').style.borderColor=this.checked?\'var(--neon)\':\'rgba(255,255,255,0.1)\';"> Activar Sincronización Agenda</label>';
     h += '    </div>';
     h += '    <div class="frow" style="margin-bottom:10px;">';
     h += '      <label class="flbl" style="font-size:11px; margin-bottom:4px;">Google Calendar ID</label>';
@@ -1858,10 +1894,10 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // WhatsApp
-    h += '<div class="admin-card admin-card-pad">';
+    h += '<div class="admin-card admin-card-pad" style="border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">💬 WhatsApp Ventas</div>';
-    h += '    <span class="status-pill" style="background:rgba(37, 211, 102, 0.15); color:#25D366; border:1px solid #25D366; font-size:10px;">Activo</span>';
+    h += '    <span class="status-pill" style="background:rgba(37, 211, 102, 0.15); color:#25D366; border:1px solid #25D366; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;"><span class="pulse-dot-green" style="background-color:#25D366; box-shadow:0 0 0 0 rgba(37,211,102,0.7)"></span> Activo</span>';
     h += '  </div>';
     h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Tus pedidos y chat se redirigen automáticamente a tu número de WhatsApp para cerrar la venta.</p>';
     h += '  <div class="frow" style="margin-bottom:10px;">';
@@ -1876,10 +1912,10 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Supabase
-    h += '<div class="admin-card admin-card-pad">';
+    h += '<div class="admin-card admin-card-pad" style="border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">⚡ Supabase DB</div>';
-    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px;">Conectado</span>';
+    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;"><span class="pulse-dot-green"></span> Conectado</span>';
     h += '  </div>';
     h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Conexión directa en tiempo real a la base de datos Supabase para mantener sincronizados productos, stock, cupones y métricas.</p>';
     h += '  <div class="frow" style="margin-bottom:10px;">';
@@ -1893,10 +1929,10 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Analytics
-    h += '<div class="admin-card admin-card-pad">';
+    h += '<div class="admin-card admin-card-pad" style="border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📊 Analytics &amp; Pixel</div>';
-    h += '    <span class="status-pill" id="status_analytics" style="background:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px;">' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'Activo' : 'Inactivo') + '</span>';
+    h += '    <span class="status-pill" id="status_analytics" style="background:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'rgba(0, 255, 179, 0.15)' : 'rgba(255,255,255,0.05)') + '; color:' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'var(--muted)') + '; border:1px solid ' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? 'var(--neon)' : 'rgba(255,255,255,0.1)') + '; font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;">' + ((ajustesTienda.ga_id || ajustesTienda.pixel_id) ? '<span class="pulse-dot-green"></span> Activo' : '<span class="pulse-dot-gray"></span> Inactivo') + '</span>';
     h += '  </div>';
     h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Realiza seguimiento a tus visitas, conversiones y efectividad de tus campañas publicitarias.</p>';
     h += '  <div class="frow" style="margin-bottom:10px;">';
@@ -1910,10 +1946,10 @@ function renderAdminTab(tab) {
     h += '</div>';
 
     // Instagram
-    h += '<div class="admin-card admin-card-pad">';
+    h += '<div class="admin-card admin-card-pad" style="border: 1px solid rgba(0, 255, 179, 0.15) !important; background: rgba(3, 9, 7, 0.65) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;">';
     h += '  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">';
     h += '    <div style="font-size:18px; font-weight:700; color:white; display:flex; align-items:center; gap:8px;">📸 Instagram Catalog</div>';
-    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px;">Activo</span>';
+    h += '    <span class="status-pill" style="background:rgba(0, 255, 179, 0.15); color:var(--neon); border:1px solid var(--neon); font-size:10px; display:inline-flex; align-items:center; padding:4px 8px; border-radius:50px;"><span class="pulse-dot-green"></span> Activo</span>';
     h += '  </div>';
     h += '  <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px;">Sincroniza tus productos con el catálogo de Meta para etiquetar productos en publicaciones e historias.</p>';
     h += '  <div class="frow" style="margin-bottom:10px;">';
@@ -2102,14 +2138,20 @@ function guardarProd() {
     data.destacado = false;
     supabaseClient.from('productos').insert([data]).then(function(res) { 
       if(res.error) showToast('❌ Error: ' + res.error.message);
-      else showToast('✅ Producto agregado'); 
+      else {
+        showToast('✅ Producto agregado'); 
+        loadProductos();
+      }
     });
   } else {
     var p = productos.find(function(x){return x.id === editandoId;});
     if(p) data.destacado = p.destacado;
     supabaseClient.from('productos').update(data).eq('id', editandoId).then(function(res) { 
       if(res.error) showToast('❌ Error: ' + res.error.message);
-      else showToast('✅ Producto actualizado'); 
+      else {
+        showToast('✅ Producto actualizado'); 
+        loadProductos();
+      }
     });
   }
   document.getElementById('modalov').classList.remove('open');
@@ -2120,7 +2162,10 @@ function eliminarProd(id) {
   if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
   supabaseClient.from('productos').delete().eq('id', id).then(function(res) {
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('🗑 Producto eliminado');
+    else {
+      showToast('🗑 Producto eliminado');
+      loadProductos();
+    }
   });
 }
 
@@ -2130,7 +2175,10 @@ function toggleDestacado(id) {
   if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
   supabaseClient.from('productos').update({destacado: !p.destacado}).eq('id', id).then(function(res) { 
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('⭐ Destacado actualizado'); 
+    else {
+      showToast('⭐ Destacado actualizado'); 
+      loadProductos();
+    }
   });
 }
 
@@ -2142,7 +2190,10 @@ function guardarZona(id) {
   if (pre > 2147483647) { showToast('⚠️ El precio supera el límite permitido'); return; }
   supabaseClient.from('zonas').update({nombre:nom, comunas:com, precio:pre}).eq('id', id).then(function(res) { 
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('✅ Zona guardada'); 
+    else {
+      showToast('✅ Zona guardada'); 
+      loadZonas();
+    }
   });
 }
 
@@ -2159,6 +2210,7 @@ function agregarZona() {
     document.getElementById('nzcom').value='';
     document.getElementById('nzpre').value='0';
     showToast('✅ Zona agregada');
+    loadZonas();
   });
 }
 
@@ -2167,7 +2219,10 @@ function eliminarZona(id) {
   if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
   supabaseClient.from('zonas').delete().eq('id', id).then(function(res) {
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('🗑 Zona eliminada');
+    else {
+      showToast('🗑 Zona eliminada');
+      loadZonas();
+    }
   });
 }
 
@@ -2268,6 +2323,7 @@ function agregarCupon() {
     document.getElementById('ncupvalor').value = '';
     document.getElementById('ncupmin').value = '0';
     showToast('🎟️ Cupón creado con éxito');
+    loadCupones();
   });
 }
 
@@ -2276,7 +2332,10 @@ function eliminarCupon(code) {
   if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
   supabaseClient.from('cupones').delete().eq('id', code).then(function(res) {
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('🗑️ Cupón eliminado');
+    else {
+      showToast('🗑️ Cupón eliminado');
+      loadCupones();
+    }
   });
 }
 
@@ -2332,7 +2391,10 @@ function cambiarEstadoPedido(id, nuevoEstado) {
   if (!supabaseClient) return;
   supabaseClient.from('pedidos').update({ status: nuevoEstado }).eq('id', id).then(function(res) {
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('✅ Estado del pedido actualizado');
+    else {
+      showToast('✅ Estado del pedido actualizado');
+      loadPedidos();
+    }
   });
 }
 
@@ -2341,7 +2403,10 @@ function eliminarPedido(id) {
   if (!supabaseClient) return;
   supabaseClient.from('pedidos').delete().eq('id', id).then(function(res) {
     if(res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('🗑 Pedido eliminado');
+    else {
+      showToast('🗑 Pedido eliminado');
+      loadPedidos();
+    }
   });
 }
 
@@ -2450,6 +2515,7 @@ function agregarCategoria() {
     document.getElementById('ncatnom').value = '';
     document.getElementById('ncatemoj').value = '';
     showToast('✅ Categoría agregada');
+    loadCategorias();
   });
 }
 
@@ -2468,7 +2534,10 @@ function guardarCategoria(id, slugActual) {
     .replace(/\s+/g, '-');
   supabaseClient.from('categorias').update({ nombre: nom, emoji: emoj, slug: newSlug }).eq('id', id).then(function(res) {
     if (res.error) showToast('❌ Error: ' + res.error.message);
-    else showToast('✅ Categoría actualizada');
+    else {
+      showToast('✅ Categoría actualizada');
+      loadCategorias();
+    }
   });
 }
 
@@ -2484,6 +2553,7 @@ function eliminarCategoria(id) {
       }
     } else {
       showToast('🗑 Categoría eliminada');
+      loadCategorias();
     }
   });
 }
@@ -2715,8 +2785,56 @@ function borrarBusqueda() {
 // ============================================================
 // MODAL DETALLE PRODUCTO
 // ============================================================
+function hasMultipleFormats(gramajeStr) {
+  if (!gramajeStr) return false;
+  return gramajeStr.indexOf(',') !== -1 || gramajeStr.indexOf('/') !== -1 || gramajeStr.indexOf(';') !== -1;
+}
+
+function parseFormatos(gramajeStr, basePrecio) {
+  if (!gramajeStr) return [{ label: '', price: basePrecio }];
+  if (!hasMultipleFormats(gramajeStr)) {
+    var priceMatch = gramajeStr.match(/\(\s*\$?\s*([0-9\.\s]+)\s*\)/);
+    var price = basePrecio;
+    var label = gramajeStr;
+    if (priceMatch) {
+      var numStr = priceMatch[1].replace(/\./g, '').trim();
+      var parsedPrice = parseInt(numStr);
+      if (!isNaN(parsedPrice)) {
+        price = parsedPrice;
+      }
+      label = gramajeStr.replace(priceMatch[0], '').trim();
+    }
+    return [{ label: label.trim(), price: price }];
+  }
+  var parts = gramajeStr.split(/[\/,;]/);
+  var result = [];
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i].trim();
+    if (!part) continue;
+    var priceMatch = part.match(/\(\s*\$?\s*([0-9\.\s]+)\s*\)/);
+    var price = basePrecio;
+    var label = part;
+    if (priceMatch) {
+      var numStr = priceMatch[1].replace(/\./g, '').trim();
+      var parsedPrice = parseInt(numStr);
+      if (!isNaN(parsedPrice)) {
+        price = parsedPrice;
+      }
+      label = part.replace(priceMatch[0], '').trim();
+    }
+    result.push({ label: label.trim(), price: price });
+  }
+  return result;
+}
+
+function cleanGramajeLabel(gramajeStr) {
+  if (!gramajeStr) return '';
+  return gramajeStr.replace(/\s*\(\s*\$?\s*[0-9\.\s]+\s*\)/g, '');
+}
+
 var detailProductId = null;
 var detailQty = 1;
+var detailFormatos = [];
 
 function abrirDetailModal(id, event) {
   if (event && (event.target.closest('.qb') || event.target.closest('.badd') || event.target.closest('.qc') || event.target.closest('.dest-btn'))) {
@@ -2829,8 +2947,58 @@ function abrirDetailModal(id, event) {
     varietyContainer.style.display = 'none';
   }
 
+  // Load product formats dropdown
+  var formatContainer = document.getElementById('detail_format_container');
+  var formatSelect = document.getElementById('detail_format');
+  if (p.gramaje && p.gramaje.trim().length > 0 && hasMultipleFormats(p.gramaje)) {
+    detailFormatos = parseFormatos(p.gramaje, p.precio);
+    if (detailFormatos.length > 1) {
+      formatSelect.innerHTML = '';
+      detailFormatos.forEach(function(f, idx) {
+        var opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = f.label + (f.price !== p.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '');
+        formatSelect.appendChild(opt);
+      });
+      formatContainer.style.display = 'block';
+    } else {
+      formatContainer.style.display = 'none';
+      detailFormatos = [{ label: p.gramaje || '', price: p.precio }];
+    }
+  } else {
+    formatContainer.style.display = 'none';
+    detailFormatos = [{ label: p.gramaje || '', price: p.precio }];
+  }
+
+  updateDetailPrice();
   updateDetailQtyUI();
   document.getElementById('detailov').classList.add('open');
+}
+
+function updateDetailPrice() {
+  var p = productos.find(function(x){ return x.id === detailProductId; });
+  if (!p) return;
+  var price = p.precio;
+  var priceOldVal = p.precio_anterior;
+  var formatSelect = document.getElementById('detail_format');
+  var formatContainer = document.getElementById('detail_format_container');
+  if (formatContainer.style.display === 'block' && formatSelect) {
+    var idx = parseInt(formatSelect.value);
+    if (!isNaN(idx) && detailFormatos[idx]) {
+      price = detailFormatos[idx].price;
+      if (priceOldVal && p.precio > 0) {
+        priceOldVal = Math.round((priceOldVal * price) / p.precio);
+      }
+    }
+  }
+  document.getElementById('detail_price').textContent = '$' + price.toLocaleString('es-CL');
+  var priceOld = document.getElementById('detail_price_old');
+  if (priceOldVal) {
+    priceOld.textContent = '$' + priceOldVal.toLocaleString('es-CL');
+    priceOld.style.display = 'inline-block';
+  } else {
+    priceOld.style.display = 'none';
+  }
 }
 
 function cerrarDetailModal(e) {
@@ -2879,19 +3047,45 @@ function addDetailToCart() {
     if (sel) selectedVariety = sel.value;
   }
 
+  var selectedFormat = null;
+  var selectedPrice = p.precio;
+  var formatContainer = document.getElementById('detail_format_container');
+  if (formatContainer && formatContainer.style.display === 'block') {
+    var selF = document.getElementById('detail_format');
+    if (selF) {
+      var idx = parseInt(selF.value);
+      if (!isNaN(idx) && detailFormatos[idx]) {
+        selectedFormat = detailFormatos[idx].label;
+        selectedPrice = detailFormatos[idx].price;
+      }
+    }
+  }
+
   var cartKey = p.id;
-  if (selectedVariety) {
-    cartKey = p.id + '_' + selectedVariety;
+  if (selectedVariety || selectedFormat) {
+    cartKey = p.id + (selectedVariety ? '_' + selectedVariety : '') + (selectedFormat ? '_' + selectedFormat : '');
   }
 
   if (!carrito[cartKey]) {
-    carrito[cartKey] = {id:p.id,nombre:p.nombre,precio:p.precio,emoji:p.emoji,color_fondo:p.color_fondo,imagen_url:p.imagen_url,qty:0,variedad:selectedVariety};
+    carrito[cartKey] = {
+      id: p.id,
+      nombre: p.nombre,
+      precio: selectedPrice,
+      emoji: p.emoji,
+      color_fondo: p.color_fondo,
+      imagen_url: p.imagen_url,
+      qty: 0,
+      variedad: selectedVariety,
+      formato: selectedFormat
+    };
+  } else {
+    carrito[cartKey].precio = selectedPrice;
   }
   carrito[cartKey].qty = detailQty;
   
   updBdg(); 
   renderGrid();
-  renderCart();
+  abrirCarrito();
   document.getElementById('detailov').classList.remove('open');
   showToast('🛒 Carrito actualizado');
 }

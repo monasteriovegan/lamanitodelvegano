@@ -183,7 +183,7 @@ nav{
 /* GRID PRODUCTOS */
 .sec{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:white;padding:16px 16px 10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:0 16px 8px}
-.card{background:white !important;border:1px solid rgba(45, 106, 79, 0.12) !important;border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4) !important;transition:transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.4s ease}
+.card{background:rgba(255,255,255,0.03) !important;border:1px solid rgba(0, 255, 179, 0.15) !important;border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4) !important;transition:transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), border-color 0.4s ease}
 .card:hover{transform:translateY(-5px);border-color:rgba(0, 255, 179, 0.4) !important}
 .cimg{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;overflow:hidden}
 .cimg img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transition:transform 0.4s ease;z-index:2}
@@ -192,8 +192,8 @@ nav{
 .ctag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:50px;font-size:8px;font-weight:700;text-transform:uppercase;z-index:2}
 .tn{background:var(--v3);color:white}.to{background:var(--rojo);color:white}.te{background:var(--am);color:white}
 .cbody{padding:10px 12px 12px;background:transparent}
-.cname{font-weight:700;font-size:12.5px;margin-bottom:3px;color:var(--texto);font-family:'Space Grotesk',sans-serif}
-.cdesc{font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.4}
+.cname{font-weight:700;font-size:13px;margin-bottom:3px;color:#ffffff;font-family:'Space Grotesk',sans-serif}
+.cdesc{font-size:11px;color:#ffffff !important;margin-bottom:8px;line-height:1.4;font-weight:700 !important}
 .cfoot{display:flex;align-items:center;justify-content:space-between}
 .cprice{font-family:'Space Grotesk',sans-serif;font-size:14.5px;color:var(--neon);font-weight:700}
 .cold{font-size:9px;color:#888;text-decoration:line-through;display:block}
@@ -277,10 +277,10 @@ nav{
 /* CARRITO DRAWER SIDE */
 .co{display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:500;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity 0.4s ease}
 .co.open{opacity:1;pointer-events:auto}
-.cp{background:white;border-left:1px solid rgba(45, 106, 79, 0.15);padding:24px 20px 40px;width:100%;max-width:440px;height:100vh;overflow-y:auto;transform:translateX(100%);transition:transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);color:white;box-shadow:-10px 0 40px rgba(0,0,0,0.6)}
+.cp{background:#030907;border-left:1px solid rgba(0, 255, 179, 0.15);padding:24px 20px 40px;width:100%;max-width:440px;height:100vh;overflow-y:auto;transform:translateX(100%);transition:transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);color:white;box-shadow:-10px 0 40px rgba(0,0,0,0.6)}
 .co.open .cp{transform:translateX(0)}
 .hndl{width:32px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 18px}
-.ctit{font-family:'Syne',sans-serif;font-weight:800;font-size:21px;margin-bottom:16px;color:var(--v1)}
+.ctit{font-family:'Syne',sans-serif;font-weight:800;font-size:21px;margin-bottom:16px;color:var(--neon)}
 .cempty{text-align:center;padding:36px 0;color:var(--muted);font-size:13px}
 .cempty span{font-size:38px;display:block;margin-bottom:8px}
 .citem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08)}
@@ -316,7 +316,7 @@ nav{
 .fs{font-size:8px;margin-top:1px}
 .fb.ok .fs{color:var(--neon)}.fb.no .fs,.fb.no .fn{color:#666}.fb.sel .fs{color:var(--neon);font-weight:700}
 .ilbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
-.inp{width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:white;color:var(--texto);margin-bottom:8px}
+.inp{width:100%;padding:10px 12px;border:1px solid rgba(0, 255, 179, 0.2);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:rgba(255,255,255,0.05);color:white;margin-bottom:8px}
 .inp:focus{border-color:var(--neon);box-shadow:0 0 8px rgba(0, 255, 179, 0.2)}
 .alrt{background:rgba(245, 158, 11, 0.1);border:1px solid var(--am);border-radius:9px;padding:8px 12px;font-size:11px;color:#fcd34d;margin-bottom:8px}
 .bwab{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--wa);color:white;padding:13px;border-radius:12px;font-size:13px;font-weight:700;border:none;cursor:pointer;width:100%;margin-bottom:6px;font-family:'Space Grotesk',sans-serif;box-shadow:0 4px 12px rgba(37, 211, 102, 0.2);transition:all 0.2s}
@@ -330,57 +330,58 @@ nav{
 /* ADMIN */
 .loginov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:800;align-items:center;justify-content:center;padding:20px}
 .loginov.open{display:flex}
-.loginbox{background:white;border:1px solid var(--borde);border-radius:20px;padding:30px 24px;text-align:center;max-width:320px;width:100%;color:var(--texto);box-shadow:0 10px 40px rgba(0, 255, 179, 0.1)}
-.logintit{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;color:var(--v1)}
+.loginbox{background:#0d1e16;border:1px solid rgba(0, 255, 179, 0.2);border-radius:20px;padding:30px 24px;text-align:center;max-width:320px;width:100%;color:var(--texto);box-shadow:0 10px 40px rgba(0, 255, 179, 0.1)}
+.logintit{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;color:var(--neon)}
 .loginsub{font-size:13px;color:var(--muted);margin-bottom:20px}
-.logininp{width:100%;padding:12px 14px;border:1px solid var(--borde);border-radius:11px;font-size:16px;font-family:'Space Grotesk',sans-serif;outline:none;background:#f9fafb;color:var(--texto);margin-bottom:12px;text-align:center;letter-spacing:4px}
+.logininp{width:100%;padding:12px 14px;border:1px solid rgba(0, 255, 179, 0.2);border-radius:11px;font-size:16px;font-family:'Space Grotesk',sans-serif;outline:none;background:rgba(255,255,255,0.05);color:white;margin-bottom:12px;text-align:center;letter-spacing:4px}
 .logininp:focus{border-color:var(--neon);box-shadow:0 0 10px rgba(0, 255, 179, 0.2)}
 .loginbtn{background:var(--neon);color:#020705;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'Space Grotesk',sans-serif;box-shadow:0 4px 12px rgba(0, 255, 179, 0.3)}
 .loginerr{color:var(--rojo);font-size:12px;margin-top:8px;display:none}
-.adminov{display:none;position:fixed;inset:0;background:#F8F9FA;z-index:600;overflow-y:auto}
+.adminov{display:none;position:fixed;inset:0;background:#030907;z-index:600;overflow-y:auto}
 .adminov.open{display:block}
-.adminnav{background:var(--v1);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.adminnav{background:#0d1e16;border-bottom:1px solid rgba(0, 255, 179, 0.15);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
 .adminnav h2{font-family:'Fraunces',serif;color:white;font-size:17px}
 .adminclose{background:rgba(255,255,255,0.15);color:white;border:none;padding:6px 12px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px}
-.admintabs{display:flex;background:white;border-bottom:2px solid var(--borde);padding:0 16px;overflow-x:auto;scrollbar-width:none}
+.admintabs{display:flex;background:#030907;border-bottom:2px solid rgba(0, 255, 179, 0.15);padding:0 16px;overflow-x:auto;scrollbar-width:none}
 .admintabs::-webkit-scrollbar{display:none}
 .atab{padding:11px 13px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;font-family:'DM Sans',sans-serif}
-.atab.on{color:var(--v2);border-bottom-color:var(--v2)}
+.atab.on{color:var(--neon);border-bottom-color:var(--neon)}
 .acont{padding:16px}
-.asub{font-family:'Fraunces',serif;font-size:17px;color:var(--c1);margin-bottom:5px}
+.asub{font-family:'Fraunces',serif;font-size:17px;color:white;margin-bottom:5px}
 .adesc{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5}
 .astats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
-.ast{background:white;border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.astn{font-family:'Fraunces',serif;font-size:26px;color:var(--v2);font-weight:900}
+.ast{background:rgba(255,255,255,0.03);border:1px solid rgba(0, 255, 179, 0.1);border-radius:13px;padding:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.astn{font-family:'Fraunces',serif;font-size:26px;color:var(--neon);font-weight:900}
 .astl{font-size:10px;color:var(--muted);margin-top:2px}
-.prodadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.prodadmin{background:rgba(255,255,255,0.03);border:1px solid rgba(0, 255, 179, 0.1);border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .pahead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .paemoji{font-size:26px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:9px;flex-shrink:0;overflow:hidden}
 .paemoji img{width:100%;height:100%;object-fit:cover}
 .painfo{flex:1}
 .paname{font-weight:700;font-size:13px}
-.paprice{font-size:12px;color:var(--v2);font-weight:600}
+.paprice{font-size:12px;color:var(--neon);font-weight:600}
 .pacat{font-size:10px;color:var(--muted)}
 .pabtns{display:flex;gap:6px;flex-wrap:wrap}
 .pabtn{padding:6px 11px;border-radius:8px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
 .btnuevo{background:var(--v2);color:white;border:none;padding:11px 18px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;margin-bottom:13px}
-.zadmin{background:white;border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.zadmin{background:rgba(255,255,255,0.03);border:1px solid rgba(0, 255, 179, 0.1);border-radius:13px;padding:13px;margin-bottom:9px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .zahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .zanom{font-weight:700;font-size:13px}
 /* MODAL */
 .modalov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:700;align-items:center;justify-content:center;padding:20px}
 .modalov.open{display:flex}
-.modalbox{background:white;border:1px solid var(--borde);border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.06);animation:pop 0.2s ease-out;color:var(--texto)}
+.modalbox{background:#0d1e16;border:1px solid rgba(0, 255, 179, 0.25);border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.4);animation:pop 0.2s ease-out;color:var(--texto)}
 .upload-container{border:1px dashed rgba(0, 255, 179, 0.3);border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:rgba(0,0,0,0.2);transition:border-color 0.2s;margin-top:4px}
 .upload-container:hover{border-color:var(--neon)}
 .upload-placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .upload-icon{font-size:24px}
-.modaltit{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;margin-bottom:14px;color:var(--v1)}
+.modaltit{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;margin-bottom:14px;color:var(--neon)}
 .frow{margin-bottom:10px}
 .flbl{font-weight:600;font-size:12px;margin-bottom:4px;display:block;color:var(--texto)}
-.finp{width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:#f9fafb;color:var(--texto)}
+.finp{width:100%;padding:10px 12px;border:1px solid rgba(0, 255, 179, 0.2);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:rgba(255,255,255,0.05);color:white}
 .finp:focus{border-color:var(--neon);box-shadow:0 0 8px rgba(0, 255, 179, 0.2)}
-.fsel{width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:white;color:var(--texto)}
+.fsel{width:100%;padding:10px 12px;border:1px solid rgba(0, 255, 179, 0.2);border-radius:10px;font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;background:rgba(255,255,255,0.05);color:white}
+.fsel option{background:#0d1e16;color:white}
 .frow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .bguardar{background:var(--neon);color:#020705;border:none;padding:13px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;font-family:'Space Grotesk',sans-serif;margin:10px 0 8px;box-shadow:0 4px 12px rgba(0, 255, 179, 0.3)}
 .bcancelar{background:#f1f3f2;border:1px solid var(--borde);color:var(--muted);padding:11px;border-radius:12px;font-size:13px;cursor:pointer;width:100%;font-family:'Space Grotesk',sans-serif}
@@ -388,10 +389,10 @@ nav{
 /* CONFIRM */
 .confov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:900;align-items:center;justify-content:center;padding:20px}
 .confov.open{display:flex}
-.confbox{background:white;border:1px solid var(--borde);border-radius:20px;padding:28px 20px;text-align:center;max-width:320px;width:100%;color:var(--texto);box-shadow:0 10px 40px rgba(0, 255, 179, 0.1);animation:pop 0.3s ease}
+.confbox{background:#0d1e16;border:1px solid rgba(0, 255, 179, 0.25);border-radius:20px;padding:28px 20px;text-align:center;max-width:320px;width:100%;color:var(--texto);box-shadow:0 10px 40px rgba(0, 255, 179, 0.1);animation:pop 0.3s ease}
 @keyframes pop{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
 .cfic{font-size:50px;margin-bottom:11px}
-.cftit{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;margin-bottom:6px;color:var(--v1)}
+.cftit{font-family:'Syne',sans-serif;font-weight:800;font-size:19px;margin-bottom:6px;color:var(--neon)}
 .cfmsg{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:16px;white-space:pre-line}
 .cfbtn{background:var(--neon);color:#020705;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;box-shadow:0 4px 12px rgba(0, 255, 179, 0.3)}
 /* WA FLOAT */
@@ -708,8 +709,8 @@ footer strong{color:white;font-size:14px;display:block;margin-bottom:6px;font-fa
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: white;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: #0d1e16;
+  border-bottom: 1px solid rgba(0, 255, 179, 0.15);
   margin: -40px -48px 20px -48px;
 }
 .admin-mob-nav {
@@ -717,8 +718,8 @@ footer strong{color:white;font-size:14px;display:block;margin-bottom:6px;font-fa
   gap: 8px;
   overflow-x: auto;
   padding: 12px 20px;
-  background: #f1f3f5;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  background: #030907;
+  border-bottom: 1px solid rgba(0, 255, 179, 0.15);
   margin: -20px -48px 24px -48px;
   scrollbar-width: none;
 }
@@ -726,19 +727,19 @@ footer strong{color:white;font-size:14px;display:block;margin-bottom:6px;font-fa
   display: none;
 }
 .admin-mob-nav .atab {
-  background: white;
-  color: #555;
-  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  border: 1px solid rgba(0, 255, 179, 0.15);
   font-size: 12px;
   padding: 8px 12px;
   border-radius: 20px;
   white-space: nowrap;
 }
 .admin-mob-nav .atab.on {
-  background: linear-gradient(135deg, #008060 0%, #004d40 100%);
-  color: white;
-  border-color: #008060;
-  box-shadow: 0 4px 10px rgba(0, 128, 96, 0.25);
+  background: var(--neon);
+  color: #020705;
+  border-color: var(--neon);
+  box-shadow: 0 4px 10px rgba(0, 255, 179, 0.25);
 }
 
 @media (max-width: 900px) {
@@ -925,11 +926,11 @@ footer strong{color:white;font-size:14px;display:block;margin-bottom:6px;font-fa
 .card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.6) !important;
-  background: rgba(255,255,255,0.7) !important;
+  border: 1px solid rgba(0, 255, 179, 0.15) !important;
+  background: rgba(3, 9, 7, 0.65) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.03) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
 }
 .card::before {
   content: '';
@@ -1685,6 +1686,30 @@ span.flatpickr-weekday {
 .admin-main::-webkit-scrollbar-thumb:hover, .admin-smenu::-webkit-scrollbar-thumb:hover {
   background: var(--neon) !important;
 }
+@keyframes pulse-green {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 179, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 255, 179, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 179, 0); }
+}
+.pulse-dot-green {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--neon);
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.pulse-dot-gray {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--muted);
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
 </style>
 <!-- Supabase JS Library -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2007,24 +2032,30 @@ span.flatpickr-weekday {
       <span id="detail_tag" class="ctag tn" style="position:absolute; top:16px; left:16px; font-size:10px; padding:4px 10px; z-index:10;">Nuevo</span>
     </div>
     <div style="padding: 24px;">
-      <h2 id="detail_name" style="font-family:&#39;Fraunces&#39;,serif; font-size:24px; color:var(--v1); margin-bottom:8px; font-weight:800;">Producto</h2>
-      <p id="detail_desc" style="font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:18px;">Descripción del producto...</p>
+      <h2 id="detail_name" style="font-family:'Fraunces',serif; font-size:24px; color:white; margin-bottom:8px; font-weight:800;">Producto</h2>
+      <p id="detail_desc" style="font-size:13px; color:#ffffff; font-weight:700; line-height:1.6; margin-bottom:18px;">Descripción del producto...</p>
       
       <div class="detail-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
-        <span class="d-badge" style="background:#E8F5E9; color:#2E7D32; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🌱 100% Vegano</span>
-        <span class="d-badge" id="badge_gluten" style="background:#FFF3E0; color:#E65100; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🌾 Sin Gluten</span>
-        <span class="d-badge" id="badge_nuts" style="background:#EFEBE9; color:#4E342E; padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px;">🥜 Sin Nueces</span>
+        <span class="d-badge" style="background:rgba(0, 255, 179, 0.08); color:var(--neon); padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; border:1px solid rgba(0, 255, 179, 0.2);">🌱 100% Vegano</span>
+        <span class="d-badge" id="badge_gluten" style="background:rgba(245, 158, 11, 0.08); color:var(--am); padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; border:1px solid rgba(245, 158, 11, 0.2);">🌾 Sin Gluten</span>
+        <span class="d-badge" id="badge_nuts" style="background:rgba(239, 68, 68, 0.08); color:var(--rojo); padding:4px 10px; border-radius:50px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; border:1px solid rgba(239, 68, 68, 0.2);">🥜 Sin Nueces</span>
       </div>
 
       <div id="detail_variety_container" style="margin-bottom: 20px; display: none;">
         <label class="flbl" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--texto);">Selecciona sabor / opción:</label>
-        <select id="detail_variety" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--borde); background: white; color: var(--texto); font-size: 13px; font-family:'Space Grotesk',sans-serif; cursor: pointer; outline: none;"></select>
+        <select id="detail_variety" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(0, 255, 179, 0.2); background: rgba(255, 255, 255, 0.05); color: white; font-size: 13px; font-family:'Space Grotesk',sans-serif; cursor: pointer; outline: none;">
+        </select>
       </div>
 
-      <div style="border-top:1px solid var(--borde); border-bottom:1px solid var(--borde); padding:16px 0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+      <div id="detail_format_container" style="margin-bottom: 20px; display: none;">
+        <label class="flbl" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: var(--texto);">Selecciona formato / peso:</label>
+        <select id="detail_format" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(0, 255, 179, 0.2); background: rgba(255, 255, 255, 0.05); color: white; font-size: 13px; font-family:'Space Grotesk',sans-serif; cursor: pointer; outline: none;" onchange="updateDetailPrice()"></select>
+      </div>
+
+      <div style="border-top:1px solid rgba(0, 255, 179, 0.15); border-bottom:1px solid rgba(0, 255, 179, 0.15); padding:16px 0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
         <div>
           <span style="font-size:12px; color:var(--muted); display:block; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Precio</span>
-          <span id="detail_price" style="font-family:&#39;Fraunces&#39;,serif; font-size:24px; color:var(--v3); font-weight:800;">$0</span>
+          <span id="detail_price" style="font-family:'Fraunces',serif; font-size:24px; color:var(--neon); font-weight:800;">$0</span>
           <span id="detail_price_old" style="font-size:14px; color:#ccc; text-decoration:line-through; margin-left:6px; display:none;">$0</span>
         </div>
         <div id="detail_stock_status" style="text-align:right;">
@@ -2033,9 +2064,9 @@ span.flatpickr-weekday {
       </div>
 
       <div style="display:flex; gap:12px;">
-        <div class="qc" style="background:#F3F4F6; padding:8px 14px; border-radius:12px; display:flex; align-items:center; gap:12px;" id="detail_qty_control">
-          <button class="qb" style="background:none; font-size:18px; width:28px; height:28px;" id="detail_btn_minus" onclick="changeDetailQty(-1)">-</button>
-          <span class="qn" style="font-size:16px; min-width:20px;" id="detail_qty_val">0</span>
+        <div class="qc" style="background:rgba(255, 255, 255, 0.05); border:1px solid rgba(0, 255, 179, 0.15); padding:8px 14px; border-radius:12px; display:flex; align-items:center; gap:12px;" id="detail_qty_control">
+          <button class="qb" style="background:none; font-size:18px; width:28px; height:28px; color:white;" id="detail_btn_minus" onclick="changeDetailQty(-1)">-</button>
+          <span class="qn" style="font-size:16px; min-width:20px; color:white;" id="detail_qty_val">0</span>
           <button class="qb p" style="font-size:18px; width:28px; height:28px;" id="detail_btn_plus" onclick="changeDetailQty(1)">+</button>
         </div>
         <button class="btn-add" style="flex:1; justify-content:center; height:48px; border-radius:12px; font-size:14px;" id="detail_add_btn" onclick="addDetailToCart()">🛒 Agregar al carrito</button>
