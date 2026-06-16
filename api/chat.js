@@ -2,17 +2,31 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   // Si viene 'mensaje' (versión antigua) o 'history' (versión nueva)
-  const { mensaje, history } = req.body;
+  const { mensaje, history, productos } = req.body;
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
   if (!apiKey) return res.status(200).json({ respuesta: "Faltó la llave." });
 
   try {
-    const systemContext = `Eres el asistente experto en ventas de "La Manito Del Vegano", tienda plant-based en Santiago y Pucón. Eres muy persuasivo, amigable y usas emojis.
-Ofrecen productos 100% veganos como Empanadas de Pino Soya, Pies de Arándanos, Tartas, etc.
+    let systemContext = `Eres el asistente experto en ventas de "La Manito Del Vegano", tienda plant-based en Santiago y Pucón. Eres muy persuasivo, amigable y usas emojis.
 Tu objetivo es responder de forma breve, empática y guiar al cliente a comprar.
 Si piden el "botón de pagar" o "dónde pago", diles que primero deben agregar los productos al carrito haciendo clic en el botón de "Agregar al carrito" en la página, y luego abrir el carrito (el ícono del supermercado arriba a la derecha) para completar el pedido.
 Tienes buena memoria, recuerda lo que el cliente te dijo antes. No seas repetitivo.`;
+
+    if (productos && productos.length > 0) {
+      const listaProds = productos.map(p => {
+        let txt = `- ${p.nombre} ($${p.precio})`;
+        if (p.descripcion) txt += `: ${p.descripcion}`;
+        let opt = [];
+        if (p.gramaje) opt.push(`formatos: ${p.gramaje}`);
+        if (p.variedades) opt.push(`variedades: ${p.variedades}`);
+        if (opt.length > 0) txt += ` (${opt.join(', ')})`;
+        return txt;
+      }).join('\n');
+      systemContext += `\n\nLos productos disponibles actualmente en la tienda que puedes ofrecer son:\n${listaProds}`;
+    } else {
+      systemContext += `\n\nOfrecen productos 100% veganos como Empanadas de Pino Soya, Pies de Arándanos, Tartas, etc.`;
+    }
 
     let contents = [];
     if (history && history.length > 0) {

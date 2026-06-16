@@ -2738,7 +2738,19 @@ function sendChat(forceMsg) {
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ history: chatHistory })
+    body: JSON.stringify({
+      history: chatHistory,
+      productos: productos.map(function(p) {
+        return {
+          nombre: p.nombre,
+          descripcion: p.descripcion,
+          precio: p.precio,
+          categoria: p.categoria,
+          variedades: p.variedades || '',
+          gramaje: p.gramaje || ''
+        };
+      })
+    })
   }).then(function(res){ return res.json(); }).then(function(data){
     body.removeChild(tdiv);
     chatHistory.push({ role: "model", parts: [{ text: data.respuesta }] });
