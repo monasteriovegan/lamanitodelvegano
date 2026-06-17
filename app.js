@@ -3142,6 +3142,52 @@ function updateDetailPrice() {
   }
 }
 
+function onDetailFormatChange() {
+  var p = productos.find(function(x){ return x.id === detailProductId; });
+  if (!p) return;
+
+  var selectedFormat = null;
+  var formatSelect = document.getElementById('detail_format');
+  var formatContainer = document.getElementById('detail_format_container');
+  if (formatContainer && formatContainer.style.display === 'block' && formatSelect) {
+    var idx = parseInt(formatSelect.value);
+    if (!isNaN(idx) && detailFormatos[idx]) {
+      selectedFormat = detailFormatos[idx].label;
+    }
+  }
+
+  var hasVarieties = (p.variedades && p.variedades.trim().length > 0);
+  if (hasVarieties) {
+    var hasAnyInCart = false;
+    for (var i = 0; i < detailVarietyList.length; i++) {
+      var v = detailVarietyList[i];
+      var cartKey = p.id + '_' + v + (selectedFormat ? '_' + selectedFormat : '');
+      if (carrito[cartKey] && carrito[cartKey].qty > 0) {
+        hasAnyInCart = true;
+        break;
+      }
+    }
+
+    for (var i = 0; i < detailVarietyList.length; i++) {
+      var v = detailVarietyList[i];
+      var cartKey = p.id + '_' + v + (selectedFormat ? '_' + selectedFormat : '');
+      var qty = 0;
+      if (hasAnyInCart) {
+        qty = (carrito[cartKey] ? carrito[cartKey].qty : 0);
+      } else {
+        qty = (i === 0) ? 1 : 0;
+      }
+      detailVarietyQtys[v] = qty;
+      var qtyEl = document.getElementById('qty_var_' + i);
+      if (qtyEl) {
+        qtyEl.textContent = qty;
+      }
+    }
+  }
+
+  updateDetailPrice();
+}
+
 function cerrarDetailModal(e) {
   if (e.target.id === 'detailov') {
     document.getElementById('detailov').classList.remove('open');
