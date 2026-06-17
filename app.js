@@ -2905,10 +2905,6 @@ function abrirDetailModal(id, event) {
   
   detailProductId = id;
   detailQty = 1;
-  if (!(p.variedades && p.variedades.trim().length > 0) && carrito[id]) {
-    detailQty = carrito[id].qty;
-  }
-  if (detailQty === 0) detailQty = 1;
 
   document.getElementById('detail_name').textContent = p.nombre;
   document.getElementById('detail_desc').textContent = p.descripcion || 'Sin descripción disponible.';
@@ -3078,6 +3074,20 @@ function abrirDetailModal(id, event) {
     detailFormatos = [{ label: p.gramaje || '', price: p.precio }];
   }
 
+  if (!(p.variedades && p.variedades.trim().length > 0)) {
+    var activeFormat = null;
+    if (detailFormatos.length > 0) {
+      if (p.gramaje && p.gramaje.trim().length > 0 && hasMultipleFormats(p.gramaje)) {
+        activeFormat = detailFormatos[0].label;
+      }
+    }
+    var cartKey = p.id + (activeFormat ? '_' + activeFormat : '');
+    if (carrito[cartKey]) {
+      detailQty = carrito[cartKey].qty;
+    }
+  }
+  if (detailQty === 0) detailQty = 1;
+
   updateDetailPrice();
   updateDetailQtyUI();
   document.getElementById('detailov').classList.add('open');
@@ -3183,6 +3193,15 @@ function onDetailFormatChange() {
         qtyEl.textContent = qty;
       }
     }
+  } else {
+    // Non-variety product format change: load quantity from cart for selected format
+    var cartKey = p.id + (selectedFormat ? '_' + selectedFormat : '');
+    if (carrito[cartKey]) {
+      detailQty = carrito[cartKey].qty;
+    } else {
+      detailQty = 1;
+    }
+    updateDetailQtyUI();
   }
 
   updateDetailPrice();
