@@ -1709,6 +1709,57 @@ span.flatpickr-weekday {
   border-radius: 50%;
   margin-right: 6px;
   vertical-align: middle;
+.promo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+@media (min-width: 768px) {
+  .promo-section {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .promo-image-container {
+    flex: 1.1;
+  }
+  .promo-buy-container {
+    flex: 1;
+  }
+}
+.promo-image-container {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 179, 0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+}
+.promo-image-container img {
+  width: 100%;
+  height: 100%;
+  max-height: 480px;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.promo-image-container:hover img {
+  transform: scale(1.02);
+}
+.promo-buy-container {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 179, 0.15);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 </style>
 <!-- Supabase JS Library -->
@@ -1768,6 +1819,39 @@ span.flatpickr-weekday {
     <div class="st"><div class="stn">125</div><div class="stl">Posts</div></div>
     <div class="st"><div class="stn">100%</div><div class="stl">Vegano</div></div>
     <div class="st"><div class="stn">⭐4.9</div><div class="stl">Rating</div></div>
+  </div>
+
+  <!-- SECCIÓN PUBLICIDAD / PROMO ESPECIAL -->
+  <div class="promo-section reveal" id="special-promo-section" style="display: none;">
+    <div class="promo-image-container" id="promo_img_container">
+      <img id="promo_img" src="" alt="Promoción Especial">
+    </div>
+    <div class="promo-buy-container">
+      <div class="hpill" style="margin-bottom: 12px; align-self: flex-start;" id="promo_badge">🔥 Especial</div>
+      <h2 id="promo_title" style="font-family:'Fraunces',serif; font-size:28px; color:white; margin-bottom:8px; font-weight:800;">Título Promo</h2>
+      <p id="promo_desc" style="font-size:14px; color:rgba(255,255,255,0.8); line-height:1.6; margin-bottom:20px;">Descripción de la promo...</p>
+      
+      <div style="margin-bottom: 20px;">
+        <label class="flbl" style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: var(--texto);">Selecciona opción / tamaño:</label>
+        <select id="promo_format" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 255, 179, 0.2); background: rgba(255, 255, 255, 0.05); color: white; font-size: 14px; font-family:'Space Grotesk',sans-serif; cursor: pointer; outline: none;" onchange="updatePromoPrice()"></select>
+      </div>
+      
+      <div style="border-top:1px solid rgba(0, 255, 179, 0.15); border-bottom:1px solid rgba(0, 255, 179, 0.15); padding:16px 0; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-size:12px; color:var(--muted); display:block; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Precio Total</span>
+          <span id="promo_price" style="font-family:'Fraunces',serif; font-size:26px; color:var(--neon); font-weight:800;">$0</span>
+        </div>
+      </div>
+      
+      <div style="display:flex; gap:12px;">
+        <div class="qc" style="background:rgba(255, 255, 255, 0.05); border:1px solid rgba(0, 255, 179, 0.15); padding:8px 14px; border-radius:12px; display:flex; align-items:center; gap:12px;">
+          <button class="qb" style="background:none; font-size:18px; width:28px; height:28px; color:white;" onclick="changePromoQty(-1)">-</button>
+          <span class="qn" style="font-size:16px; min-width:20px; color:white;" id="promo_qty_val">1</span>
+          <button class="qb p" style="font-size:18px; width:28px; height:28px;" onclick="changePromoQty(1)">+</button>
+        </div>
+        <button class="btn-add" style="flex:1; justify-content:center; height:48px; border-radius:12px; font-size:14px;" onclick="addPromoToCart()">🛒 Comprar Oferta</button>
+      </div>
+    </div>
   </div>
 
   <!-- DESTACADOS -->

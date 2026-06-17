@@ -32,6 +32,20 @@ try {
 } catch(e) { console.log("Error iniciando Supabase:", e); }
 
 var productos = [];
+var promoEspecial = {
+  activo: true,
+  imagen_url: "diadelpadre.png",
+  titulo: "Especial Día del Padre 🍫",
+  subtitulo: "Caja de Bombones Artesanales",
+  descripcion: "Sorpréndelo con un detalle único, ético y delicioso. Bombones 100% veganos de cacao de especialidad, elaborados artesanalmente. ¡Cupos limitados por caja!",
+  producto_id: "promo-bombones",
+  emoji: "🍫",
+  color_fondo: "#0d1e16",
+  formatos: "9 Bombones ($10.900) / 15 Bombones ($15.900) / 24 Bombones ($22.900)",
+  precio: 10900
+};
+var promoFormatos = [];
+var promoQty = 1;
 var zonas = [];
 var pedidos = [];
 var categorias = [];
@@ -93,7 +107,7 @@ function loadProductos() {
   return supabaseClient.from('productos').select('*').order('nombre').then(function(res) {
     if (!res.error) {
       productos = res.data || [];
-      renderGrid(); renderDestacados();
+      renderGrid(); renderDestacados(); renderPromoEspecial();
       if (adminTabActual === 'productos' || adminTabActual === 'destacados' || adminTabActual === 'stats') {
         renderAdminTab(adminTabActual);
       }
@@ -172,6 +186,7 @@ function loadData() {
       {id:'z2',nombre:'Retiro',comunas:'Coordinar por WhatsApp',precio:0}
     ];
     renderGrid(); renderDestacados(); renderZonas();
+    renderPromoEspecial();
     return;
   }
   
@@ -198,6 +213,7 @@ function loadData() {
   loadCupones();
 
   setupRealtime();
+  renderPromoEspecial();
 }
 
 var realtimeSubscribed = false;
@@ -4007,4 +4023,159 @@ function importarDesdeShopify() {
       });
     }, 1500);
   }, 1000);
+}
+
+function renderPromoEspecial() {
+  var section = document.getElementById('special-promo-section');
+  if (!section) return;
+
+  if (!promoEspecial.activo) {
+    section.style.display = 'none';
+    return;
+  }
+
+  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
+  if (p) {
+    promoEspecial.titulo = p.nombre;
+    promoEspecial.descripcion = p.descripcion || promoEspecial.descripcion;
+    promoEspecial.formatos = p.gramaje || promoEspecial.formatos;
+    promoEspecial.precio = p.precio;
+    promoEspecial.emoji = p.emoji || promoEspecial.emoji;
+    promoEspecial.imagen_url = p.imagen_url || promoEspecial.imagen_url;
+  }
+
+  var promoImg = document.getElementById('promo_img');
+  if (promoImg) {
+    promoImg.src = promoEspecial.imagen_url || '';
+  }
+
+  var titleEl = document.getElementById('promo_title');
+  if (titleEl) {
+    titleEl.textContent = promoEspecial.titulo;
+  }
+
+  var descEl = document.getElementById('promo_desc');
+  if (descEl) {
+    descEl.textContent = promoEspecial.descripcion;
+  }
+
+  var promoFormatSelect = document.getElementById('promo_format');
+  if (promoFormatSelect) {
+    promoFormatSelect.innerHTML = '';
+    promoFormatos = parseFormatos(promoEspecial.formatos, promoEspecial.precio);
+    if (promoFormatos.length > 0) {
+      promoFormatos.forEach(function(f, idx) {
+        var opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = f.label + (f.price !== promoEspecial.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '');
+        promoFormatSelect.appendChild(opt);
+      });
+      promoFormatSelect.parentElement.style.display = 'block';
+    } else {
+      promoFormatSelect.parentElement.style.display = 'none';
+      promoFormatos = [{ label: '', price: promoEspecial.precio }];
+    }
+  }
+
+  promoQty = 1;
+  var qtyValEl = document.getElementById('promo_qty_val');
+  if (qtyValEl) {
+    qtyValEl.textContent = promoQty;
+  }
+
+  updatePromoPrice();
+  section.style.display = 'flex';
+}
+
+function changePromoQty(d) {
+  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
+  var maxStock = (p && p.maneja_stock) ? p.stock : 999;
+  
+  var newQty = promoQty + d;
+  if (newQty < 1) newQty = 1;
+  if (newQty > maxStock) {
+    showToast('⚠️ No puedes comprar más de la cantidad disponible (' + maxStock + ')');
+    return;
+  }
+  promoQty = newQty;
+  var qtyValEl = document.getElementById('promo_qty_val');
+  if (qtyValEl) {
+    qtyValEl.textContent = promoQty;
+  }
+  updatePromoPrice();
+}
+
+function updatePromoPrice() {
+  var formatSelect = document.getElementById('promo_format');
+  var unitPrice = promoEspecial.precio;
+  if (formatSelect && promoFormatos.length > 0) {
+    var idx = parseInt(formatSelect.value);
+    if (!isNaN(idx) && promoFormatos[idx]) {
+      unitPrice = promoFormatos[idx].price;
+    }
+  }
+  var totalPrice = unitPrice * promoQty;
+  var priceEl = document.getElementById('promo_price');
+  if (priceEl) {
+    priceEl.textContent = '$' + totalPrice.toLocaleString('es-CL');
+  }
+}
+
+function addPromoToCart() {
+  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
+  
+  var selectedFormat = null;
+  var selectedPrice = promoEspecial.precio;
+  
+  var formatSelect = document.getElementById('promo_format');
+  if (formatSelect && promoFormatos.length > 0) {
+    var idx = parseInt(formatSelect.value);
+    if (!isNaN(idx) && promoFormatos[idx]) {
+      selectedFormat = promoFormatos[idx].label || null;
+      selectedPrice = promoFormatos[idx].price;
+    }
+  }
+
+  var currentQtyInCart = 0;
+  var keys = Object.keys(carrito);
+  var prodId = p ? p.id : promoEspecial.producto_id;
+  for (var i = 0; i < keys.length; i++) {
+    if (carrito[keys[i]].id === prodId) {
+      currentQtyInCart += carrito[keys[i]].qty;
+    }
+  }
+  
+  var maxStock = (p && p.maneja_stock) ? p.stock : 999;
+  if ((currentQtyInCart + promoQty) > maxStock) {
+    var allowed = maxStock - currentQtyInCart;
+    if (allowed <= 0) {
+      showToast('⚠️ No queda más stock disponible de este producto promocional.');
+    } else {
+      showToast('⚠️ Solo puedes agregar hasta ' + allowed + ' unidades en total.');
+    }
+    return;
+  }
+
+  var cartKey = prodId + (selectedFormat ? '_' + selectedFormat : '');
+  if (!carrito[cartKey]) {
+    carrito[cartKey] = {
+      id: prodId,
+      nombre: p ? p.nombre : promoEspecial.titulo,
+      precio: selectedPrice,
+      emoji: p ? p.emoji : promoEspecial.emoji,
+      color_fondo: p ? p.color_fondo : promoEspecial.color_fondo,
+      imagen_url: p ? p.imagen_url : promoEspecial.imagen_url,
+      qty: 0,
+      variedad: null,
+      formato: selectedFormat
+    };
+  } else {
+    carrito[cartKey].precio = selectedPrice;
+  }
+  carrito[cartKey].qty += promoQty;
+
+  updBdg();
+  renderGrid();
+  abrirCarrito();
+  showToast('🛒 Oferta agregada al carrito');
 }
