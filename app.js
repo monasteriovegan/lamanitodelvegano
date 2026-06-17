@@ -2892,6 +2892,8 @@ function cleanGramajeLabel(gramajeStr) {
 var detailProductId = null;
 var detailQty = 1;
 var detailFormatos = [];
+var detailVarietyList = [];
+var detailVarietyQtys = {};
 
 function abrirDetailModal(id, event) {
   if (event && (event.target.closest('.qb') || event.target.closest('.badd') || event.target.closest('.qc') || event.target.closest('.dest-btn'))) {
@@ -2983,25 +2985,74 @@ function abrirDetailModal(id, event) {
     qtyControl.style.pointerEvents = 'auto';
   }
 
-  // Load product varieties dropdown
+  // Load product varieties list
   var varietyContainer = document.getElementById('detail_variety_container');
-  var varietySelect = document.getElementById('detail_variety');
+  var varietyListDiv = document.getElementById('detail_variety_list');
+  detailVarietyList = [];
+  detailVarietyQtys = {};
   if (p.variedades && p.variedades.trim().length > 0) {
     var vList = p.variedades.split(',').map(function(v){ return v.trim(); }).filter(Boolean);
     if (vList.length > 0) {
-      varietySelect.innerHTML = '';
-      vList.forEach(function(v) {
-        var opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        varietySelect.appendChild(opt);
+      detailVarietyList = vList;
+      varietyListDiv.innerHTML = '';
+      
+      // Determine default format to check matching keys in cart
+      var defaultFormat = null;
+      if (p.gramaje && p.gramaje.trim().length > 0 && hasMultipleFormats(p.gramaje)) {
+        var formatsParsed = parseFormatos(p.gramaje, p.precio);
+        if (formatsParsed.length > 0) {
+          defaultFormat = formatsParsed[0].label;
+        }
+      }
+      
+      vList.forEach(function(v, idx) {
+        var cartKey = p.id + '_' + v + (defaultFormat ? '_' + defaultFormat : '');
+        var initialQty = 0;
+        if (carrito[cartKey]) {
+          initialQty = carrito[cartKey].qty;
+        } else {
+          initialQty = (idx === 0) ? 1 : 0;
+        }
+        detailVarietyQtys[v] = initialQty;
+        
+        var row = document.createElement('div');
+        row.className = 'variety-row';
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '8px 12px';
+        row.style.background = 'rgba(255, 255, 255, 0.03)';
+        row.style.border = '1px solid rgba(0, 255, 179, 0.12)';
+        row.style.borderRadius = '12px';
+        
+        row.innerHTML = 
+          '<span style="font-weight:600; font-size:13px; color:white;">' + sanitizeHTML(v) + '</span>' +
+          '<div class="qc" style="background:rgba(255,255,255,0.05); border:1px solid rgba(0,255,179,0.15); padding:4px 8px; border-radius:8px; display:flex; align-items:center; gap:8px;">' +
+            '<button class="qb" style="background:none; font-size:14px; width:22px; height:22px; color:white; border:none; cursor:pointer;" onclick="changeVarietyQty(' + idx + ', -1)">-</button>' +
+            '<span class="qn" id="qty_var_' + idx + '" style="font-size:13px; min-width:14px; text-align:center; color:white; font-weight:bold;">' + initialQty + '</span>' +
+            '<button class="qb p" style="font-size:14px; width:22px; height:22px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;" onclick="changeVarietyQty(' + idx + ', 1)">+</button>' +
+          '</div>';
+          
+        varietyListDiv.appendChild(row);
       });
       varietyContainer.style.display = 'block';
+      qtyControl.style.display = 'none';
+      
+      // Stock disable states for varieties
+      if (p.maneja_stock && p.stock <= 0) {
+        varietyContainer.style.opacity = '0.4';
+        varietyContainer.style.pointerEvents = 'none';
+      } else {
+        varietyContainer.style.opacity = '1';
+        varietyContainer.style.pointerEvents = 'auto';
+      }
     } else {
       varietyContainer.style.display = 'none';
+      qtyControl.style.display = 'flex';
     }
   } else {
     varietyContainer.style.display = 'none';
+    qtyControl.style.display = 'flex';
   }
 
   // Load product formats dropdown
@@ -3048,13 +3099,46 @@ function updateDetailPrice() {
       }
     }
   }
-  document.getElementById('detail_price').textContent = '$' + price.toLocaleString('es-CL');
+
+  // Calculate variety or global quantity multiplier
+  var multiplier = 0;
+  var hasVarieties = (p.variedades && p.variedades.trim().length > 0);
+  if (hasVarieties) {
+    var keys = Object.keys(detailVarietyQtys);
+    for (var i = 0; i < keys.length; i++) {
+      multiplier += detailVarietyQtys[keys[i]];
+    }
+  } else {
+    multiplier = detailQty;
+  }
+
+  var totalPrice = price * multiplier;
+  var totalOldPrice = priceOldVal ? (priceOldVal * multiplier) : 0;
+
+  document.getElementById('detail_price').textContent = '$' + totalPrice.toLocaleString('es-CL');
   var priceOld = document.getElementById('detail_price_old');
-  if (priceOldVal) {
-    priceOld.textContent = '$' + priceOldVal.toLocaleString('es-CL');
+  if (priceOldVal && totalOldPrice > 0) {
+    priceOld.textContent = '$' + totalOldPrice.toLocaleString('es-CL');
     priceOld.style.display = 'inline-block';
   } else {
     priceOld.style.display = 'none';
+  }
+
+  // Enable/disable add to cart button based on quantity and stock
+  var addBtn = document.getElementById('detail_add_btn');
+  if (addBtn) {
+    if (multiplier === 0) {
+      addBtn.disabled = true;
+      addBtn.textContent = '⚠️ Selecciona cantidad';
+    } else {
+      if (p.maneja_stock && p.stock <= 0) {
+        addBtn.disabled = true;
+        addBtn.textContent = '❌ Sin Stock';
+      } else {
+        addBtn.disabled = false;
+        addBtn.textContent = '🛒 Agregar al carrito';
+      }
+    }
   }
 }
 
@@ -3062,6 +3146,44 @@ function cerrarDetailModal(e) {
   if (e.target.id === 'detailov') {
     document.getElementById('detailov').classList.remove('open');
   }
+}
+
+function changeVarietyQty(idx, d) {
+  var p = productos.find(function(x){ return x.id === detailProductId; });
+  if (!p) return;
+
+  var varietyName = detailVarietyList[idx];
+  if (!varietyName) return;
+
+  var currentQty = detailVarietyQtys[varietyName] || 0;
+  var newQty = currentQty + d;
+  if (newQty < 0) newQty = 0;
+
+  if (p.maneja_stock) {
+    var totalQty = 0;
+    for (var i = 0; i < detailVarietyList.length; i++) {
+      var vName = detailVarietyList[i];
+      if (i === idx) {
+        totalQty += newQty;
+      } else {
+        totalQty += (detailVarietyQtys[vName] || 0);
+      }
+    }
+
+    if (totalQty > p.stock) {
+      showToast('⚠️ No puedes comprar más de la cantidad disponible (' + p.stock + ')');
+      return;
+    }
+  }
+
+  detailVarietyQtys[varietyName] = newQty;
+
+  var qtyEl = document.getElementById('qty_var_' + idx);
+  if (qtyEl) {
+    qtyEl.textContent = newQty;
+  }
+
+  updateDetailPrice();
 }
 
 function changeDetailQty(d) {
@@ -3100,22 +3222,39 @@ function addDetailToCart() {
     }
   }
 
-  if (p.maneja_stock && (currentQtyInCart + detailQty) > p.stock) {
-    var allowed = p.stock - currentQtyInCart;
-    if (allowed <= 0) {
-      showToast('⚠️ No queda más stock disponible de ' + p.nombre);
-      return;
-    } else {
-      showToast('⚠️ Cantidad reducida a ' + allowed + ' por falta de stock');
-      detailQty = allowed;
+  var hasVarieties = (p.variedades && p.variedades.trim().length > 0);
+  var totalQtyToAdd = 0;
+
+  if (hasVarieties) {
+    var vKeys = Object.keys(detailVarietyQtys);
+    for (var i = 0; i < vKeys.length; i++) {
+      totalQtyToAdd += detailVarietyQtys[vKeys[i]];
     }
+  } else {
+    totalQtyToAdd = detailQty;
   }
 
-  var selectedVariety = null;
-  var varietyContainer = document.getElementById('detail_variety_container');
-  if (varietyContainer && varietyContainer.style.display === 'block') {
-    var sel = document.getElementById('detail_variety');
-    if (sel) selectedVariety = sel.value;
+  if (hasVarieties) {
+    if (p.maneja_stock && (currentQtyInCart + totalQtyToAdd) > p.stock) {
+      var allowed = p.stock - currentQtyInCart;
+      if (allowed <= 0) {
+        showToast('⚠️ No queda más stock disponible de ' + p.nombre);
+      } else {
+        showToast('⚠️ Solo puedes agregar hasta ' + allowed + ' unidades en total de este producto.');
+      }
+      return;
+    }
+  } else {
+    if (p.maneja_stock && (currentQtyInCart + detailQty) > p.stock) {
+      var allowed = p.stock - currentQtyInCart;
+      if (allowed <= 0) {
+        showToast('⚠️ No queda más stock disponible de ' + p.nombre);
+        return;
+      } else {
+        showToast('⚠️ Cantidad reducida a ' + allowed + ' por falta de stock');
+        detailQty = allowed;
+      }
+    }
   }
 
   var selectedFormat = null;
@@ -3132,27 +3271,56 @@ function addDetailToCart() {
     }
   }
 
-  var cartKey = p.id;
-  if (selectedVariety || selectedFormat) {
-    cartKey = p.id + (selectedVariety ? '_' + selectedVariety : '') + (selectedFormat ? '_' + selectedFormat : '');
-  }
-
-  if (!carrito[cartKey]) {
-    carrito[cartKey] = {
-      id: p.id,
-      nombre: p.nombre,
-      precio: selectedPrice,
-      emoji: p.emoji,
-      color_fondo: p.color_fondo,
-      imagen_url: p.imagen_url,
-      qty: 0,
-      variedad: selectedVariety,
-      formato: selectedFormat
-    };
+  if (hasVarieties) {
+    var addedAny = false;
+    var vKeys = Object.keys(detailVarietyQtys);
+    for (var i = 0; i < vKeys.length; i++) {
+      var vName = vKeys[i];
+      var vQty = detailVarietyQtys[vName];
+      if (vQty > 0) {
+        var cartKey = p.id + '_' + vName + (selectedFormat ? '_' + selectedFormat : '');
+        if (!carrito[cartKey]) {
+          carrito[cartKey] = {
+            id: p.id,
+            nombre: p.nombre,
+            precio: selectedPrice,
+            emoji: p.emoji,
+            color_fondo: p.color_fondo,
+            imagen_url: p.imagen_url,
+            qty: 0,
+            variedad: vName,
+            formato: selectedFormat
+          };
+        } else {
+          carrito[cartKey].precio = selectedPrice;
+        }
+        carrito[cartKey].qty += vQty;
+        addedAny = true;
+      }
+    }
+    if (!addedAny) {
+      showToast('⚠️ Selecciona al menos una variedad');
+      return;
+    }
   } else {
-    carrito[cartKey].precio = selectedPrice;
+    var cartKey = p.id + (selectedFormat ? '_' + selectedFormat : '');
+    if (!carrito[cartKey]) {
+      carrito[cartKey] = {
+        id: p.id,
+        nombre: p.nombre,
+        precio: selectedPrice,
+        emoji: p.emoji,
+        color_fondo: p.color_fondo,
+        imagen_url: p.imagen_url,
+        qty: 0,
+        variedad: null,
+        formato: selectedFormat
+      };
+    } else {
+      carrito[cartKey].precio = selectedPrice;
+    }
+    carrito[cartKey].qty += detailQty;
   }
-  carrito[cartKey].qty += detailQty;
   
   updBdg(); 
   renderGrid();
