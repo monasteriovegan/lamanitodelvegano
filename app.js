@@ -2123,7 +2123,7 @@ function guardarProd() {
   var precio = parseInt(document.getElementById('fprecio').value);
   if (!nombre||!precio) { showToast('⚠️ Nombre y precio son obligatorios'); return; }
   var etiqueta = document.getElementById('fetiqueta').value;
-  var etiqueta_label = etiqueta==='nuevo'?'Nuevo':etiqueta==='oferta'?'Oferta':etiqueta==='estrella'?'⭐ Único':null;
+  var etiqueta_label = etiqueta==='nuevo'?'Nuevo':etiqueta==='oferta'?'Oferta':etiqueta==='estrella'?'⭐ Único':etiqueta==='promo'?'Promo Especial':null;
   
   var manejaStock = document.getElementById('fmaneja_stock').value === 'true';
   var stock = manejaStock ? (parseInt(document.getElementById('fstock').value) || 0) : null;
@@ -2610,6 +2610,7 @@ function initScrollReveal() {
   var sections = [
     document.querySelector('.hero'),
     document.querySelector('.stats'),
+    document.getElementById('special-promo-section'),
     document.getElementById('dest-sec'),
     document.querySelector('.cats'),
     document.getElementById('prodsec'),
@@ -4025,154 +4026,304 @@ function importarDesdeShopify() {
   }, 1000);
 }
 
+var currentPromoSlide = 0;
+var promoProducts = [];
+var promoFormatosMap = {};
+var promoQtyMap = {};
+
 function renderPromoEspecial() {
   var section = document.getElementById('special-promo-section');
   if (!section) return;
 
-  if (!promoEspecial.activo) {
-    section.style.display = 'none';
-    return;
-  }
+  // Filter products that have etiqueta === 'promo' and a valid image
+  promoProducts = productos.filter(function(x) {
+    return x.etiqueta === 'promo' && x.imagen_url;
+  });
 
-  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
-  if (p) {
-    promoEspecial.titulo = p.nombre;
-    promoEspecial.descripcion = p.descripcion || promoEspecial.descripcion;
-    promoEspecial.formatos = p.gramaje || promoEspecial.formatos;
-    promoEspecial.precio = p.precio;
-    promoEspecial.emoji = p.emoji || promoEspecial.emoji;
-    promoEspecial.imagen_url = p.imagen_url || promoEspecial.imagen_url;
-  }
-
-  var promoImg = document.getElementById('promo_img');
-  if (promoImg) {
-    promoImg.src = promoEspecial.imagen_url || '';
-  }
-
-  var titleEl = document.getElementById('promo_title');
-  if (titleEl) {
-    titleEl.textContent = promoEspecial.titulo;
-  }
-
-  var descEl = document.getElementById('promo_desc');
-  if (descEl) {
-    descEl.textContent = promoEspecial.descripcion;
-  }
-
-  var promoFormatSelect = document.getElementById('promo_format');
-  if (promoFormatSelect) {
-    promoFormatSelect.innerHTML = '';
-    promoFormatos = parseFormatos(promoEspecial.formatos, promoEspecial.precio);
-    if (promoFormatos.length > 0) {
-      promoFormatos.forEach(function(f, idx) {
-        var opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = f.label + (f.price !== promoEspecial.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '');
-        promoFormatSelect.appendChild(opt);
-      });
-      promoFormatSelect.parentElement.style.display = 'block';
+  // If none found, use fallback if active
+  if (promoProducts.length === 0) {
+    if (promoEspecial.activo && promoEspecial.imagen_url) {
+      var fallbackProduct = {
+        id: promoEspecial.producto_id,
+        nombre: promoEspecial.titulo,
+        descripcion: promoEspecial.descripcion,
+        gramaje: promoEspecial.formatos,
+        precio: promoEspecial.precio,
+        emoji: promoEspecial.emoji || '🍫',
+        imagen_url: promoEspecial.imagen_url || 'diadelpadre.png',
+        color_fondo: promoEspecial.color_fondo || '#0d1e16',
+        maneja_stock: false
+      };
+      promoProducts = [fallbackProduct];
     } else {
-      promoFormatSelect.parentElement.style.display = 'none';
-      promoFormatos = [{ label: '', price: promoEspecial.precio }];
+      section.style.display = 'none';
+      return;
     }
   }
 
-  promoQty = 1;
-  var qtyValEl = document.getElementById('promo_qty_val');
-  if (qtyValEl) {
-    qtyValEl.textContent = promoQty;
+  // Render slides
+  var wrapper = document.getElementById('promo_slides_wrapper');
+  if (wrapper) {
+    var html = '';
+    promoProducts.forEach(function(p) {
+      // Initialize states for this product if not set
+      if (typeof promoQtyMap[p.id] === 'undefined') {
+        promoQtyMap[p.id] = 1;
+      }
+      
+      var formats = parseFormatos(p.gramaje || '', p.precio);
+      promoFormatosMap[p.id] = formats;
+      
+      var selectHtml = '';
+      if (formats.length > 0 && (formats.length > 1 || formats[0].label !== '')) {
+        var optionsHtml = '';
+        formats.forEach(function(f, idx) {
+          optionsHtml += '<option value="' + idx + '">' + f.label + (f.price !== p.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '') + '</option>';
+        });
+        
+        selectHtml = '<div style="margin-bottom: 20px;">' +
+                     '  <label class="flbl" style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: var(--texto);">Selecciona opción / tamaño:</label>' +
+                     '  <select id="promo_format_' + p.id + '" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 255, 179, 0.2); background: rgba(255, 255, 255, 0.05); color: white; font-size: 14px; font-family:\'Space Grotesk\',sans-serif; cursor: pointer; outline: none;" onchange="updatePromoPrice(\'' + p.id + '\')">' +
+                     optionsHtml +
+                     '  </select>' +
+                     '</div>';
+      } else {
+        promoFormatosMap[p.id] = [{ label: '', price: p.precio }];
+      }
+
+      var colorFondo = p.color_fondo || '#0d1e16';
+      var emoji = p.emoji || '🎁';
+      var desc = p.descripcion || '';
+      var imgUrl = p.imagen_url || '';
+
+      html += '<div class="promo-slide" style="background: ' + colorFondo + '; border-radius: 24px; overflow: hidden; padding: 24px; box-sizing: border-box;">' +
+              '  <div class="promo-image-container">' +
+              '    <div class="promo-image-blur" style="background-image: url(\'' + imgUrl + '\');"></div>' +
+              '    <img src="' + imgUrl + '" alt="' + sanitizeHTML(p.nombre) + '">' +
+              '  </div>' +
+              '  <div class="promo-buy-container">' +
+              '    <div class="hpill" style="margin-bottom: 12px; align-self: flex-start;">' + emoji + ' Promo Especial</div>' +
+              '    <h2 style="font-family:\'Fraunces\',serif; font-size:28px; color:white; margin-bottom:8px; font-weight:800;">' + sanitizeHTML(p.nombre) + '</h2>' +
+              '    <p style="font-size:14px; color:rgba(255,255,255,0.8); line-height:1.6; margin-bottom:20px;">' + sanitizeHTML(desc) + '</p>' +
+              
+              selectHtml +
+              
+              '    <div style="border-top:1px solid rgba(0, 255, 179, 0.15); border-bottom:1px solid rgba(0, 255, 179, 0.15); padding:16px 0; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">' +
+              '      <div>' +
+              '        <span style="font-size:12px; color:var(--muted); display:block; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Precio Total</span>' +
+              '        <span id="promo_price_' + p.id + '" style="font-family:\'Fraunces\',serif; font-size:26px; color:var(--neon); font-weight:800;">$0</span>' +
+              '      </div>' +
+              '    </div>' +
+              
+              '    <div style="display:flex; gap:12px;">' +
+              '      <div class="qc" style="background:rgba(255, 255, 255, 0.05); border:1px solid rgba(0, 255, 179, 0.15); padding:8px 14px; border-radius:12px; display:flex; align-items:center; gap:12px;">' +
+              '        <button class="qb" style="background:none; font-size:18px; width:28px; height:28px; color:white;" onclick="changePromoQty(\'' + p.id + '\', -1)">-</button>' +
+              '        <span class="qn" style="font-size:16px; min-width:20px; color:white;" id="promo_qty_val_' + p.id + '">1</span>' +
+              '        <button class="qb p" style="font-size:18px; width:28px; height:28px;" onclick="changePromoQty(\'' + p.id + '\', 1)">+</button>' +
+              '      </div>' +
+              '      <button class="btn-add" id="promo_buy_btn_' + p.id + '" style="flex:1; justify-content:center; height:48px; border-radius:12px; font-size:14px;" onclick="addPromoToCart(\'' + p.id + '\')">🛒 Comprar Oferta</button>' +
+              '    </div>' +
+              '  </div>' +
+              '</div>';
+    });
+    wrapper.innerHTML = html;
   }
 
-  updatePromoPrice();
-  section.style.display = 'flex';
+  // Update navigation buttons visibility
+  var prevBtn = document.getElementById('promo_prev_btn');
+  var nextBtn = document.getElementById('promo_next_btn');
+  var dotsContainer = document.getElementById('promo_dots');
+  
+  if (promoProducts.length > 1) {
+    if (prevBtn) prevBtn.style.display = 'flex';
+    if (nextBtn) nextBtn.style.display = 'flex';
+    
+    // Render dots
+    if (dotsContainer) {
+      var dotsHtml = '';
+      promoProducts.forEach(function(_, idx) {
+        dotsHtml += '<span class="promo-dot' + (idx === currentPromoSlide ? ' active' : '') + '" onclick="goToPromoSlide(' + idx + ')"></span>';
+      });
+      dotsContainer.innerHTML = dotsHtml;
+      dotsContainer.style.display = 'flex';
+    }
+  } else {
+    // Hide controls if only 1 slide
+    if (prevBtn) prevBtn.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+    if (dotsContainer) dotsContainer.style.display = 'none';
+  }
+
+  // Make sure the slide index is in bounds
+  if (currentPromoSlide >= promoProducts.length) {
+    currentPromoSlide = 0;
+  }
+  
+  // Update prices for all
+  promoProducts.forEach(function(p) {
+    updatePromoPrice(p.id);
+  });
+
+  // Position wrapper
+  updatePromoSliderPosition();
+  
+  section.style.display = 'block';
 }
 
-function changePromoQty(d) {
-  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
+function updatePromoSliderPosition() {
+  var wrapper = document.getElementById('promo_slides_wrapper');
+  if (wrapper) {
+    var offset = -currentPromoSlide * 100;
+    wrapper.style.transform = 'translateX(' + offset + '%)';
+  }
+  
+  // Update dots
+  var dots = document.querySelectorAll('.promo-dot');
+  dots.forEach(function(d, idx) {
+    if (idx === currentPromoSlide) {
+      d.classList.add('active');
+    } else {
+      d.classList.remove('active');
+    }
+  });
+}
+
+function movePromoSlide(dir) {
+  if (promoProducts.length <= 1) return;
+  currentPromoSlide = (currentPromoSlide + dir + promoProducts.length) % promoProducts.length;
+  updatePromoSliderPosition();
+}
+
+function goToPromoSlide(idx) {
+  if (idx >= 0 && idx < promoProducts.length) {
+    currentPromoSlide = idx;
+    updatePromoSliderPosition();
+  }
+}
+
+function changePromoQty(prodId, delta) {
+  var qty = promoQtyMap[prodId] || 1;
+  qty += delta;
+  if (qty < 1) qty = 1;
+  
+  // Check stock
+  var p = productos.find(function(x) { return x.id === prodId; });
+  if (p && p.maneja_stock && p.stock !== null) {
+    if (qty > p.stock) {
+      showToast('⚠️ Solo quedan ' + p.stock + ' unidades en stock');
+      qty = p.stock;
+    }
+  }
+  
+  promoQtyMap[prodId] = qty;
+  
+  var qtyEl = document.getElementById('promo_qty_val_' + prodId);
+  if (qtyEl) qtyEl.textContent = qty;
+  
+  updatePromoPrice(prodId);
+}
+
+function updatePromoPrice(prodId) {
+  var p = productos.find(function(x) { return x.id === prodId; });
+  var isFallback = (prodId === promoEspecial.producto_id && !p);
+  if (!p && !isFallback) return;
+  
+  var selectEl = document.getElementById('promo_format_' + prodId);
+  var price = p ? p.precio : promoEspecial.precio;
+  
+  if (selectEl && promoFormatosMap[prodId]) {
+    var optIdx = parseInt(selectEl.value);
+    var format = promoFormatosMap[prodId][optIdx];
+    if (format) {
+      price = format.price;
+    }
+  }
+  
+  var qty = promoQtyMap[prodId] || 1;
+  var total = price * qty;
+  
+  var priceEl = document.getElementById('promo_price_' + prodId);
+  if (priceEl) {
+    priceEl.textContent = '$' + total.toLocaleString('es-CL');
+  }
+
+  // Update button text and status if sold out
+  var buyBtn = document.getElementById('promo_buy_btn_' + prodId);
+  if (buyBtn && p) {
+    if (p.maneja_stock && p.stock !== null && p.stock <= 0) {
+      buyBtn.disabled = true;
+      buyBtn.textContent = '❌ Agotado';
+      buyBtn.style.opacity = '0.5';
+    } else {
+      buyBtn.disabled = false;
+      buyBtn.textContent = '🛒 Comprar Oferta';
+      buyBtn.style.opacity = '1';
+    }
+  }
+}
+
+function addPromoToCart(prodId) {
+  var p = productos.find(function(x) { return x.id === prodId; });
+  var isFallback = (prodId === promoEspecial.producto_id && !p);
+  if (!p && !isFallback) return;
+  
+  if (p && p.maneja_stock && p.stock !== null && p.stock <= 0) {
+    showToast('❌ Producto agotado');
+    return;
+  }
+  
+  var selectEl = document.getElementById('promo_format_' + prodId);
+  var formatLabel = null;
+  var price = p ? p.precio : promoEspecial.precio;
+  
+  if (selectEl && promoFormatosMap[prodId]) {
+    var optIdx = parseInt(selectEl.value);
+    var format = promoFormatosMap[prodId][optIdx];
+    if (format) {
+      price = format.price;
+      formatLabel = format.label || null;
+    }
+  }
+  
+  var qty = promoQtyMap[prodId] || 1;
   var maxStock = (p && p.maneja_stock) ? p.stock : 999;
   
-  var newQty = promoQty + d;
-  if (newQty < 1) newQty = 1;
-  if (newQty > maxStock) {
-    showToast('⚠️ No puedes comprar más de la cantidad disponible (' + maxStock + ')');
-    return;
-  }
-  promoQty = newQty;
-  var qtyValEl = document.getElementById('promo_qty_val');
-  if (qtyValEl) {
-    qtyValEl.textContent = promoQty;
-  }
-  updatePromoPrice();
-}
-
-function updatePromoPrice() {
-  var formatSelect = document.getElementById('promo_format');
-  var unitPrice = promoEspecial.precio;
-  if (formatSelect && promoFormatos.length > 0) {
-    var idx = parseInt(formatSelect.value);
-    if (!isNaN(idx) && promoFormatos[idx]) {
-      unitPrice = promoFormatos[idx].price;
-    }
-  }
-  var totalPrice = unitPrice * promoQty;
-  var priceEl = document.getElementById('promo_price');
-  if (priceEl) {
-    priceEl.textContent = '$' + totalPrice.toLocaleString('es-CL');
-  }
-}
-
-function addPromoToCart() {
-  var p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
-  
-  var selectedFormat = null;
-  var selectedPrice = promoEspecial.precio;
-  
-  var formatSelect = document.getElementById('promo_format');
-  if (formatSelect && promoFormatos.length > 0) {
-    var idx = parseInt(formatSelect.value);
-    if (!isNaN(idx) && promoFormatos[idx]) {
-      selectedFormat = promoFormatos[idx].label || null;
-      selectedPrice = promoFormatos[idx].price;
-    }
-  }
-
+  // Calculate total qty in cart for this product ID
   var currentQtyInCart = 0;
   var keys = Object.keys(carrito);
-  var prodId = p ? p.id : promoEspecial.producto_id;
   for (var i = 0; i < keys.length; i++) {
     if (carrito[keys[i]].id === prodId) {
       currentQtyInCart += carrito[keys[i]].qty;
     }
   }
-  
-  var maxStock = (p && p.maneja_stock) ? p.stock : 999;
-  if ((currentQtyInCart + promoQty) > maxStock) {
+
+  if (p && p.maneja_stock && (currentQtyInCart + qty) > maxStock) {
     var allowed = maxStock - currentQtyInCart;
     if (allowed <= 0) {
-      showToast('⚠️ No queda más stock disponible de este producto promocional.');
+      showToast('⚠️ No queda más stock disponible de este producto.');
     } else {
       showToast('⚠️ Solo puedes agregar hasta ' + allowed + ' unidades en total.');
     }
     return;
   }
 
-  var cartKey = prodId + (selectedFormat ? '_' + selectedFormat : '');
+  var cartKey = prodId + (formatLabel ? '_' + formatLabel : '');
   if (!carrito[cartKey]) {
     carrito[cartKey] = {
       id: prodId,
       nombre: p ? p.nombre : promoEspecial.titulo,
-      precio: selectedPrice,
+      precio: price,
       emoji: p ? p.emoji : promoEspecial.emoji,
       color_fondo: p ? p.color_fondo : promoEspecial.color_fondo,
       imagen_url: p ? p.imagen_url : promoEspecial.imagen_url,
       qty: 0,
       variedad: null,
-      formato: selectedFormat
+      formato: formatLabel
     };
   } else {
-    carrito[cartKey].precio = selectedPrice;
+    carrito[cartKey].precio = price;
   }
-  carrito[cartKey].qty += promoQty;
+  carrito[cartKey].qty += qty;
 
   updBdg();
   renderGrid();
