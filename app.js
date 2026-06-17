@@ -434,9 +434,18 @@ function chQty(id, d) {
   if (!carrito[id]) return;
   var prodId = carrito[id].id;
   var p = productos.find(function(x){return x.id === prodId;});
-  if (d > 0 && p && p.maneja_stock && carrito[id].qty >= p.stock) {
-    showToast('⚠️ No queda más stock disponible de ' + p.nombre);
-    return;
+  if (d > 0 && p && p.maneja_stock) {
+    var totalQty = 0;
+    var keys = Object.keys(carrito);
+    for (var i = 0; i < keys.length; i++) {
+      if (carrito[keys[i]].id === prodId) {
+        totalQty += carrito[keys[i]].qty;
+      }
+    }
+    if (totalQty >= p.stock) {
+      showToast('⚠️ No queda más stock disponible de ' + p.nombre);
+      return;
+    }
   }
   carrito[id].qty += d;
   if (carrito[id].qty <= 0) delete carrito[id];
@@ -3083,9 +3092,23 @@ function addDetailToCart() {
     return;
   }
 
-  if (p.maneja_stock && detailQty > p.stock) {
-    showToast('⚠️ Cantidad máxima superada. Reduciendo a ' + p.stock);
-    detailQty = p.stock;
+  var currentQtyInCart = 0;
+  var keys = Object.keys(carrito);
+  for (var i = 0; i < keys.length; i++) {
+    if (carrito[keys[i]].id === p.id) {
+      currentQtyInCart += carrito[keys[i]].qty;
+    }
+  }
+
+  if (p.maneja_stock && (currentQtyInCart + detailQty) > p.stock) {
+    var allowed = p.stock - currentQtyInCart;
+    if (allowed <= 0) {
+      showToast('⚠️ No queda más stock disponible de ' + p.nombre);
+      return;
+    } else {
+      showToast('⚠️ Cantidad reducida a ' + allowed + ' por falta de stock');
+      detailQty = allowed;
+    }
   }
 
   var selectedVariety = null;
@@ -3129,7 +3152,7 @@ function addDetailToCart() {
   } else {
     carrito[cartKey].precio = selectedPrice;
   }
-  carrito[cartKey].qty = detailQty;
+  carrito[cartKey].qty += detailQty;
   
   updBdg(); 
   renderGrid();
