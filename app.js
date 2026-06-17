@@ -2802,41 +2802,77 @@ function hasMultipleFormats(gramajeStr) {
   return gramajeStr.indexOf(',') !== -1 || gramajeStr.indexOf('/') !== -1 || gramajeStr.indexOf(';') !== -1;
 }
 
+function parseWeightValue(str) {
+  var clean = str.toLowerCase().replace(/\s+/g, '');
+  var match = clean.match(/([0-9\.,]+)\s*(grs|gr|g|kg|kilo|kilos|k|ml|l|litro|litros|ltrs|lt|lts)?/);
+  if (!match) return null;
+  
+  var val = parseFloat(match[1].replace(',', '.'));
+  if (isNaN(val)) return null;
+  
+  var unit = match[2] || '';
+  
+  if (unit.indexOf('kg') !== -1 || unit.indexOf('kilo') !== -1 || unit === 'k') {
+    val *= 1000;
+  } else if (unit === 'l' || unit.indexOf('litro') !== -1 || unit.indexOf('ltr') !== -1 || unit === 'lt' || unit === 'lts') {
+    val *= 1000;
+  }
+  
+  return val;
+}
+
 function parseFormatos(gramajeStr, basePrecio) {
   if (!gramajeStr) return [{ label: '', price: basePrecio }];
-  if (!hasMultipleFormats(gramajeStr)) {
-    var priceMatch = gramajeStr.match(/\(\s*\$?\s*([0-9\.\s]+)\s*\)/);
-    var price = basePrecio;
-    var label = gramajeStr;
-    if (priceMatch) {
-      var numStr = priceMatch[1].replace(/\./g, '').trim();
-      var parsedPrice = parseInt(numStr);
-      if (!isNaN(parsedPrice)) {
-        price = parsedPrice;
-      }
-      label = gramajeStr.replace(priceMatch[0], '').trim();
-    }
-    return [{ label: label.trim(), price: price }];
-  }
-  var parts = gramajeStr.split(/[\/,;]/);
+  
+  var parts = hasMultipleFormats(gramajeStr) ? gramajeStr.split(/[\/,;]/) : [gramajeStr];
   var result = [];
+  
   for (var i = 0; i < parts.length; i++) {
     var part = parts[i].trim();
     if (!part) continue;
     var priceMatch = part.match(/\(\s*\$?\s*([0-9\.\s]+)\s*\)/);
-    var price = basePrecio;
+    var price = null;
     var label = part;
+    var hasExplicitPrice = false;
+    
     if (priceMatch) {
       var numStr = priceMatch[1].replace(/\./g, '').trim();
       var parsedPrice = parseInt(numStr);
       if (!isNaN(parsedPrice)) {
         price = parsedPrice;
+        hasExplicitPrice = true;
       }
       label = part.replace(priceMatch[0], '').trim();
     }
-    result.push({ label: label.trim(), price: price });
+    
+    result.push({
+      label: label.trim(),
+      price: price,
+      hasExplicitPrice: hasExplicitPrice
+    });
   }
-  return result;
+  
+  if (result.length > 0 && result[0].price === null) {
+    result[0].price = basePrecio;
+  }
+  
+  if (result.length > 1) {
+    var firstWeight = parseWeightValue(result[0].label);
+    for (var i = 1; i < result.length; i++) {
+      if (result[i].price === null) {
+        var currentWeight = parseWeightValue(result[i].label);
+        if (firstWeight && currentWeight && firstWeight > 0) {
+          result[i].price = Math.round(result[0].price * (currentWeight / firstWeight));
+        } else {
+          result[i].price = basePrecio;
+        }
+      }
+    }
+  }
+  
+  return result.map(function(item) {
+    return { label: item.label, price: item.price };
+  });
 }
 
 function cleanGramajeLabel(gramajeStr) {
