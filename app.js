@@ -25,11 +25,27 @@ var SUPABASE_BUCKET = 'productos';
 var supabaseClient = null;
 var supabaseStorageBucket = SUPABASE_BUCKET;
 var dbSoportaGramaje = true;
-try {
-  if (window.supabase) {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-} catch(e) { console.log("Error iniciando Supabase:", e); }
+
+function initSupabaseClient() {
+  try {
+    if (window.supabase) {
+      var passLocal = localStorage.getItem('admin_pass') || '';
+      var options = {};
+      if (passLocal) {
+        options = {
+          global: {
+            headers: {
+              'x-admin-pass': passLocal
+            }
+          }
+        };
+      }
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, options);
+    }
+  } catch(e) { console.log("Error iniciando Supabase:", e); }
+}
+
+initSupabaseClient();
 
 var productos = [];
 var promoEspecial = {
@@ -1318,6 +1334,8 @@ function loginClick(e) { if(e.target.id==='loginov') document.getElementById('lo
 function checkLogin() {
   var pass = document.getElementById('loginpass').value;
   if (pass===ADMIN_PASS) {
+    localStorage.setItem('admin_pass', pass);
+    initSupabaseClient();
     document.getElementById('loginov').classList.remove('open');
     abrirAdmin();
   } else {
