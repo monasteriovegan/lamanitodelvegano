@@ -413,7 +413,9 @@ function renderGrid() {
     if (p.gramaje) {
       h += '<div style="font-size:11px; color:var(--neon); margin-bottom:4px; font-weight:600;">' + cleanGramajeLabel(p.gramaje) + '</div>';
     }
-    h += '<div class="cdesc">' + p.descripcion + '</div>';
+    var descParts = (p.descripcion || '').split(' ||| ');
+    var descCorta = descParts[0] || '';
+    h += '<div class="cdesc">' + descCorta + '</div>';
     
     // nutritional tags indicator
     h += '<div style="display:flex; gap:4px; margin-bottom:6px;">';
@@ -2115,6 +2117,7 @@ function abrirModalProd(id) {
     document.getElementById('modaltit').textContent = 'Nuevo Producto';
     document.getElementById('fnombre').value='';
     document.getElementById('fdesc').value='';
+    document.getElementById('fdesc_larga').value='';
     document.getElementById('fprecio').value='';
     document.getElementById('fprecioant').value='';
     document.getElementById('fcat').value='empanadas';
@@ -2143,7 +2146,9 @@ function abrirModalProd(id) {
     if (!p) return;
     document.getElementById('modaltit').textContent = 'Editar Producto';
     document.getElementById('fnombre').value=p.nombre;
-    document.getElementById('fdesc').value=p.descripcion;
+    var descParts = (p.descripcion || '').split(' ||| ');
+    document.getElementById('fdesc').value = descParts[0] || '';
+    document.getElementById('fdesc_larga').value = descParts[1] || '';
     document.getElementById('fprecio').value=p.precio;
     document.getElementById('fprecioant').value=p.precio_anterior||'';
     document.getElementById('fcat').value=p.categoria;
@@ -2193,8 +2198,12 @@ function guardarProd() {
   var glutenFree = document.getElementById('fgluten_free').checked;
   var nutFree = document.getElementById('fnut_free').checked;
 
+  var descCorta = document.getElementById('fdesc').value.trim();
+  var descLarga = document.getElementById('fdesc_larga').value.trim();
+  var fullDesc = descCorta + (descLarga ? ' ||| ' + descLarga : '');
+
   var data = {
-    nombre: sanitizeHTML(nombre), descripcion: sanitizeHTML(document.getElementById('fdesc').value),
+    nombre: sanitizeHTML(nombre), descripcion: sanitizeHTML(fullDesc),
     precio: precio, precio_anterior: parseInt(document.getElementById('fprecioant').value)||null,
     categoria: sanitizeHTML(document.getElementById('fcat').value), emoji: sanitizeHTML(document.getElementById('femoji').value||'🌿'),
     etiqueta: etiqueta||null, etiqueta_label: etiqueta_label,
@@ -2985,7 +2994,9 @@ function abrirDetailModal(id, event) {
   detailQty = 1;
 
   document.getElementById('detail_name').textContent = p.nombre;
-  document.getElementById('detail_desc').textContent = p.descripcion || 'Sin descripción disponible.';
+  var descParts = (p.descripcion || '').split(' ||| ');
+  var descLarga = descParts[1] || descParts[0] || 'Sin descripción disponible.';
+  document.getElementById('detail_desc').textContent = descLarga;
   document.getElementById('detail_price').textContent = '$' + p.precio.toLocaleString('es-CL');
   
   var priceOld = document.getElementById('detail_price_old');
@@ -4139,7 +4150,8 @@ function renderPromoEspecial() {
 
     var descEl = document.getElementById('promo_desc');
     if (descEl) {
-      descEl.textContent = p.descripcion || '';
+      var descParts = (p.descripcion || '').split(' ||| ');
+      descEl.textContent = descParts[0] || '';
     }
 
     var badgeEl = document.getElementById('promo_badge');

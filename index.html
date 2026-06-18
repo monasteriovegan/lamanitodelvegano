@@ -2254,7 +2254,8 @@ span.flatpickr-weekday {
     <div class="modaltit" id="modaltit">Nuevo Producto</div>
     <input type="hidden" id="fid">
     <div class="frow"><label class="flbl">Nombre *</label><input class="finp" id="fnombre" placeholder="Ej: Empanada Pino Soya"></div>
-    <div class="frow"><label class="flbl">Descripción</label><input class="finp" id="fdesc" placeholder="Descripción corta del producto"></div>
+    <div class="frow"><label class="flbl">Descripción Corta (Para tarjetas del catálogo)</label><input class="finp" id="fdesc" placeholder="Ej: Masa crocante rellena de champiñones laminados."></div>
+    <div class="frow"><label class="flbl">Descripción Larga / Detalle (Se ve al abrir la publicación)</label><textarea class="finp" id="fdesc_larga" placeholder="Ej: Un regalo lleno de sabor... ¿Qué incluye la Box?... Jugo natural, etc." style="height: 100px; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px;"></textarea></div>
     <div class="frow2">
       <div><label class="flbl">Precio * ($)</label><input class="finp" id="fprecio" type="number" placeholder="2500" oninput="calcularFinanzasProducto()"></div>
       <div><label class="flbl">Precio anterior ($)</label><input class="finp" id="fprecioant" type="number" placeholder="Opcional"></div>
@@ -2389,7 +2390,7 @@ span.flatpickr-weekday {
     </button>
   </div>
 </div>
-<script src="app.js?v=1.2.2"></script>
+<script src="app.js?v=1.2.3"></script>
 
 
 
