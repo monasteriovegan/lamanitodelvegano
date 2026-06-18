@@ -4165,6 +4165,28 @@ function renderPromoEspecial() {
       }
     }
 
+    var promoVarietyContainer = document.getElementById('promo_variety_container');
+    var promoVarietySelect = document.getElementById('promo_variety');
+    if (promoVarietySelect && promoVarietyContainer) {
+      promoVarietySelect.innerHTML = '';
+      if (p.variedades && p.variedades.trim().length > 0) {
+        var vList = p.variedades.split(',').map(function(v){ return v.trim(); }).filter(Boolean);
+        if (vList.length > 0) {
+          vList.forEach(function(v) {
+            var opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            promoVarietySelect.appendChild(opt);
+          });
+          promoVarietyContainer.style.display = 'block';
+        } else {
+          promoVarietyContainer.style.display = 'none';
+        }
+      } else {
+        promoVarietyContainer.style.display = 'none';
+      }
+    }
+
     promoQty = 1;
     var qtyValEl = document.getElementById('promo_qty_val');
     if (qtyValEl) {
@@ -4237,6 +4259,13 @@ function addPromoToCart() {
     }
   }
 
+  var selectedVariety = null;
+  var varietySelect = document.getElementById('promo_variety');
+  var varietyContainer = document.getElementById('promo_variety_container');
+  if (varietySelect && varietyContainer && varietyContainer.style.display !== 'none') {
+    selectedVariety = varietySelect.value || null;
+  }
+
   var currentQtyInCart = 0;
   var keys = Object.keys(carrito);
   var prodId = p ? p.id : promoEspecial.producto_id;
@@ -4257,7 +4286,7 @@ function addPromoToCart() {
     return;
   }
 
-  var cartKey = prodId + (selectedFormat ? '_' + selectedFormat : '');
+  var cartKey = prodId + (selectedVariety ? '_' + selectedVariety : '') + (selectedFormat ? '_' + selectedFormat : '');
   if (!carrito[cartKey]) {
     carrito[cartKey] = {
       id: prodId,
@@ -4267,7 +4296,7 @@ function addPromoToCart() {
       color_fondo: p ? p.color_fondo : promoEspecial.color_fondo,
       imagen_url: p ? p.imagen_url : promoEspecial.imagen_url,
       qty: 0,
-      variedad: null,
+      variedad: selectedVariety,
       formato: selectedFormat
     };
   } else {
