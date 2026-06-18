@@ -221,8 +221,12 @@ function loadData() {
       supabaseClient.from('ajustes').insert([{ id: 'global', data: ajustesTienda }]);
     }
     aplicarAjustesUI();
+    renderPromoEspecial();
     if (adminTabActual === 'ajustes') {
       renderAdminTab('ajustes');
+    }
+    if (adminTabActual === 'promo') {
+      renderAdminTab('promo');
     }
   });
 
@@ -1744,6 +1748,46 @@ function renderAdminTab(tab) {
     h += '</div>';
     
     h += '<button class="bguardar" onclick="guardarAjustes()">Guardar Cambios de Tienda ⚙️</button>';
+    h += '</div>';
+    c.innerHTML = h;
+  } else if (tab==='promo') {
+    var h = '<div class="admin-head"><div class="admin-tit">Promoción Especial / Flyer de Inicio</div></div>';
+    h += '<div class="admin-card admin-card-pad" style="max-width: 600px; margin: 0 auto;">';
+    
+    h += '<div class="frow" style="display:flex; align-items:center; gap:8px;">';
+    h += '  <input type="checkbox" id="aj_promo_activa" style="width: 20px; height: 20px; cursor: pointer;" ' + (ajustesTienda.promo_activa ? 'checked' : '') + '>';
+    h += '  <label for="aj_promo_activa" class="flbl" style="margin-bottom:0; cursor:pointer; font-weight:700;">Mostrar Banner Promocional en Inicio</label>';
+    h += '</div>';
+
+    // Image Upload
+    h += '<div class="frow" style="margin-top:16px;">';
+    h += '  <label class="flbl">Imagen del Flyer (Promoción Especial)</label>';
+    h += '  <input type="file" id="aj_promo_subir_img" accept="image/*" style="display:none" onchange="subirImagenPromo(this)">';
+    h += '  <div class="upload-container" onclick="document.getElementById(\'aj_promo_subir_img\').click()" style="border: 2px dashed rgba(0, 255, 179, 0.3); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: background 0.3s; background: rgba(0,0,0,0.2);">';
+    
+    var imgStyle = 'max-height: 200px; display: ' + (ajustesTienda.promo_imagen_url ? 'block' : 'none') + '; margin: 0 auto 12px auto; border-radius: 8px; border: 1px solid rgba(0,255,179,0.3);';
+    h += '    <img id="aj_promo_img_preview" src="' + (ajustesTienda.promo_imagen_url || '') + '" style="' + imgStyle + '">';
+    h += '    <div id="aj_promo_upload_text" style="font-size: 13px; color: var(--muted);">' + (ajustesTienda.promo_imagen_url ? 'Cambiar imagen del flyer' : 'Subir flyer promocional (Imagen)') + '</div>';
+    h += '  </div>';
+    h += '  <input type="hidden" id="aj_promo_imagen_url" value="' + (ajustesTienda.promo_imagen_url || '') + '">';
+    h += '</div>';
+
+    // Associated Product Selector
+    h += '<div class="frow" style="margin-top:16px;">';
+    h += '  <label class="flbl">Producto a Comprar (Se cargará su precio y variantes al hacer clic en Comprar)</label>';
+    h += '  <select class="fsel" id="aj_promo_producto_id">';
+    h += '    <option value="">-- Ninguno (Desactiva botón de compra) --</option>';
+    
+    var sortedProds = productos.slice().sort(function(a,b){ return a.nombre.localeCompare(b.nombre); });
+    sortedProds.forEach(function(p) {
+      var selected = (ajustesTienda.promo_producto_id === p.id) ? 'selected' : '';
+      h += '    <option value="' + p.id + '" ' + selected + '>' + sanitizeHTML(p.nombre) + ' ($' + p.precio.toLocaleString('es-CL') + ')</option>';
+    });
+    
+    h += '  </select>';
+    h += '</div>';
+
+    h += '<button class="bguardar" onclick="guardarAjustesPromo()" style="margin-top:24px;">Guardar Promoción Especial ⚙️</button>';
     h += '</div>';
     c.innerHTML = h;
   } else if (tab==='cupones') {
@@ -4047,78 +4091,100 @@ function renderPromoEspecial() {
   var section = document.getElementById('special-promo-section');
   if (!section) return;
 
-  // 1. Look up any product with etiqueta === 'promo' in the database
-  var p = productos.find(function(x){ return x.etiqueta === 'promo'; });
-  
-  // 2. If not found, look up by ID if active
-  if (!p && promoEspecial.activo) {
-    p = productos.find(function(x){ return x.id === promoEspecial.producto_id; });
-  }
+  var activa = ajustesTienda.promo_activa;
+  var imgUrl = ajustesTienda.promo_imagen_url;
+  var prodId = ajustesTienda.promo_producto_id;
 
-  // 3. If no active promo is found, hide the section
-  if (!p && !promoEspecial.activo) {
+  // 1. If not active or no flyer image is set, hide the section completely
+  if (!activa || !imgUrl) {
     section.style.display = 'none';
     return;
   }
 
-  // 4. Update the state mapping if we found a product in database
-  if (p) {
-    promoEspecial.producto_id = p.id;
-    promoEspecial.titulo = p.nombre;
-    promoEspecial.descripcion = p.descripcion || '';
-    promoEspecial.formatos = p.gramaje || '';
-    promoEspecial.precio = p.precio;
-    promoEspecial.emoji = p.emoji || '🎁';
-    promoEspecial.imagen_url = p.imagen_url || '';
-    promoEspecial.color_fondo = p.color_fondo || '#0d1e16';
-  }
-
-  // 5. Hide if there's no flyer image
-  if (!promoEspecial.imagen_url) {
-    section.style.display = 'none';
-    return;
-  }
-
+  // 2. Display the flyer image
   var promoImg = document.getElementById('promo_img');
   if (promoImg) {
-    promoImg.src = promoEspecial.imagen_url || '';
+    promoImg.src = imgUrl;
   }
 
-  var titleEl = document.getElementById('promo_title');
-  if (titleEl) {
-    titleEl.textContent = promoEspecial.titulo;
+  // 3. Find the associated product in database
+  var p = null;
+  if (prodId) {
+    p = productos.find(function(x){ return x.id === prodId; });
   }
 
-  var descEl = document.getElementById('promo_desc');
-  if (descEl) {
-    descEl.textContent = promoEspecial.descripcion;
-  }
+  var buyContainer = section.querySelector('.promo-buy-container');
+  var imgContainer = document.getElementById('promo_img_container');
 
-  var promoFormatSelect = document.getElementById('promo_format');
-  if (promoFormatSelect) {
-    promoFormatSelect.innerHTML = '';
-    promoFormatos = parseFormatos(promoEspecial.formatos, promoEspecial.precio);
-    if (promoFormatos.length > 0 && (promoFormatos.length > 1 || promoFormatos[0].label !== '')) {
-      promoFormatos.forEach(function(f, idx) {
-        var opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = f.label + (f.price !== promoEspecial.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '');
-        promoFormatSelect.appendChild(opt);
-      });
-      promoFormatSelect.parentElement.style.display = 'block';
-    } else {
-      promoFormatSelect.parentElement.style.display = 'none';
-      promoFormatos = [{ label: '', price: promoEspecial.precio }];
+  if (p) {
+    // Show buy card and configure product details
+    if (buyContainer) {
+      buyContainer.style.display = '';
     }
+    if (imgContainer) {
+      imgContainer.style.margin = '';
+      imgContainer.style.maxWidth = '';
+      imgContainer.style.flex = '';
+    }
+    section.style.justifyContent = '';
+
+    promoEspecial.producto_id = p.id;
+    promoEspecial.precio = p.precio;
+    promoEspecial.formatos = p.gramaje || '';
+
+    var titleEl = document.getElementById('promo_title');
+    if (titleEl) {
+      titleEl.textContent = p.nombre;
+    }
+
+    var descEl = document.getElementById('promo_desc');
+    if (descEl) {
+      descEl.textContent = p.descripcion || '';
+    }
+
+    var badgeEl = document.getElementById('promo_badge');
+    if (badgeEl) {
+      badgeEl.textContent = (p.emoji || '🔥') + ' Especial';
+    }
+
+    var promoFormatSelect = document.getElementById('promo_format');
+    if (promoFormatSelect) {
+      promoFormatSelect.innerHTML = '';
+      promoFormatos = parseFormatos(p.gramaje || '', p.precio);
+      if (promoFormatos.length > 0 && (promoFormatos.length > 1 || promoFormatos[0].label !== '')) {
+        promoFormatos.forEach(function(f, idx) {
+          var opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = f.label + (f.price !== p.precio ? ' ($' + f.price.toLocaleString('es-CL') + ')' : '');
+          promoFormatSelect.appendChild(opt);
+        });
+        promoFormatSelect.parentElement.style.display = 'block';
+      } else {
+        promoFormatSelect.parentElement.style.display = 'none';
+        promoFormatos = [{ label: '', price: p.precio }];
+      }
+    }
+
+    promoQty = 1;
+    var qtyValEl = document.getElementById('promo_qty_val');
+    if (qtyValEl) {
+      qtyValEl.textContent = promoQty;
+    }
+
+    updatePromoPrice();
+  } else {
+    // No product associated: hide buy card and center image
+    if (buyContainer) {
+      buyContainer.style.display = 'none';
+    }
+    if (imgContainer) {
+      imgContainer.style.margin = '0 auto';
+      imgContainer.style.maxWidth = '550px';
+      imgContainer.style.flex = 'none';
+    }
+    section.style.justifyContent = 'center';
   }
 
-  promoQty = 1;
-  var qtyValEl = document.getElementById('promo_qty_val');
-  if (qtyValEl) {
-    qtyValEl.textContent = promoQty;
-  }
-
-  updatePromoPrice();
   section.style.display = 'flex';
 }
 
@@ -4213,4 +4279,93 @@ function addPromoToCart() {
   renderGrid();
   abrirCarrito();
   showToast('🛒 Oferta agregada al carrito');
+}
+
+function subirImagenPromo(input) {
+  var file = input.files[0];
+  if (!file) return;
+
+  var uploadText = document.getElementById('aj_promo_upload_text');
+  var imgPreview = document.getElementById('aj_promo_img_preview');
+  var originalText = uploadText ? uploadText.textContent : 'Subir flyer promocional (Imagen)';
+
+  if (!supabaseClient) {
+    showToast('⚠️ Supabase Storage no está configurado');
+    input.value = '';
+    return;
+  }
+
+  if (!file.type || file.type.indexOf('image/') !== 0) {
+    showToast('⚠️ Selecciona un archivo de imagen válido');
+    input.value = '';
+    return;
+  }
+
+  var maxSizeMb = 8;
+  if (file.size > maxSizeMb * 1024 * 1024) {
+    showToast('⚠️ La imagen no puede superar ' + maxSizeMb + ' MB');
+    input.value = '';
+    return;
+  }
+
+  if (uploadText) uploadText.textContent = 'Subiendo imagen... ⏳';
+
+  var safeName = file.name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_');
+  var filePath = 'promo/' + Date.now() + '_' + safeName;
+
+  supabaseClient.storage
+    .from(supabaseStorageBucket)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      contentType: file.type,
+      upsert: false
+    })
+    .then(function(result) {
+      if (result.error) throw result.error;
+      var publicResult = supabaseClient.storage.from(supabaseStorageBucket).getPublicUrl(filePath);
+      var publicUrl = publicResult && publicResult.data ? publicResult.data.publicUrl : '';
+      if (!publicUrl) throw new Error('Supabase no devolvió una URL pública.');
+      
+      document.getElementById('aj_promo_imagen_url').value = publicUrl;
+      if (imgPreview) {
+        imgPreview.src = publicUrl;
+        imgPreview.style.display = 'block';
+      }
+      if (uploadText) uploadText.textContent = '¡Subida con éxito! ✅';
+      showToast('📸 Imagen guardada en Supabase');
+    })
+    .catch(function(error) {
+      console.error('Error al subir imagen a Supabase:', error);
+      if (uploadText) uploadText.textContent = originalText;
+      input.value = '';
+      showToast('⚠️ Falló la subida a Supabase');
+    });
+}
+
+function guardarAjustesPromo() {
+  if (!supabaseClient) { showToast('⚠️ Base de datos no conectada'); return; }
+  
+  var activa = document.getElementById('aj_promo_activa').checked;
+  var imgUrl = document.getElementById('aj_promo_imagen_url').value;
+  var prodId = document.getElementById('aj_promo_producto_id').value;
+  
+  ajustesTienda.promo_activa = activa;
+  ajustesTienda.promo_imagen_url = imgUrl;
+  ajustesTienda.promo_producto_id = prodId;
+  
+  showToast('Guardando cambios... ⏳');
+  
+  supabaseClient.from('ajustes').upsert({ id: 'global', data: ajustesTienda }).then(function(res) {
+    if (res.error) {
+      showToast('❌ Error: ' + res.error.message);
+    } else {
+      showToast('✅ Promoción Especial guardada con éxito');
+      renderPromoEspecial();
+      renderAdminTab('promo');
+    }
+  });
 }

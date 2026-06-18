@@ -1732,6 +1732,7 @@ span.flatpickr-weekday {
 }
 .promo-image-container {
   position: relative;
+  width: 100%;
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid rgba(0, 255, 179, 0.2);
@@ -1743,13 +1744,14 @@ span.flatpickr-weekday {
 }
 .promo-image-container img {
   width: 100%;
-  height: 100%;
-  max-height: 480px;
-  object-fit: cover;
+  height: auto;
+  max-height: 550px;
+  object-fit: contain;
   transition: transform 0.4s ease;
+  display: block;
 }
 .promo-image-container:hover img {
-  transform: scale(1.02);
+  transform: scale(1.03);
 }
 .promo-buy-container {
   background: rgba(255, 255, 255, 0.02);
@@ -2203,8 +2205,9 @@ span.flatpickr-weekday {
         <div class="atab" onclick="aTab(&#39;zonas&#39;,this)">🚚 Envíos</div>
         <div class="atab" onclick="aTab(&#39;pedidos&#39;,this)">📦 Pedidos</div>
         <div class="atab" onclick="aTab(&#39;stats&#39;,this)">📊 Métricas</div>
-        <div class="atab" onclick="aTab(&#39;ajustes&#39;,this)">⚙️ Ajustes</div>
-        <div class="atab" onclick="aTab(&#39;cupones&#39;,this)">🎟️ Cupones &amp; Promos</div>
+        <div class="atab" onclick="aTab('ajustes',this)">⚙️ Ajustes</div>
+        <div class="atab" onclick="aTab('promo',this)">📢 Promo Flyer</div>
+        <div class="atab" onclick="aTab('cupones',this)">🎟️ Cupones &amp; Promos</div>
         <div class="atab" onclick="aTab(&#39;integraciones&#39;,this)">🔌 Integraciones</div>
       </div>
       <button class="adminclose-btn" onclick="cerrarAdmin()">✕ Salir del Panel</button>
@@ -2228,8 +2231,9 @@ span.flatpickr-weekday {
         <div class="atab" onclick="aTab(&#39;zonas&#39;,this)">🚚 Envíos</div>
         <div class="atab" onclick="aTab(&#39;pedidos&#39;,this)">📦 Pedidos</div>
         <div class="atab" onclick="aTab(&#39;stats&#39;,this)">📊 Métricas</div>
-        <div class="atab" onclick="aTab(&#39;ajustes&#39;,this)">⚙️ Ajustes</div>
-        <div class="atab" onclick="aTab(&#39;cupones&#39;,this)">🎟️ Cupones &amp; Promos</div>
+        <div class="atab" onclick="aTab('ajustes',this)">⚙️ Ajustes</div>
+        <div class="atab" onclick="aTab('promo',this)">📢 Promo Flyer</div>
+        <div class="atab" onclick="aTab('cupones',this)">🎟️ Cupones &amp; Promos</div>
         <div class="atab" onclick="aTab(&#39;integraciones&#39;,this)">🔌 Integraciones</div>
       </div>
       
@@ -2380,7 +2384,7 @@ span.flatpickr-weekday {
     </button>
   </div>
 </div>
-<script src="app.js?v=1.2.0"></script>
+<script src="app.js?v=1.2.1"></script>
 
 
 
