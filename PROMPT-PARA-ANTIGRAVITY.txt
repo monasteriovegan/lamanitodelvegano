@@ -1,0 +1,73 @@
+CONTEXTO:
+Tengo un proyecto Next.js 15 (con Next.js 16.2.9 instalado realmente) ya construido y
+verificado localmente (build exitoso, sin errores de TypeScript). Es una migración
+completa de un sitio de e-commerce (La Manito Del Vegano) desde vanilla JS a Next.js,
+con foco en seguridad: panel admin con autenticación real, checkout validado
+server-side, e integraciones (Flow, Mercado Pago, WhatsApp, Gemini) protegidas.
+
+IMPORTANTE: Ya existe un repo "lamanitodelvegano2" con un deploy en Vercel que está
+ACTIVO Y EN USO ahora mismo mientras trabajo en esta nueva versión. NO debes tocar
+ese repo ni ese deployment bajo ninguna circunstancia. Vamos a crear todo de cero
+en un lugar nuevo.
+
+TAREA:
+
+1. Crea un repositorio NUEVO en GitHub llamado "lamanitodelvegano3" en la cuenta/
+   organización "monasteriovegan" (la misma dueña de los repos anteriores). Debe ser
+   un repo nuevo y vacío, no un fork ni clon de otro.
+
+2. Copia TODO el contenido del .zip adjunto a la raíz de ese repo nuevo, manteniendo
+   la estructura de carpetas exacta:
+   - src/ (con todas sus subcarpetas: app/, components/, lib/, types/)
+   - supabase/
+   - docs/
+   - public/
+   - package.json, tsconfig.json, next.config.ts, postcss.config.mjs,
+     eslint.config.mjs, next-env.d.ts, .gitignore, .env.example, README.md
+
+3. Verifica que NO falte ninguno de estos archivos/carpetas críticos:
+   - src/app/ completo (incluyendo admin/, api/, checkout/, etc.)
+   - src/proxy.ts  <- CRÍTICO: debe llamarse proxy.ts, NUNCA middleware.ts
+     (este proyecto usa Next.js 16, donde "middleware.ts" está deprecado en favor
+     de "proxy.ts" — si por algún motivo ves un archivo middleware.ts en el zip,
+     avísame, no debería estar ahí)
+   - supabase/migracion-compatible.sql
+   - supabase/rls-policies.sql
+
+4. Antes de hacer commit, corre `npm install` y luego `npx tsc --noEmit` para
+   confirmar que no hay errores de TypeScript. Si hay errores, AVÍSAME antes de
+   continuar — no los arregles por tu cuenta, prefiero revisarlos conmigo primero.
+
+5. Si el typecheck pasa limpio, haz commit inicial con el mensaje:
+   "Initial commit: La Manito Del Vegano v2 - Next.js migration"
+   y push a la rama main de "lamanitodelvegano3".
+
+6. Crea un proyecto NUEVO en Vercel conectado a este repo "lamanitodelvegano3"
+   (un proyecto Vercel distinto al de lamanitodelvegano2, no reutilizar el existente).
+
+7. En ese proyecto nuevo de Vercel, configura estas 3 variables de entorno para
+   Production, Preview y Development (te voy a pasar los valores reales por separado,
+   por ahora solo deja los nombres si el flujo de creación te lo permite, o avísame
+   cuando llegues a este paso y te los paso yo directamente en Vercel):
+   - NEXT_PUBLIC_SUPABASE_URL
+   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+   - SUPABASE_SERVICE_ROLE_KEY
+
+8. Dispara el primer deploy.
+
+IMPORTANTE — cosas que NO debes hacer:
+- NO toques el repo "lamanitodelvegano2" ni su proyecto de Vercel asociado, bajo
+  ninguna circunstancia
+- NO modifiques el contenido de ningún archivo .ts o .tsx del zip, solo súbelos tal
+  cual están
+- NO renombres src/proxy.ts a middleware.ts ni viceversa
+- NO subas la carpeta node_modules ni .next (no deberían estar en el zip, pero por
+  si acaso)
+- NO subas ningún archivo .env.local con valores reales
+- Si algo no calza, hay conflicto, o no tienes permisos para alguno de estos pasos
+  (crear repo, crear proyecto Vercel), detente y avísame en vez de improvisar
+
+DESPUÉS DE COMPLETAR:
+Pásame el link del repo nuevo en GitHub y el link del proyecto nuevo en Vercel, para
+que yo termine de configurar las variables de entorno con los valores reales y
+verifiquemos juntos el primer deploy.
