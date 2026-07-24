@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-fondo flex relative">
       {/* Desktop Sidebar */}
-      <AdminSidebar email={admin.email || ''} />
+      <AdminSidebar email={admin.email || ''} rol={(admin.rol as 'admin' | 'soporte' | 'bodega') || 'admin'} />
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 md:p-8 overflow-x-hidden pb-20 md:pb-8 bg-[#030907]">

@@ -1,7 +1,9 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { guardarAjustes } from './actions';
 
 export default async function AdminAjustesPage() {
+  await requireRole(['admin']);
   const supabase = createSupabaseServiceClient();
   const { data: ajustesRow } = await supabase.from('ajustes').select('data').eq('id', 'global').maybeSingle();
   const ajustes = ajustesRow?.data || {};

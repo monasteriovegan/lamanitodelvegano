@@ -1,7 +1,9 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { crearCategoria, eliminarCategoria } from './actions';
 
 export default async function AdminCategoriasPage() {
+  await requireRole(['admin']);
   const supabase = createSupabaseServiceClient();
   const { data: categorias } = await supabase.from('categorias').select('*').order('nombre');
 

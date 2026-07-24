@@ -1,11 +1,9 @@
-import { redirect } from 'next/navigation';
-import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { guardarIntegraciones } from './actions';
 
 export default async function AdminIntegracionesPage() {
-  const admin = await getCurrentAdminUser();
-  if (!admin) redirect('/admin/login');
+  await requireRole(['admin']);
 
   const supabase = createSupabaseServiceClient();
   const { data: integraciones } = await supabase

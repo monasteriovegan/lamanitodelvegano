@@ -1,7 +1,9 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { crearZona, eliminarZona } from './actions';
 
 export default async function AdminZonasPage() {
+  await requireRole(['admin']);
   const supabase = createSupabaseServiceClient();
   const { data: zonas } = await supabase.from('zonas').select('*').order('nombre');
 

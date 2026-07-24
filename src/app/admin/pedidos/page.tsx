@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { cambiarEstadoPedido } from './actions';
 import type { EstadoPedido } from '@/types/domain';
 
@@ -14,6 +15,7 @@ const ESTADO_COLOR: Record<EstadoPedido, string> = {
 };
 
 export default async function AdminPedidosPage() {
+  await requireRole(['admin', 'soporte', 'bodega']);
   const supabase = createSupabaseServiceClient();
   const { data: pedidos } = await supabase
     .from('pedidos')

@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 import { crearCupon, toggleCuponActivo, eliminarCupon } from './actions';
 
 const TIPO_LABELS: Record<string, string> = {
@@ -9,6 +10,7 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 export default async function AdminCuponesPage() {
+  await requireRole(['admin', 'soporte']);
   const supabase = createSupabaseServiceClient();
   const { data: cupones } = await supabase.from('cupones').select('*').order('created_at', { ascending: false });
 

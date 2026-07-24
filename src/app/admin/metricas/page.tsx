@@ -1,6 +1,8 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 
 export default async function AdminMetricasPage() {
+  await requireRole(['admin']);
   const supabase = createSupabaseServiceClient();
   const { data: pedidos } = await supabase
     .from('pedidos')

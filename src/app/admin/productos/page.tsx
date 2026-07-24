@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { toggleDestacado, eliminarProducto } from './actions';
 
 export default async function AdminProductosPage() {
+  await requireRole(['admin', 'bodega']);
   const supabase = createSupabaseServiceClient();
   const { data: productos } = await supabase
     .from('productos')
