@@ -18,6 +18,15 @@ function CheckoutContent() {
   const [direccion, setDireccion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+
+  // InitiateCheckout / begin_checkout — una vez por carga de la página,
+  // con el valor real del carrito en ese momento.
+  useEffect(() => {
+    if (items.length === 0) return;
+    if (window.fbq) window.fbq('track', 'InitiateCheckout', { value: subtotal, currency: 'CLP', num_items: items.length });
+    if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'CLP', value: subtotal });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'flow' | 'whatsapp'>('mercadopago');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { PurchaseTracking } from './PurchaseTracking';
 
 export default async function PedidoConfirmacionPage({
   params,
@@ -26,6 +27,7 @@ export default async function PedidoConfirmacionPage({
 
   return (
     <SiteShell>
+      {esExito && <PurchaseTracking pedidoId={pedido.id} total={pedido.total} />}
       <main className="pt-[100px] px-4 pb-16 max-w-[480px] mx-auto text-center">
         <span className="text-5xl mb-4 block">{esExito ? '✅' : '⏳'}</span>
         <h1 className="font-display font-bold text-xl text-white mb-2">

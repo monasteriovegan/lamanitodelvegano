@@ -62,6 +62,27 @@ compra de punta a punta.
 
 ## Fase 3 — Dashboard, Destacados y Promo Flyer
 
+El panel no tenía pantalla de inicio (entrar a `/admin` no mostraba nada
+propio) y dos funciones ya existían en la base de datos pero sin pantalla
+para editarlas desde el admin — se agregó lo que faltaba:
+
+- **`/admin`** — dashboard con ventas del día, pedidos pendientes, alerta
+  de stock bajo, y pedidos recientes.
+- **`/admin/destacados`** — vista dedicada para marcar/quitar productos
+  destacados (la función ya existía en Productos, esto la separa en su
+  propia pantalla).
+- **`/admin/promo-flyer`** — pantalla nueva para configurar la promoción
+  especial de la portada (antes solo se podía editar directo en Supabase).
+- Se corrigió un bug real: guardar "Ajustes generales" borraba en
+  silencio los datos de la Promo Especial, porque no los preservaba al
+  escribir en la tabla. Ahora todo pasa por `src/lib/ajustes/helpers.ts`,
+  que lee y fusiona en vez de sobrescribir.
+- Sidebar reorganizado por secciones (Catálogo, Ventas, Marketing,
+  Sistema) y un kit de componentes compartido
+  (`src/app/admin/_ui/AdminUI.tsx`) con tarjetas de KPI, tarjetas de
+  sección y badges — para que el resto del admin se pueda seguir
+  construyendo con la misma consistencia visual.
+
 ## Fase 4 — Roles con permisos reales
 
 Tu tabla `admin_roles` ya tenía definidos 3 roles (`admin`, `soporte`,
@@ -83,24 +104,46 @@ escribe a mano la URL de una sección que no le corresponde (ej.
 `/admin/ajustes`), lo redirige de vuelta al dashboard — no es que el botón
 esté oculto nomás. Para asignarle un rol a alguien, se hace directo en la
 tabla `admin_roles` de Supabase por ahora (no hay pantalla para eso
-todavía — decir si conviene agregarla).
+todavía).
 
-El panel no tenía pantalla de inicio (entrar a `/admin` no mostraba nada
-propio) y dos funciones ya existían en la base de datos pero sin pantalla
-para editarlas desde el admin — se agregó lo que faltaba:
+## Fase 5 — URL propia por producto + Meta Pixel + GA4
 
-- **`/admin`** — dashboard con ventas del día, pedidos pendientes, alerta
-  de stock bajo, y pedidos recientes.
-- **`/admin/destacados`** — vista dedicada para marcar/quitar productos
-  destacados (la función ya existía en Productos, esto la separa en su
-  propia pantalla).
-- **`/admin/promo-flyer`** — pantalla nueva para configurar la promoción
-  especial de la portada (antes solo se podía editar directo en Supabase).
-- Se corrigió un bug real: guardar "Ajustes generales" borraba en silencio
-  los datos de la Promo Especial, porque no los preservaba al escribir en
-  la tabla. Ahora todo pasa por `src/lib/ajustes/helpers.ts`, que lee y
-  fusiona en vez de sobrescribir.
-- Sidebar reorganizado por secciones (Catálogo, Ventas, Marketing,
-  Sistema) y un kit de componentes compartido (`src/app/admin/_ui/AdminUI.tsx`)
-  con tarjetas de KPI, tarjetas de sección y badges — para que el resto
-  del admin se pueda seguir construyendo con la misma consistencia visual.
+Cada producto activo ahora tiene su propia página pública en
+`/productos/[slug]` — con título, descripción e imagen reales en las
+etiquetas Open Graph (para que un anuncio o un link compartido en
+WhatsApp muestre la foto y el nombre del producto, no la portada
+genérica). Antes los productos solo se veían en una ventana modal desde
+la portada, sin URL propia.
+
+- El `slug` se genera solo desde el nombre al crear un producto, pero se
+  puede editar a mano desde el admin (`/admin/productos`) — pensado para
+  que la URL que le des a una campaña de ads sea la que tú quieras.
+- La tarjeta de producto en la portada ahora enlaza a esa página; el botón
+  "+" sigue agregando rápido al carrito igual que antes (no se tocó ese
+  flujo).
+- **Meta Pixel y Google Analytics 4**: se configuran desde
+  `/admin/integraciones` (nueva sección "📈 Analítica y anuncios"), no
+  hardcodeados en el código. Quedan estos eventos ya conectados:
+  - `PageView` / `page_view` — automático en todas las páginas
+  - `ViewContent` / `view_item` — al entrar a la página de un producto
+  - `AddToCart` / `add_to_cart` — al agregar al carrito
+  - `InitiateCheckout` / `begin_checkout` — al entrar al checkout
+  - `Purchase` / `purchase` — al confirmar un pedido pagado (una sola vez
+    por pedido, protegido contra duplicados si se recarga la página)
+
+Con esto ya se puede armar una campaña de Meta/Google Ads que aterrice
+directo en un producto específico, y además optimizar por conversión real
+(no solo clics) una vez que haya datos de compra acumulados.
+
+### Migración pendiente de esta fase
+
+Correr `supabase/migracion-fase5-slug-analytics.sql` — agrega la columna
+`slug` a `productos` (con backfill automático desde el nombre para los
+productos que ya existen) y las columnas de Meta Pixel / GA4 a
+`integraciones_secretas`.
+
+## Verificación
+
+`npx tsc --noEmit` y `npm run build` corridos limpio (0 errores, 31 rutas)
+contra una copia recién descomprimida del zip entregado, de forma
+independiente, antes de cada entrega.

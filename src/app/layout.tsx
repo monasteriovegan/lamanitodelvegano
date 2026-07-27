@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Syne, Space_Grotesk, Fraunces } from 'next/font/google';
 import './globals.css';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { AnalyticsScripts } from '@/components/layout/AnalyticsScripts';
 
 const syne = Syne({
   subsets: ['latin'],
@@ -41,10 +43,18 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createSupabaseServiceClient();
+  const { data: integraciones } = await supabase
+    .from('integraciones_secretas')
+    .select('meta_pixel_id, ga4_measurement_id')
+    .eq('id', 'global')
+    .maybeSingle();
+
   return (
     <html lang="es">
       <body className={`${syne.variable} ${spaceGrotesk.variable} ${fraunces.variable} antialiased`}>
+        <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
         {children}
       </body>
     </html>

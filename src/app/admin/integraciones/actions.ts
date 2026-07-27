@@ -31,10 +31,13 @@ export async function guardarIntegraciones(formData: FormData) {
     wa_phone_number_id: (formData.get('wa_phone_number_id') as string) || null,
     resend_api_key: (formData.get('resend_api_key') as string) || null,
     resend_from_email: (formData.get('resend_from_email') as string) || null,
+    meta_pixel_id: (formData.get('meta_pixel_id') as string) || null,
+    ga4_measurement_id: (formData.get('ga4_measurement_id') as string) || null,
   };
 
   const { error } = await supabase.from('integraciones_secretas').upsert(payload);
   if (error) throw new Error(error.message);
 
   revalidatePath('/admin/integraciones');
+  revalidatePath('/', 'layout'); // los IDs de analytics se leen en el layout raíz
 }

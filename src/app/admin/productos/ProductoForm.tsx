@@ -21,6 +21,24 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
       </div>
 
       <div>
+        <label className="block text-xs text-muted mb-1.5">
+          URL del producto <span className="text-white/30">(opcional — se genera sola desde el nombre si la dejas vacía)</span>
+        </label>
+        <div className="flex items-center gap-1.5 text-sm">
+          <span className="text-white/30 whitespace-nowrap">/productos/</span>
+          <input
+            name="slug"
+            placeholder="tableta-70-peru"
+            defaultValue={producto?.slug || ''}
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          />
+        </div>
+        <p className="text-[11px] text-white/30 mt-1">
+          Esta es la URL que le mandas a la campaña de anuncios (Meta/Google Ads) para que aterrice directo en este producto.
+        </p>
+      </div>
+
+      <div>
         <label className="block text-xs text-muted mb-1.5">Descripción</label>
         <textarea
           name="descripcion"

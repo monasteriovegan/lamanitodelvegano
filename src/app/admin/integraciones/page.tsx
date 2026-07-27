@@ -137,6 +137,32 @@ export default async function AdminIntegracionesPage() {
           </div>
         </fieldset>
 
+        <fieldset className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
+          <legend className="text-sm font-bold text-white px-1">📈 Analítica y anuncios</legend>
+          <p className="text-[11px] text-muted mb-3">
+            Con esto, cada página de producto queda lista para campañas personalizadas de Meta/Google Ads —
+            se registran las vistas de producto, agregados al carrito y compras.
+          </p>
+          <div className="mt-2 mb-3">
+            <label className="block text-xs text-muted mb-1.5">Meta Pixel ID</label>
+            <input
+              name="meta_pixel_id"
+              placeholder="1234567890123456"
+              defaultValue={integraciones?.meta_pixel_id || ''}
+              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1.5">Google Analytics 4 — Measurement ID</label>
+            <input
+              name="ga4_measurement_id"
+              placeholder="G-XXXXXXXXXX"
+              defaultValue={integraciones?.ga4_measurement_id || ''}
+              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+            />
+          </div>
+        </fieldset>
+
         <button
           type="submit"
           className="bg-neon text-[#020705] font-bold py-3 rounded-full text-sm shadow-[0_0_15px_rgba(0,255,179,0.4)] hover:bg-white transition-all w-fit px-8"

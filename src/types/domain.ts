@@ -25,6 +25,7 @@ export interface FormatoProducto {
 
 export interface Producto {
   id: string; // text en BD real, no uuid
+  slug: string; // URL propia del producto, para /productos/[slug]
   nombre: string;
   descripcion: string | null; // columna real es 'descripcion', no descripcion_corta/larga
   precio: number;

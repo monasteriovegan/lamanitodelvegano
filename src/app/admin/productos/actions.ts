@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { slugify } from '@/lib/slugify';
 
 async function requireAdmin() {
   const admin = await getCurrentAdminUser();
@@ -9,13 +10,33 @@ async function requireAdmin() {
   return admin;
 }
 
+// Genera un slug único agregando -2, -3... si ya existe otro producto con
+// el mismo (excluyendo el propio producto cuando se está editando).
+async function slugUnico(supabase: Awaited<ReturnType<typeof createSupabaseServerAuthClient>>, base: string, idActual: string | null) {
+  let intento = base;
+  let sufijo = 2;
+  for (;;) {
+    const query = supabase.from('productos').select('id').eq('slug', intento).limit(1);
+    const { data } = idActual ? await query.neq('id', idActual) : await query;
+    if (!data || data.length === 0) return intento;
+    intento = `${base}-${sufijo}`;
+    sufijo++;
+  }
+}
+
 export async function guardarProducto(formData: FormData) {
   await requireAdmin();
   const supabase = await createSupabaseServerAuthClient();
 
   const id = formData.get('id') as string | null;
+  const nombre = formData.get('nombre') as string;
+  const slugInput = (formData.get('slug') as string)?.trim();
+  const slugBase = slugify(slugInput || nombre);
+  const slug = await slugUnico(supabase, slugBase, id);
+
   const payload = {
-    nombre: formData.get('nombre') as string,
+    nombre,
+    slug,
     descripcion: formData.get('descripcion') as string,
     precio: parseInt(formData.get('precio') as string, 10),
     precio_anterior: formData.get('precio_anterior') ? parseInt(formData.get('precio_anterior') as string, 10) : null,

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import type { Producto } from '@/types/domain';
 import { useCart } from '@/lib/cart/CartContext';
@@ -42,9 +43,9 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
 
   return (
     <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.15)] rounded-[14px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all hover:-translate-y-[5px] hover:border-[rgba(0,255,179,0.4)]">
-      <button
-        onClick={onOpenDetail}
-        className="w-full aspect-square flex items-center justify-center text-[42px] relative overflow-hidden"
+      <Link
+        href={`/productos/${producto.slug}`}
+        className="w-full aspect-square flex items-center justify-center text-[42px] relative overflow-hidden block"
         style={{ background: producto.color_fondo || '#1B4332' }}
       >
         {producto.imagen_url ? (
@@ -64,10 +65,12 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
             {TAG_LABELS[producto.etiqueta]}
           </span>
         )}
-      </button>
+      </Link>
 
       <div className="px-3 pb-3 pt-2.5">
-        <h3 className="font-body font-bold text-[13px] mb-0.5 text-white">{producto.nombre}</h3>
+        <Link href={`/productos/${producto.slug}`}>
+          <h3 className="font-body font-bold text-[13px] mb-0.5 text-white hover:text-neon transition-colors">{producto.nombre}</h3>
+        </Link>
         {producto.descripcion && (
           <p className="text-[11px] text-white/90 font-semibold mb-2 leading-snug line-clamp-2">
             {producto.descripcion}
