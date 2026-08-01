@@ -1,7 +1,10 @@
 import Link from 'next/link';
+import { requireRole } from '@/lib/supabase/require-role';
 import { ProductoForm } from '../ProductoForm';
 
-export default function NuevoProductoPage() {
+export default async function NuevoProductoPage() {
+  await requireRole(['admin', 'bodega']);
+
   return (
     <div>
       <Link href="/admin/productos" className="text-xs text-neon hover:underline mb-4 inline-block">

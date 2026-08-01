@@ -1,14 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaPedidoDespachado } from '@/lib/email/templates';
 import type { EstadoPedido, Pedido } from '@/types/domain';
 
 export async function cambiarEstadoPedido(id: string, nuevoEstado: EstadoPedido) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin', 'soporte', 'bodega']);
 
   const supabase = await createSupabaseServerAuthClient();
   const { data: pedido, error } = await supabase

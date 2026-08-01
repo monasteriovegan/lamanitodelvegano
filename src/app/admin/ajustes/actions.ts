@@ -1,12 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 import { guardarAjustesParcial } from '@/lib/ajustes/helpers';
 
 export async function guardarAjustes(formData: FormData) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
 
   await guardarAjustesParcial({
     nombre: formData.get('nombre') as string,

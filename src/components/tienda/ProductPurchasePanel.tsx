@@ -81,18 +81,24 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
 
       {tieneFormatos && (
         <div className="mb-4">
-          <label className="block text-xs text-muted mb-1.5">Selecciona formato / peso:</label>
-          <select
-            value={formatoIdx}
-            onChange={(e) => setFormatoIdx(Number(e.target.value))}
-            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-          >
+          <label className="block text-xs text-muted mb-2">Selecciona formato / peso:</label>
+          <div className="grid grid-cols-2 gap-2">
             {formatos.map((f, idx) => (
-              <option key={f.label} value={idx} className="bg-[#0d1e16]">
-                {f.label || 'Estándar'} — ${f.precio.toLocaleString('es-CL')}
-              </option>
+              <button
+                key={f.label}
+                type="button"
+                onClick={() => setFormatoIdx(idx)}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  formatoIdx === idx
+                    ? 'border-neon bg-[rgba(0,255,179,0.10)] text-white'
+                    : 'border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.07]'
+                }`}
+              >
+                <span className="block text-sm font-bold">{f.label || 'Estandar'}</span>
+                <span className="text-xs text-neon">${f.precio.toLocaleString('es-CL')}</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       )}
 

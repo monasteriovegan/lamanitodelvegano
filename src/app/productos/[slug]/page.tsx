@@ -19,8 +19,9 @@ async function getProducto(slug: string): Promise<Producto | null> {
  * en WhatsApp muestre la foto y el nombre del producto en vez de la
  * portada genérica del sitio.
  */
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const producto = await getProducto(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const producto = await getProducto(slug);
   if (!producto) return { title: 'Producto no encontrado' };
 
   const titulo = `${producto.nombre} — La Manito Del Vegano`;
@@ -44,8 +45,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ProductoPage({ params }: { params: { slug: string } }) {
-  const producto = await getProducto(params.slug);
+export default async function ProductoPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const producto = await getProducto(slug);
   if (!producto) notFound();
 
   return (

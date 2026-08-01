@@ -55,7 +55,11 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
   return (
     <aside className="admin-side">
       {/* Logo */}
-      <div className="admin-slogo">
+      <Link
+        href="/admin"
+        className="admin-slogo transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-neon"
+        title="Volver al inicio del panel"
+      >
         <span>🌱</span>
         <div style={{ lineHeight: 1.2 }}>
           <div style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '0.5px', color: 'white' }}>
@@ -65,7 +69,7 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
             Panel de Control
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Navegación agrupada — filtrada por rol. El bloqueo real (si alguien
           escribe la URL a mano) vive en cada page.tsx vía requireRole(),

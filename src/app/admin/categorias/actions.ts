@@ -1,11 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 
 export async function crearCategoria(formData: FormData) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
 
   const nombre = formData.get('nombre') as string;
@@ -24,8 +24,7 @@ export async function crearCategoria(formData: FormData) {
 }
 
 export async function eliminarCategoria(id: string) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('categorias').delete().eq('id', id);
   if (error) throw new Error(error.message);

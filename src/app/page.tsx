@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { Hero } from '@/components/layout/Hero';
 import { CatalogoGrid } from '@/components/tienda/CatalogoGrid';
@@ -19,14 +20,6 @@ export default async function HomePage() {
       <main>
         <Hero />
 
-        {/* STATS */}
-        <div className="stats">
-          <div className="st"><div className="stn">3.8K</div><div className="stl">Seguidores</div></div>
-          <div className="st"><div className="stn">125</div><div className="stl">Posts</div></div>
-          <div className="st"><div className="stn">100%</div><div className="stl">Vegano</div></div>
-          <div className="st"><div className="stn">⭐4.9</div><div className="stl">Rating</div></div>
-        </div>
-
         {ajustes?.data && (
           <PromoEspecial ajustes={ajustes.data} productos={productos} />
         )}
@@ -38,9 +31,10 @@ export default async function HomePage() {
             </h2>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
               {destacados.map((p) => (
-                <div
+                <Link
                   key={p.id}
-                  className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5"
+                  href={`/productos/${p.slug}`}
+                  className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-neon"
                   style={{ background: p.color_fondo || '#1B4332' }}
                 >
                   <div className="h-[180px] flex items-center justify-center text-6xl relative">
@@ -53,9 +47,10 @@ export default async function HomePage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">
                       <p className="font-display font-bold text-base text-white mb-0.5">{p.nombre}</p>
                       <p className="text-sm text-neon font-bold mb-2">${p.precio.toLocaleString('es-CL')}</p>
+                      <span className="text-[11px] text-white/80 font-semibold">Ver producto</span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>

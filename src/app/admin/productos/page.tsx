@@ -4,7 +4,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { toggleDestacado, eliminarProducto } from './actions';
 
 export default async function AdminProductosPage() {
-  await requireRole(['admin', 'bodega']);
+  const admin = await requireRole(['admin', 'bodega']);
+  const puedeDestacar = admin.rol === 'admin';
   const supabase = createSupabaseServiceClient();
   const { data: productos } = await supabase
     .from('productos')
@@ -84,11 +85,13 @@ export default async function AdminProductosPage() {
                 <td className="p-3 text-white font-semibold">${p.precio.toLocaleString('es-CL')}</td>
                 <td className="p-3">
                   <div className="flex items-center gap-2">
-                    <form action={toggleDestacado.bind(null, p.id, p.destacado)}>
-                      <button type="submit" title="Destacar" className={p.destacado ? 'text-am' : 'text-white/20'}>
-                        ⭐
-                      </button>
-                    </form>
+                    {puedeDestacar && (
+                      <form action={toggleDestacado.bind(null, p.id, p.destacado)}>
+                        <button type="submit" title="Destacar" className={p.destacado ? 'text-am' : 'text-white/20'}>
+                          ⭐
+                        </button>
+                      </form>
+                    )}
                     <Link href={`/admin/productos/${p.id}`} className="text-xs text-neon hover:underline">
                       Editar
                     </Link>

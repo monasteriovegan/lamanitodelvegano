@@ -239,54 +239,6 @@ body {
   }
 }
 
-/* STATS */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 255, 179, 0.15);
-  margin: -30px 16px 20px;
-  border-radius: 18px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  position: relative;
-  z-index: 10;
-  overflow: hidden;
-}
-.st {
-  text-align: center;
-  padding: 16px 4px;
-  border-right: 1px solid rgba(0, 255, 179, 0.1);
-}
-.st:last-child {
-  border-right: none;
-}
-.stn {
-  color: var(--neon);
-  font-family: var(--font-syne), sans-serif;
-  font-size: 21px;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(0, 255, 179, 0.3);
-}
-.stl {
-  font-size: 9px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-@media (max-width: 600px) {
-  .stats { margin: -20px 12px 16px; border-radius: 14px; }
-  .st { padding: 12px 3px; }
-  .stn { font-size: 16px; }
-  .stl { font-size: 7.5px; letter-spacing: 0.3px; }
-}
-@media (max-width: 380px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  .st:nth-child(2) { border-right: none; }
-}
-
 /* RESEÑAS */
 .reswrap {
   display: flex;
@@ -675,4 +627,3 @@ body {
 .adminov, .admin-dash {
   background: #030907 !important;
 }
-

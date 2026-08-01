@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 /**
@@ -13,8 +13,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
  * "todo pasa por RLS", y está documentada aquí mismo.
  */
 export async function guardarIntegraciones(formData: FormData) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
 
   const supabase = createSupabaseServiceClient();
 

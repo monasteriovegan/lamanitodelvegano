@@ -39,6 +39,17 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
       qty: 1,
       emoji: producto.emoji || '🌱',
     });
+
+    if (typeof window !== 'undefined' && window.fbq) {
+      window.fbq('track', 'AddToCart', { content_name: producto.nombre, value: producto.precio, currency: 'CLP' });
+    }
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'add_to_cart', {
+        currency: 'CLP',
+        value: producto.precio,
+        items: [{ item_id: producto.id, item_name: producto.nombre }],
+      });
+    }
   }
 
   return (

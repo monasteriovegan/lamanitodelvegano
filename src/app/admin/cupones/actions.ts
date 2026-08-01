@@ -1,11 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 
 export async function crearCupon(formData: FormData) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin', 'soporte']);
   const supabase = await createSupabaseServerAuthClient();
 
   const codigo = (formData.get('codigo') as string).toUpperCase().trim();
@@ -22,8 +22,7 @@ export async function crearCupon(formData: FormData) {
 }
 
 export async function toggleCuponActivo(id: string, activoActual: boolean) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin', 'soporte']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('cupones').update({ activo: !activoActual }).eq('id', id);
   if (error) throw new Error(error.message);
@@ -31,8 +30,7 @@ export async function toggleCuponActivo(id: string, activoActual: boolean) {
 }
 
 export async function eliminarCupon(id: string) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin', 'soporte']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('cupones').delete().eq('id', id);
   if (error) throw new Error(error.message);

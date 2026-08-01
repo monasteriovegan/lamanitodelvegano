@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { guardarProducto } from './actions';
+import { FormatoOpcionesInput } from './FormatoOpcionesInput';
 import type { Producto } from '@/types/domain';
 
 export async function ProductoForm({ producto }: { producto?: Producto }) {
@@ -131,16 +132,7 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
         />
       </div>
 
-      <div>
-        <label className="block text-xs text-muted mb-1.5">
-          Formatos (ej: <code>250g:6500,500g:12000</code> — deja vacío si no aplica)
-        </label>
-        <input
-          name="gramaje"
-          defaultValue={producto?.gramaje || ''}
-          className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-        />
-      </div>
+      <FormatoOpcionesInput defaultValue={producto?.gramaje || ''} />
 
       <div>
         <label className="block text-xs text-muted mb-1.5">

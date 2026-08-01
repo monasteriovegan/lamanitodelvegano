@@ -1,11 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 
 export async function crearZona(formData: FormData) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
 
   const { error } = await supabase.from('zonas').insert({
@@ -19,8 +19,7 @@ export async function crearZona(formData: FormData) {
 }
 
 export async function eliminarZona(id: string) {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
+  await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('zonas').delete().eq('id', id);
   if (error) throw new Error(error.message);

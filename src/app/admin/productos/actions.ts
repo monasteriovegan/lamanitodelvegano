@@ -1,14 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getCurrentAdminUser, createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
+import { requireRole } from '@/lib/supabase/require-role';
 import { slugify } from '@/lib/slugify';
-
-async function requireAdmin() {
-  const admin = await getCurrentAdminUser();
-  if (!admin) throw new Error('No autorizado');
-  return admin;
-}
 
 // Genera un slug único agregando -2, -3... si ya existe otro producto con
 // el mismo (excluyendo el propio producto cuando se está editando).
@@ -25,7 +20,7 @@ async function slugUnico(supabase: Awaited<ReturnType<typeof createSupabaseServe
 }
 
 export async function guardarProducto(formData: FormData) {
-  await requireAdmin();
+  await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
 
   const id = formData.get('id') as string | null;
@@ -67,7 +62,7 @@ export async function guardarProducto(formData: FormData) {
 }
 
 export async function toggleDestacado(id: string, valorActual: boolean) {
-  await requireAdmin();
+  await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('productos').update({ destacado: !valorActual }).eq('id', id);
   if (error) throw new Error(error.message);
@@ -76,7 +71,7 @@ export async function toggleDestacado(id: string, valorActual: boolean) {
 }
 
 export async function eliminarProducto(id: string) {
-  await requireAdmin();
+  await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
   const { error } = await supabase.from('productos').delete().eq('id', id);
   if (error) throw new Error(error.message);
