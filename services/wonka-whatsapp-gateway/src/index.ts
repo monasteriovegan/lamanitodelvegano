@@ -24,6 +24,7 @@ let lastEventAt: string | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 let pairingCode: string | null = null;
 let pairingRequested = false;
+let pairingTimer: NodeJS.Timeout | null = null;
 
 function normalizePhone(value: string): string {
   return value.replace(/\D/g, "");
@@ -53,7 +54,6 @@ function isOwnerSelfChat(message: WAMessage): boolean {
 
 function parseOwnerCommand(text: string): "STOP" | "START" | "STATUS" | null {
   const normalized = text.toLocaleLowerCase("es").trim();
-
   if (/\b(deja|para|det[eé]n|apaga)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) return "STOP";
   if (/\b(vuelve|empieza|reanuda|activa|enciende)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) return "START";
   if (/\b(estado|activo|activa|funcionando|conectado)\b/.test(normalized)) return "STATUS";
@@ -76,18 +76,24 @@ async function startWhatsApp(): Promise<void> {
 
   socket.ev.on("creds.update", saveCreds);
 
-  socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+  socket.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
     lastEventAt = new Date().toISOString();
 
-    if (!state.creds.registered && !pairingRequested && (connection === "connecting" || Boolean(qr))) {
-      pairingRequested = true;
-      try {
-        pairingCode = await socket.requestPairingCode(ownerPhone);
-        logger.info({ pairingCode }, "CÓDIGO DE VINCULACIÓN WHATSAPP");
-      } catch (error) {
-        pairingRequested = false;
-        logger.error({ error }, "No se pudo generar el código de vinculación");
-      }
+    if (!state.creds.registered && !pairingRequested && !pairingTimer && (connection === "connecting" || Boolean(qr))) {
+      pairingTimer = setTimeout(() => {
+        pairingTimer = null;
+        if (state.creds.registered || pairingRequested) return;
+        pairingRequested = true;
+        void socket.requestPairingCode(ownerPhone)
+          .then((code) => {
+            pairingCode = code;
+            logger.info({ pairingCode: code }, "CÓDIGO DE VINCULACIÓN WHATSAPP");
+          })
+          .catch((error: unknown) => {
+            pairingRequested = false;
+            logger.error({ error }, "No se pudo generar el código de vinculación");
+          });
+      }, 5000);
     }
 
     if (qr) {
@@ -99,11 +105,15 @@ async function startWhatsApp(): Promise<void> {
       whatsappConnected = true;
       pairingCode = null;
       pairingRequested = false;
+      if (pairingTimer) clearTimeout(pairingTimer);
+      pairingTimer = null;
       logger.info({ ownerPhone }, "Wonka WhatsApp Gateway conectado");
     }
 
     if (connection === "close") {
       whatsappConnected = false;
+      if (pairingTimer) clearTimeout(pairingTimer);
+      pairingTimer = null;
       const statusCode = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
       logger.warn({ statusCode, loggedOut }, "Conexión de WhatsApp cerrada");
@@ -120,7 +130,6 @@ async function startWhatsApp(): Promise<void> {
 
   socket.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
-
     for (const message of messages) {
       lastEventAt = new Date().toISOString();
       const text = getText(message);
@@ -128,7 +137,6 @@ async function startWhatsApp(): Promise<void> {
 
       if (isOwnerSelfChat(message)) {
         const command = parseOwnerCommand(text);
-
         if (command === "STOP") {
           aiEnabled = false;
           await socket.sendMessage(message.key.remoteJid!, { text: "🛑 Remy quedó pausado globalmente en WhatsApp." });
@@ -160,13 +168,11 @@ const server = http.createServer((request, response) => {
     response.end(JSON.stringify({ ok: true, service: "wonka-whatsapp-gateway", processRunning: true, whatsappConnected, aiEnabled, pairingCode, lastEventAt }));
     return;
   }
-
   if (request.url === "/pairing-code") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ whatsappConnected, pairingCode }));
     return;
   }
-
   response.writeHead(200, { "content-type": "application/json" });
   response.end(JSON.stringify({ service: "wonka-whatsapp-gateway", status: "running" }));
 });
