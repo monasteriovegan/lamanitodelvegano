@@ -46,6 +46,17 @@ export interface Producto {
   gramaje: string | null;
   variedades: string | null;
   activo: boolean;
+
+  // Nuevos campos para paridad total con Makangru
+  sku?: string | null;
+  cost_price?: number | null;
+  low_stock_alert?: number | null;
+  weight_grams?: number | null;
+  story?: string | null;
+  is_new?: boolean;
+  is_featured?: boolean;
+  ingredients?: string[] | null;
+  allergens?: string[] | null;
 }
 
 export interface Zona {
@@ -68,6 +79,28 @@ export interface AjustesData {
   promo_activa?: boolean;
   promo_imagen_url?: string;
   promo_producto_id?: string;
+  
+  // Nuevos campos para paridad total con Makangru
+  contact_email?: string;
+  contact_phone?: string;
+  contact_address?: string;
+  contact_city?: string;
+  youtube?: string;
+  pinterest?: string;
+  business_hours?: string;
+  banner_enabled?: boolean;
+  banner_text?: string;
+  banner_color?: string;
+  transfer_bank_name?: string;
+  transfer_account_type?: string;
+  transfer_account_holder?: string;
+  transfer_account_rut?: string;
+  transfer_account_number?: string;
+  transfer_email?: string;
+  transfer_instructions?: string;
+  meta_title?: string;
+  meta_description?: string;
+  og_image_url?: string;
 }
 
 export interface AjustesPublicos {

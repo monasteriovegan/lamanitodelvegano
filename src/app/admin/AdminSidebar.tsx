@@ -17,13 +17,22 @@ const GRUPOS = [
       { href: '/admin/productos', label: '🌿 Productos', exact: false, roles: ['admin', 'bodega'] as Rol[] },
       { href: '/admin/categorias', label: '🏷️ Categorías', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/destacados', label: '⭐ Destacados', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/temporadas', label: '🍂 Temporadas', exact: false, roles: ['admin'] as Rol[] },
     ],
   },
   {
-    label: 'Ventas',
+    label: 'Gastronomía',
+    tabs: [
+      { href: '/admin/ingredientes', label: '🥕 Ingredientes', exact: false, roles: ['admin', 'bodega'] as Rol[] },
+      { href: '/admin/recetas', label: '🍳 Recetas & Costos', exact: false, roles: ['admin'] as Rol[] },
+    ],
+  },
+  {
+    label: 'Comercio',
     tabs: [
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
+      { href: '/admin/reservas', label: '📅 Reservas', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/zonas', label: '🚚 Envíos', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/entregas', label: '📅 Días de Entrega', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/metricas', label: '📊 Métricas', exact: false, roles: ['admin'] as Rol[] },
@@ -34,6 +43,13 @@ const GRUPOS = [
     tabs: [
       { href: '/admin/cupones', label: '🎟️ Cupones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/promo-flyer', label: '📢 Promo Flyer', exact: false, roles: ['admin'] as Rol[] },
+    ],
+  },
+  {
+    label: 'Contenido',
+    tabs: [
+      { href: '/admin/blog', label: '✍️ Blog del Taller', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/mensajes', label: '✉️ Mensajes de Contacto', exact: false, roles: ['admin', 'soporte'] as Rol[] },
     ],
   },
   {

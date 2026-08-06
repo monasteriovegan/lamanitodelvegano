@@ -47,6 +47,26 @@ export async function guardarProducto(formData: FormData) {
     gramaje: (formData.get('gramaje') as string) || null,
     variedades: (formData.get('variedades') as string) || null,
     activo: formData.get('activo') === 'on',
+
+    sku: (formData.get('sku') as string) || null,
+    cost_price: formData.get('cost_price') ? parseInt(formData.get('cost_price') as string, 10) : null,
+    low_stock_alert: formData.get('low_stock_alert') ? parseInt(formData.get('low_stock_alert') as string, 10) : null,
+    weight_grams: formData.get('weight_grams') ? parseInt(formData.get('weight_grams') as string, 10) : null,
+    is_new: formData.get('is_new') === 'on',
+    is_featured: formData.get('is_featured') === 'on',
+    story: (formData.get('story') as string) || null,
+    ingredients: formData.get('ingredients')
+      ? (formData.get('ingredients') as string)
+          .split(',')
+          .map((i: string) => i.trim())
+          .filter(Boolean)
+      : null,
+    allergens: formData.get('allergens')
+      ? (formData.get('allergens') as string)
+          .split(',')
+          .map((i: string) => i.trim())
+          .filter(Boolean)
+      : null,
   };
 
   if (id) {

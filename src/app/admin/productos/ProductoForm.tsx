@@ -146,6 +146,82 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-muted mb-1.5">SKU del Producto</label>
+          <input
+            name="sku"
+            defaultValue={producto?.sku || ''}
+            placeholder="LMDV-EMP-VEG"
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1.5">Peso en Gramos</label>
+          <input
+            type="number"
+            name="weight_grams"
+            defaultValue={producto?.weight_grams || ''}
+            placeholder="250"
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-muted mb-1.5">Costo de Producción (CLP)</label>
+          <input
+            type="number"
+            name="cost_price"
+            defaultValue={producto?.cost_price || ''}
+            placeholder="1500"
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1.5">Alerta de Stock Bajo (unidades)</label>
+          <input
+            type="number"
+            name="low_stock_alert"
+            defaultValue={producto?.low_stock_alert || ''}
+            placeholder="5"
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-muted mb-1.5">Ingredientes (separados por coma)</label>
+        <input
+          name="ingredients"
+          defaultValue={producto?.ingredients?.join(', ') || ''}
+          placeholder="harina integral, espinaca orgánica, tofu..."
+          className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs text-muted mb-1.5">Alérgenos (separados por coma)</label>
+        <input
+          name="allergens"
+          defaultValue={producto?.allergens?.join(', ') || ''}
+          placeholder="gluten, soya, frutos secos..."
+          className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs text-muted mb-1.5">Historia / Storytelling de producción</label>
+        <textarea
+          name="story"
+          rows={2}
+          defaultValue={producto?.story || ''}
+          placeholder="Nuestra masa de espinaca orgánica se fermenta lentamente por 24 horas..."
+          className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" name="maneja_stock" defaultChecked={producto?.maneja_stock} />
           Gestionar stock
@@ -161,7 +237,7 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
         </div>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" name="gluten_free" defaultChecked={producto?.gluten_free ?? true} />
           Sin gluten
@@ -171,14 +247,22 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
           Sin nueces
         </label>
         <label className="flex items-center gap-2 text-sm text-white">
+          <input type="checkbox" name="is_new" defaultChecked={producto?.is_new ?? false} />
+          Marcar como nuevo
+        </label>
+        <label className="flex items-center gap-2 text-sm text-white">
+          <input type="checkbox" name="is_featured" defaultChecked={producto?.is_featured ?? false} />
+          Marcar destacado
+        </label>
+        <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" name="activo" defaultChecked={producto?.activo ?? true} />
-          Activo (visible en la tienda)
+          Activo (visible)
         </label>
       </div>
 
       <button
         type="submit"
-        className="bg-neon text-[#020705] font-bold py-3 rounded-full text-sm shadow-[0_0_15px_rgba(0,255,179,0.4)] hover:bg-white transition-all w-fit px-8 mt-2"
+        className="bg-neon text-black font-bold py-3 rounded-xl text-sm shadow-[0_0_15px_rgba(0,255,179,0.2)] hover:bg-neon/90 transition-all w-fit px-8 mt-2"
       >
         {producto ? 'Guardar cambios' : 'Crear producto'}
       </button>
