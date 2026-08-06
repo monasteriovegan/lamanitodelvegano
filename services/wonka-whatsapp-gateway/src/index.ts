@@ -47,8 +47,15 @@ function getText(message: WAMessage): string {
   ).trim();
 }
 
-function isOwnerSelfChat(message: WAMessage): boolean {
-  return Boolean(message.key.fromMe && phoneFromJid(message.key.remoteJid) === ownerPhone);
+function isOwnerCommandSource(message: WAMessage): boolean {
+  const remoteJid = message.key.remoteJid ?? "";
+  if (!message.key.fromMe) return false;
+  if (remoteJid === "status@broadcast" || remoteJid.endsWith("@g.us")) return false;
+
+  // WhatsApp puede entregar el chat propio con un JID telefónico o con un JID @lid.
+  // Los comandos siguen siendo seguros porque solo se ejecutan cuando el texto coincide
+  // explícitamente con una orden de Remy y el mensaje fue enviado desde nuestra cuenta.
+  return true;
 }
 
 function parseOwnerCommand(text: string): "STOP" | "START" | "STATUS" | null {
@@ -116,27 +123,43 @@ async function startWhatsApp(): Promise<void> {
     });
 
     socket.ev.on("messages.upsert", async ({ messages, type }) => {
-      if (type !== "notify") return;
+      // Algunos mensajes enviados desde la propia cuenta llegan como "append"
+      // y no como "notify", especialmente en chats propios o dispositivos vinculados.
+      if (type !== "notify" && type !== "append") return;
 
       for (const message of messages) {
         lastEventAt = new Date().toISOString();
+        const remoteJid = message.key.remoteJid;
+
+        logger.info(
+          {
+            upsertType: type,
+            remoteJid,
+            remotePhone: phoneFromJid(remoteJid),
+            fromMe: message.key.fromMe,
+            participant: message.key.participant,
+            messageId: message.key.id,
+          },
+          "Evento de mensaje recibido",
+        );
+
         const text = getText(message);
         if (!text) continue;
 
-        if (isOwnerSelfChat(message)) {
+        if (isOwnerCommandSource(message)) {
           const command = parseOwnerCommand(text);
           if (command === "STOP") {
             aiEnabled = false;
-            await socket.sendMessage(message.key.remoteJid!, { text: "🛑 Remy quedó pausado globalmente en WhatsApp." });
+            await socket.sendMessage(remoteJid!, { text: "🛑 Remy quedó pausado globalmente en WhatsApp." });
             continue;
           }
           if (command === "START") {
             aiEnabled = true;
-            await socket.sendMessage(message.key.remoteJid!, { text: "✅ Remy quedó activo nuevamente en WhatsApp." });
+            await socket.sendMessage(remoteJid!, { text: "✅ Remy quedó activo nuevamente en WhatsApp." });
             continue;
           }
           if (command === "STATUS") {
-            await socket.sendMessage(message.key.remoteJid!, {
+            await socket.sendMessage(remoteJid!, {
               text: `🎛️ Estado Wonka Gateway\nWhatsApp: ${whatsappConnected ? "conectado" : "desconectado"}\nRemy: ${aiEnabled ? "activo" : "pausado"}\nÚltimo evento: ${lastEventAt ?? "sin eventos"}`,
             });
             continue;
@@ -144,7 +167,7 @@ async function startWhatsApp(): Promise<void> {
         }
 
         if (message.key.fromMe) continue;
-        logger.info({ remoteJid: message.key.remoteJid, messageId: message.key.id, aiEnabled, text }, "Mensaje entrante recibido");
+        logger.info({ remoteJid, messageId: message.key.id, aiEnabled, text }, "Mensaje entrante recibido");
       }
     });
   } catch (error) {
