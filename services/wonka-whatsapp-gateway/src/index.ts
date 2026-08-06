@@ -154,8 +154,6 @@ async function startWhatsApp(): Promise<void> {
         "Mensaje entrante recibido",
       );
 
-      // La conexión real con Remy, Supabase, CRM y pedidos se añadirá cuando
-      // termine la actualización de la web y estén definidos sus endpoints.
       if (!aiEnabled) continue;
     }
   });
@@ -163,11 +161,12 @@ async function startWhatsApp(): Promise<void> {
 
 const server = http.createServer((request, response) => {
   if (request.url === "/health") {
-    response.writeHead(whatsappConnected ? 200 : 503, { "content-type": "application/json" });
+    response.writeHead(200, { "content-type": "application/json" });
     response.end(
       JSON.stringify({
-        ok: whatsappConnected,
+        ok: true,
         service: "wonka-whatsapp-gateway",
+        processRunning: true,
         whatsappConnected,
         aiEnabled,
         lastEventAt,
