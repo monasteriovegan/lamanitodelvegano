@@ -161,5 +161,105 @@ export interface CheckoutRequest {
   fechaDespachoIdx?: number;
   canjearPuntos?: boolean;
   pinFidelidad?: string;
-  metodoPago: 'mercadopago' | 'flow' | 'whatsapp';
+  metodoPago: 'mercadopago' | 'flow' | 'whatsapp' | 'transfer';
 }
+
+// ------------------------------------------------------------
+// Modelos Canónicos Normalizados de Pedidos y CRM
+// ------------------------------------------------------------
+export type OperationalStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'partial';
+export type OrderSource = 'web' | 'whatsapp' | 'instagram' | 'facebook' | 'manual' | 'admin' | 'other';
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id?: string | null;
+  product_name: string;
+  product_sku?: string | null;
+  product_image?: string | null;
+  unit_price: number;
+  quantity: number;
+  subtotal: number;
+  created_at?: string;
+}
+
+export interface Customer {
+  id: string;
+  user_id?: string | null;
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  region?: string | null;
+  postal_code?: string | null;
+  country?: string;
+  total_orders?: number;
+  total_spent?: number;
+  points?: number;
+  membership?: string;
+  stage?: string;
+  tags?: string[];
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrderStatusHistoryItem {
+  id: string;
+  order_id: string;
+  status?: string | null;
+  payment_status?: string | null;
+  notes?: string | null;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface Order {
+  id: string;
+  order_number: string;
+  legacy_order_id?: string | null;
+  customer_id?: string | null;
+  status: OperationalStatus;
+  payment_status: PaymentStatus;
+  source: OrderSource;
+  subtotal: number;
+  discount_amount: number;
+  shipping_amount: number;
+  tax_amount: number;
+  total: number;
+  coupon_id?: string | null;
+  coupon_code?: string | null;
+  payment_method?: string | null;
+  payment_reference?: string | null;
+  mp_preference_id?: string | null;
+  shipping_method?: string | null;
+  tracking_number?: string | null;
+  shipping_address?: any;
+  shipping_zone_id?: string | null;
+  shipping_zone_name?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  customer_name?: string | null;
+  notes?: string | null;
+  admin_notes?: string | null;
+  paid_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  // Relaciones opcionales cargadas
+  customer?: Customer;
+  order_items?: OrderItem[];
+  history?: OrderStatusHistoryItem[];
+}
+

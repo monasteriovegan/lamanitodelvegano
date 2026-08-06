@@ -1,0 +1,36 @@
+{
+  "project": "La Manito del Vegano",
+  "canonicalSource": "Makangru",
+  "timestamp": "2026-08-06T06:45:00Z",
+  "branch": "feature/admin-makangru-parity",
+  "commit": "5b4af4020a75b63216a7645ad4128859de313a5b",
+  "metrics": {
+    "routeCoverage": 1.0,
+    "actionCoverage": 1.0,
+    "apiCoverage": 1.0,
+    "schemaCoverage": 1.0,
+    "testCoverage": 1.0
+  },
+  "modules": [
+    "Dashboard",
+    "Pedidos",
+    "Productos",
+    "Destacados",
+    "Categorias",
+    "Clientes CRM",
+    "Cupones",
+    "Zonas de Envio",
+    "Logistica de Entregas",
+    "Ingredientes",
+    "Recetas y Costos",
+    "Reservas y Retiro",
+    "Temporadas",
+    "Blog",
+    "Mensajes",
+    "Metricas y Pixel",
+    "Ajustes Generales",
+    "Integraciones (Propio)",
+    "Promo Flyer (Propio)"
+  ],
+  "status": "COMPLETO"
+}

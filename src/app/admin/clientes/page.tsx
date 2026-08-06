@@ -36,28 +36,34 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
   let query = supabase.from('customers').select('*').order('total_spent', { ascending: false });
 
   if (estado !== 'Todos') {
-    query = query.eq('crm_status', estado);
+    query = query.or(`stage.eq.${estado},crm_status.eq.${estado}`);
   }
 
   const { data: customers } = await query;
 
   const buscarLower = buscar.toLowerCase().trim();
-  const clientesFiltrados = (customers || []).filter((c) => {
+  const clientesFiltrados = (customers || []).filter((c: any) => {
     if (!buscarLower) return true;
-    const nameMatch = c.nombre?.toLowerCase().includes(buscarLower);
-    const emailMatch = c.email?.toLowerCase().includes(buscarLower);
-    const phoneMatch = c.phone?.toLowerCase().includes(buscarLower);
+    const name = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`;
+    const nameMatch = name.toLowerCase().includes(buscarLower);
+    const emailMatch = (c.email || '').toLowerCase().includes(buscarLower);
+    const phoneMatch = (c.phone || c.whatsapp || '').toLowerCase().includes(buscarLower);
     return nameMatch || emailMatch || phoneMatch;
   });
 
   return (
-    <div className="max-w-[1000px]">
+    <div className="max-w-[1100px] w-full">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-bold text-xl text-white">👥 Clientes & CRM</h1>
-        <Badge tono="neon">{clientesFiltrados.length} clientes en total</Badge>
+        <div>
+          <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">
+            ✦ Gestión CRM & Trazabilidad
+          </p>
+          <h1 className="font-display font-bold text-3xl text-white">Clientes</h1>
+        </div>
+        <Badge tono="neon">{clientesFiltrados.length} clientes registrados</Badge>
       </div>
 
-      {/* Buscador e Filtros */}
+      {/* Buscador y Filtros */}
       <form method="GET" action="/admin/clientes" className="flex flex-wrap gap-2.5 mb-6">
         <input
           name="buscar"
@@ -97,11 +103,11 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
       </form>
 
       {/* Tabla de Clientes */}
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
+      <div className="bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/5 text-[11px] uppercase tracking-wider text-muted font-bold bg-white/[0.01]">
+              <tr className="border-b border-[rgba(0,255,179,0.12)] text-[11px] uppercase tracking-wider text-neon font-display bg-white/[0.02]">
                 <th className="px-5 py-3.5">Cliente</th>
                 <th className="px-5 py-3.5">Contacto</th>
                 <th className="px-5 py-3.5 text-center">Pedidos</th>
@@ -110,27 +116,30 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                 <th className="px-5 py-3.5 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
-              {clientesFiltrados.map((c) => {
-                const est = ESTADO_CRM_MAP[c.crm_status] || { label: c.crm_status, tono: 'neutro' };
-                const inicial = (c.nombre?.[0] || c.email?.[0] || '?').toUpperCase();
-                const cleanPhone = c.phone ? c.phone.replace(/\D/g, '') : '';
+            <tbody className="divide-y divide-white/5">
+              {clientesFiltrados.map((c: any) => {
+                const crmStage = c.stage || c.crm_status || 'new';
+                const est = ESTADO_CRM_MAP[crmStage] || { label: crmStage, tono: 'neutro' };
+                const fullName = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre';
+                const inicial = (fullName[0] || c.email?.[0] || '?').toUpperCase();
+                const cleanPhone = (c.phone || c.whatsapp || '').replace(/\D/g, '');
+
                 return (
                   <tr
                     key={c.id}
-                    className="border-b border-white/5 hover:bg-white/[0.01] transition-colors text-texto"
+                    className="hover:bg-white/[0.03] transition-colors text-texto"
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-v3 to-v4 flex items-center justify-center font-bold text-[#020705] text-xs">
+                        <div className="w-8 h-8 rounded-full bg-neon/20 border border-neon/40 flex items-center justify-center font-bold text-neon text-xs font-mono">
                           {inicial}
                         </div>
                         <div>
                           <p className="font-semibold text-white text-sm">
-                            {c.nombre || 'Sin nombre'}
+                            {fullName}
                           </p>
                           <p className="text-[10px] text-muted">
-                            Creado: {new Date(c.created_at).toLocaleDateString('es-CL')}
+                            Creado: {c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '—'}
                           </p>
                         </div>
                       </div>
@@ -141,23 +150,25 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                         {c.phone && (
                           <div className="flex items-center gap-1.5">
                             <span className="text-muted">{c.phone}</span>
-                            <a
-                              href={`https://wa.me/${cleanPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#25D366] hover:underline text-[10px] font-bold"
-                            >
-                              💬 Chat
-                            </a>
+                            {cleanPhone && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-neon hover:underline text-[10px] font-bold"
+                              >
+                                💬 Chat
+                              </a>
+                            )}
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-center font-semibold text-white/80">
-                      {c.total_orders}
+                    <td className="px-5 py-3.5 text-center font-semibold text-white/80 font-mono">
+                      {c.total_orders || 0}
                     </td>
                     <td className="px-5 py-3.5 text-right font-bold text-neon font-display">
-                      ${Math.round(c.total_spent).toLocaleString('es-CL')}
+                      ${Math.round(c.total_spent || 0).toLocaleString('es-CL')}
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <Badge tono={est.tono}>{est.label}</Badge>

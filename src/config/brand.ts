@@ -1,0 +1,37 @@
+export const brandConfig = {
+  name: 'La Manito del Vegano',
+  shortName: 'La Manito',
+  tagline: 'Taller de Comida Vegana Artesanal',
+  logo: '/logo.svg',
+  contact: {
+    email: 'contacto@lamanitodelvegano.cl',
+    phone: '+56 9 1234 5678',
+    whatsapp: '+56912345678',
+    address: 'Santiago, Chile',
+  },
+  colors: {
+    bg: '#030907',
+    card: 'rgba(255, 255, 255, 0.03)',
+    border: 'rgba(0, 255, 179, 0.15)',
+    neon: '#00ffb3',
+    forestDark: '#1b4332',
+    forestLight: '#2d6a4f',
+    forestMint: '#52b788',
+    crema: '#f4f1de',
+    text: '#e0e0e0',
+    muted: '#888888',
+    danger: '#ef4444',
+    warning: '#f59e0b',
+    info: '#009ee3',
+  },
+  fonts: {
+    display: 'Syne, sans-serif',
+    body: 'Space Grotesk, sans-serif',
+    serif: 'Fraunces, serif',
+  },
+  printHeader: {
+    title: 'LA MANITO DEL VEGANO ✦',
+    subtitle: 'TALLER DE COMIDA VEGANA ARTESANAL',
+    footer: 'LA MANITO DEL VEGANO ✦ COCINA CON AMOR Y CONCIENCIA · GRACIAS POR TU COMPRA',
+  },
+};

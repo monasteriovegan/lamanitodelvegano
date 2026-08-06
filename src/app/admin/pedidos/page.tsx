@@ -1,95 +1,132 @@
 import Link from 'next/link';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
-import { Badge } from '../_ui/AdminUI';
-import type { EstadoPedido } from '@/types/domain';
+import type { OperationalStatus } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-const ESTADOS: EstadoPedido[] = ['Pendiente', 'Pagado', 'Despachado', 'Completado', 'Cancelado', 'WhatsApp'];
-
-const ESTADO_COLOR: Record<EstadoPedido, string> = {
-  Pendiente: 'bg-[rgba(245,158,11,0.15)] text-am border-[rgba(245,158,11,0.3)]',
-  Pagado: 'bg-[rgba(0,255,179,0.15)] text-neon border-[rgba(0,255,179,0.3)]',
-  Despachado: 'bg-[rgba(0,158,227,0.15)] text-mp border-[rgba(0,158,227,0.3)]',
-  Completado: 'bg-[rgba(82,183,136,0.15)] text-v4 border-[rgba(82,183,136,0.3)]',
-  Cancelado: 'bg-[rgba(239,68,68,0.15)] text-rojo border-[rgba(239,68,68,0.3)]',
-  WhatsApp: 'bg-[rgba(37,211,102,0.15)] text-wa border-[rgba(37,211,102,0.3)]',
+const STATUS_LABELS: Record<OperationalStatus, string> = {
+  pending: 'Pendiente',
+  confirmed: 'Confirmado',
+  processing: 'Procesando',
+  shipped: 'Enviado',
+  delivered: 'Entregado',
+  cancelled: 'Cancelado',
 };
 
-const PAGO_LABELS: Record<string, string> = {
-  mercadopago: '💳 Mercado Pago',
-  flow: '💵 Flow',
-  whatsapp: '💬 WhatsApp',
+const STATUS_COLORS: Record<OperationalStatus, { bg: string; text: string; border: string }> = {
+  pending: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
+  confirmed: { bg: 'rgba(52,211,153,0.15)', text: '#34d399', border: 'rgba(52,211,153,0.3)' },
+  processing: { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
+  shipped: { bg: 'rgba(56,189,248,0.15)', text: '#38bdf8', border: 'rgba(56,189,248,0.3)' },
+  delivered: { bg: 'rgba(0,255,179,0.15)', text: '#00ffb3', border: 'rgba(0,255,179,0.3)' },
+  cancelled: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' },
 };
 
 interface PageProps {
-  searchParams: Promise<{ buscar?: string; estado?: string }>;
+  searchParams: Promise<{ buscar?: string; status?: string }>;
 }
 
 export default async function AdminPedidosPage({ searchParams }: PageProps) {
   await requireRole(['admin', 'soporte', 'bodega']);
-  const { buscar = '', estado = 'Todos' } = await searchParams;
+  const { buscar = '', status } = await searchParams;
 
   const supabase = createSupabaseServiceClient();
-  let query = supabase
-    .from('pedidos')
-    .select('*')
-    .order('createdAt', { ascending: false });
 
-  if (estado !== 'Todos') {
-    query = query.eq('status', estado);
+  // Consulta canónica a la tabla `orders`
+  let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+
+  if (status && status !== 'todos') {
+    query = query.eq('status', status);
   }
 
-  const { data: pedidos } = await query.limit(200);
+  const { data: rawOrders } = await query;
 
-  const buscarLower = buscar.toLowerCase().trim();
-  const pedidosFiltrados = (pedidos || []).filter((p) => {
-    if (!buscarLower) return true;
-    const idMatch = p.id.toLowerCase().includes(buscarLower);
-    const nombreMatch = p.cliente?.nombre?.toLowerCase().includes(buscarLower);
-    const emailMatch = p.cliente?.email?.toLowerCase().includes(buscarLower);
-    const telefonoMatch = p.cliente?.telefono?.toLowerCase().includes(buscarLower);
-    const direccionMatch = p.cliente?.direccion?.toLowerCase().includes(buscarLower);
-    const zonaMatch = p.zonaEnvio?.toLowerCase().includes(buscarLower);
+  // Consulta para obtener todos los conteos de estado en vivo
+  const { data: statusCountsRaw } = await supabase.from('orders').select('status');
+  const counts: Record<string, number> = {};
+  let totalCount = 0;
 
-    return idMatch || nombreMatch || emailMatch || telefonoMatch || direccionMatch || zonaMatch;
+  statusCountsRaw?.forEach((row: { status: string }) => {
+    if (row.status) {
+      counts[row.status] = (counts[row.status] || 0) + 1;
+      totalCount++;
+    }
   });
 
+  const buscarLower = buscar.toLowerCase().trim();
+  const orders = (rawOrders || []).filter((o: any) => {
+    if (!buscarLower) return true;
+    const numMatch = (o.order_number || o.id || '').toLowerCase().includes(buscarLower);
+    const nameMatch = (o.customer_name || '').toLowerCase().includes(buscarLower);
+    const emailMatch = (o.customer_email || '').toLowerCase().includes(buscarLower);
+    const phoneMatch = (o.customer_phone || '').toLowerCase().includes(buscarLower);
+    const zoneMatch = (o.shipping_zone_name || '').toLowerCase().includes(buscarLower);
+    return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch;
+  });
+
+  const fmtCLP = (val: number) => `$${val.toLocaleString('es-CL')}`;
+
   return (
-    <div className="max-w-[900px]">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-bold text-xl text-white">🧾 Pedidos</h1>
-        <Badge tono="neon">{pedidosFiltrados.length} pedidos encontrados</Badge>
+    <div className="max-w-[1200px] w-full">
+      {/* Encabezado */}
+      <div className="mb-6">
+        <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">
+          ✦ Gestión Comercial & Logística
+        </p>
+        <h1 className="font-display font-bold text-3xl text-white">Pedidos</h1>
       </div>
 
-      {/* Buscador y Filtros */}
+      {/* Tabs con Contadores en Vivo de Base de Datos */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6">
+        <Link
+          href="/admin/pedidos"
+          className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all ${
+            !status || status === 'todos'
+              ? 'bg-[rgba(0,255,179,0.15)] border-neon text-neon'
+              : 'bg-white/5 border-white/10 text-muted hover:text-white'
+          }`}
+        >
+          Todos ({totalCount})
+        </Link>
+
+        {(Object.keys(STATUS_LABELS) as OperationalStatus[]).map((key) => {
+          const count = counts[key] || 0;
+          const isActive = status === key;
+          const style = STATUS_COLORS[key];
+          return (
+            <Link
+              key={key}
+              href={`/admin/pedidos?status=${key}`}
+              className="px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all"
+              style={{
+                backgroundColor: isActive ? style.bg : 'rgba(255,255,255,0.03)',
+                borderColor: isActive ? style.border : 'rgba(255,255,255,0.08)',
+                color: isActive ? style.text : '#888888',
+              }}
+            >
+              {STATUS_LABELS[key]} ({count})
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Buscador & Acciones */}
       <form method="GET" action="/admin/pedidos" className="flex flex-wrap gap-2.5 mb-6">
         <input
           name="buscar"
           defaultValue={buscar}
-          placeholder="Buscar por cliente, ID, comuna, teléfono..."
-          className="flex-1 min-w-[240px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon"
+          placeholder="Buscar por cliente, N° pedido, email, teléfono..."
+          className="flex-1 min-w-[280px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon"
         />
-
-        <select
-          name="estado"
-          defaultValue={estado}
-          className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon"
+        {status && <input type="hidden" name="status" value={status} />}
+        <button
+          type="submit"
+          className="bg-neon hover:bg-white text-[#020705] px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(0,255,179,0.2)]"
         >
-          <option value="Todos" className="bg-[#030907]">Todos los estados</option>
-          {ESTADOS.map((e) => (
-            <option key={e} value={e} className="bg-[#030907]">
-              {e}
-            </option>
-          ))}
-        </select>
-
-        <button type="submit" className="bg-neon hover:bg-white text-[#020705] px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(0,255,179,0.2)]">
-          Filtrar
+          Buscar
         </button>
-
-        {(buscar || estado !== 'Todos') && (
+        {(buscar || (status && status !== 'todos')) && (
           <Link
             href="/admin/pedidos"
             className="border border-white/10 hover:border-white/20 text-muted px-4 py-2 rounded-lg text-sm flex items-center hover:text-white transition-colors"
@@ -99,73 +136,138 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
         )}
       </form>
 
-      {/* Lista de Pedidos */}
-      <div className="flex flex-col gap-3">
-        {pedidosFiltrados.map((p) => (
-          <div
-            key={p.id}
-            className="bg-white/[0.02] hover:bg-white/[0.04] border border-[rgba(0,255,179,0.08)] rounded-xl p-4.5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap mb-1">
-                <span className="font-semibold text-white text-sm">
-                  #{p.id.substring(0, 8).toUpperCase()}
+      {/* Tabla Operativa Desktop (Paridad Exacta Makangru + Estilo La Manito) */}
+      <div className="hidden md:block bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-xl overflow-hidden mb-6">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-[rgba(0,255,179,0.12)] bg-white/[0.02]">
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Número</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Cliente</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Estado</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Entrega</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Fecha</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {orders.map((o: any) => {
+              const opStatus = (o.status || 'pending') as OperationalStatus;
+              const colorStyle = STATUS_COLORS[opStatus] || STATUS_COLORS.pending;
+              const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
+
+              return (
+                <tr key={o.id} className="hover:bg-white/[0.03] transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-neon font-semibold">
+                    {o.order_number || `MAN-${o.id.substring(0, 8)}`}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div>
+                    <div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div>
+                  </td>
+                  <td className="px-4 py-3 font-bold text-white text-sm font-display">
+                    {fmtCLP(o.total || 0)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border"
+                        style={{
+                          backgroundColor: colorStyle.bg,
+                          color: colorStyle.text,
+                          borderColor: colorStyle.border,
+                        }}
+                      >
+                        {STATUS_LABELS[opStatus] || opStatus}
+                      </span>
+                      {isTransferPending && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          🏦 Confirmar pago
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted">
+                    {o.delivery_date
+                      ? new Date(o.delivery_date + 'T12:00:00').toLocaleDateString('es-CL')
+                      : o.shipping_zone_name || '—'}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted font-mono">
+                    {new Date(o.created_at).toLocaleDateString('es-CL')}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={`/admin/pedidos/${o.id}`}
+                      className="text-neon hover:text-white text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                    >
+                      Ver →
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {orders.length === 0 && (
+          <div className="py-16 text-center text-muted text-sm">
+            <span className="text-3xl block mb-2">📦</span>
+            No hay pedidos que coincidan con la búsqueda o filtro seleccionado.
+          </div>
+        )}
+      </div>
+
+      {/* Lista Responsiva en Móvil */}
+      <div className="block md:hidden flex flex-col gap-3">
+        {orders.map((o: any) => {
+          const opStatus = (o.status || 'pending') as OperationalStatus;
+          const colorStyle = STATUS_COLORS[opStatus] || STATUS_COLORS.pending;
+          const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
+
+          return (
+            <div
+              key={o.id}
+              className="bg-white/[0.02] border border-[rgba(0,255,179,0.1)] rounded-xl p-4 flex flex-col gap-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-neon text-sm">
+                  {o.order_number || `MAN-${o.id.substring(0, 8)}`}
                 </span>
-                <span className="text-xs text-muted">·</span>
-                <span className="font-medium text-texto text-sm">
-                  {p.cliente?.nombre || 'Sin nombre'}
-                </span>
-                <span className="text-xs text-muted">·</span>
-                <span className="text-xs text-muted">
-                  {new Date(p.createdAt).toLocaleDateString('es-CL')} {new Date(p.createdAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                <span
+                  className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border"
+                  style={{
+                    backgroundColor: colorStyle.bg,
+                    color: colorStyle.text,
+                    borderColor: colorStyle.border,
+                  }}
+                >
+                  {STATUS_LABELS[opStatus] || opStatus}
                 </span>
               </div>
 
-              <div className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
-                <span>📞 {p.cliente?.telefono}</span>
-                {p.cliente?.email && <span>✉️ {p.cliente.email}</span>}
-                {p.zonaEnvio && <span>🚚 {p.zonaEnvio}</span>}
+              <div>
+                <div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div>
+                <div className="text-xs text-muted">{o.customer_email} · {o.customer_phone}</div>
               </div>
 
-              {/* Items preview */}
-              <div className="flex flex-wrap gap-1.5">
-                {(p.items as { nombre: string; qty: number }[]).map((item, idx) => (
-                  <span key={idx} className="text-[10px] bg-white/5 border border-white/5 px-2 py-0.5 rounded-full text-white/70">
-                    {item.qty}× {item.nombre}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Metricas de total y control de estado */}
-            <div className="flex items-center justify-between md:justify-end gap-5 border-t border-white/5 md:border-t-0 pt-3 md:pt-0">
-              <div className="md:text-right">
-                <p className="font-bold text-neon text-lg font-display">${p.total.toLocaleString('es-CL')}</p>
-                <p className="text-[10px] text-muted">{PAGO_LABELS[p.metodoPago] || p.metodoPago}</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border ${ESTADO_COLOR[p.status as EstadoPedido] || 'bg-white/5 text-muted'}`}>
-                  {p.status}
-                </span>
-
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <span className="font-bold text-white text-base font-display">{fmtCLP(o.total || 0)}</span>
                 <Link
-                  href={`/admin/pedidos/${p.id}`}
+                  href={`/admin/pedidos/${o.id}`}
                   className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"
                 >
                   Gestionar →
                 </Link>
               </div>
-            </div>
-          </div>
-        ))}
 
-        {pedidosFiltrados.length === 0 && (
-          <div className="bg-white/[0.01] border border-dashed border-white/10 rounded-2xl py-12 text-center text-muted text-sm">
-            <span className="text-3xl block mb-2">📦</span>
-            No se encontraron pedidos que coincidan con la búsqueda.
-          </div>
-        )}
+              {isTransferPending && (
+                <div className="text-[11px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-3 py-1.5 rounded-lg">
+                  🏦 Pago por transferencia pendiente de verificación
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
