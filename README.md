@@ -142,8 +142,23 @@ Correr `supabase/migracion-fase5-slug-analytics.sql` — agrega la columna
 productos que ya existen) y las columnas de Meta Pixel / GA4 a
 `integraciones_secretas`.
 
+## Fase 6 — Paridad con Makangru: CRM de Clientes, Logs de Pedido, Logística y Slots
+
+Se implementó una paridad funcional avanzada con el sistema Makangru, adaptada completamente a la identidad de La Manito del Vegano:
+
+- **Dashboard Detallado**: Agrega filtros de rango temporal (Hoy, Este Mes, Este Año, Histórico), cálculo de ticket promedio, métricas de ingresos del período, desglose de estados operativos en cuadrícula, productos más vendidos calculados en tiempo real y stock bajo.
+- **Gestión Avanzada de Pedidos**: Buscador integrado por ID, nombre, comuna, email o teléfono. Ficha del pedido detallada con desglose de ítems, cálculo financiero de fidelidad, notas del administrador, código de seguimiento courier y bitácora de historial de cambios de estado (`order_status_history`).
+- **CRM de Clientes**: Pantalla de clientes registrados con total gastado e histórico de compras. Ficha individual de cliente que permite gestionar la etapa del CRM (Nuevo, Contactado, Interesado, Cliente, VIP, Frecuente, Inactivo, Perdido), notas de contacto históricas, asignación de etiquetas personalizadas y visualización de un log de actividades en tiempo real.
+- **Logística & Días de Entrega**: Configurador dinámico de días hábiles, tiempo mínimo de anticipación, hora de corte, límite de pedidos diarios y bloqueos excepcionales (feriados o vacaciones). Incluye vista previa del checkout en tiempo real.
+
+### Documentación Adicional
+
+Se agregaron guías técnicas detalladas en el directorio `docs/`:
+- [Manual del Panel Administrativo](file:///C:/Users/usuario/.gemini/antigravity/scratch/lamanitodelvegano/docs/ADMIN-LA-MANITO.md): Guía de módulos y cómo registrar usuarios administradores.
+- [Arquitectura de Base de Datos](file:///C:/Users/usuario/.gemini/antigravity/scratch/lamanitodelvegano/docs/DATABASE.md): Definición detallada de tablas del CRM, logística, logs y seguridad RLS.
+- [Guía de Despliegue](file:///C:/Users/usuario/.gemini/antigravity/scratch/lamanitodelvegano/docs/DEPLOYMENT.md): Instrucciones para publicar en Vercel, ejecutar el script de migración SQL, configurar cron jobs y vincular webhooks.
+- [Roadmap Multinegocio](file:///C:/Users/usuario/.gemini/antigravity/scratch/lamanitodelvegano/docs/MULTI-BUSINESS-ROADMAP.md): Hoja de ruta técnica para migrar el panel administrativo actual hacia un SaaS multitenant.
+
 ## Verificación
 
-`npx tsc --noEmit` y `npm run build` corridos limpio (0 errores, 31 rutas)
-contra una copia recién descomprimida del zip entregado, de forma
-independiente, antes de cada entrega.
+`npx tsc --noEmit` y `npm run build` corridos limpio (0 errores, 31 rutas) antes de cada entrega.

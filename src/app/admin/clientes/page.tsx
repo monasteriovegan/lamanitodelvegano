@@ -1,0 +1,186 @@
+import Link from 'next/link';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
+import { Badge, EmptyState } from '../_ui/AdminUI';
+
+export const dynamic = 'force-dynamic';
+
+const CRM_ESTADOS = [
+  { key: 'new', label: 'Nuevo', tono: 'am' as const },
+  { key: 'contacted', label: 'Contactado', tono: 'neutro' as const },
+  { key: 'interested', label: 'Interesado', tono: 'neutro' as const },
+  { key: 'order_started', label: 'Pedido Iniciado', tono: 'neutro' as const },
+  { key: 'payment_pending', label: 'Pago Pendiente', tono: 'am' as const },
+  { key: 'customer', label: 'Cliente', tono: 'neon' as const },
+  { key: 'follow_up', label: 'Seguimiento', tono: 'neutro' as const },
+  { key: 'repeat_customer', label: 'Frecuente', tono: 'neon' as const },
+  { key: 'inactive', label: 'Inactivo', tono: 'neutro' as const },
+  { key: 'lost', label: 'Perdido', tono: 'rojo' as const },
+];
+
+const ESTADO_CRM_MAP = CRM_ESTADOS.reduce(
+  (acc, x) => ({ ...acc, [x.key]: x }),
+  {} as Record<string, (typeof CRM_ESTADOS)[number]>
+);
+
+interface PageProps {
+  searchParams: Promise<{ buscar?: string; estado?: string }>;
+}
+
+export default async function AdminClientesPage({ searchParams }: PageProps) {
+  await requireRole(['admin', 'soporte']);
+  const { buscar = '', estado = 'Todos' } = await searchParams;
+
+  const supabase = createSupabaseServiceClient();
+
+  let query = supabase.from('customers').select('*').order('total_spent', { ascending: false });
+
+  if (estado !== 'Todos') {
+    query = query.eq('crm_status', estado);
+  }
+
+  const { data: customers } = await query;
+
+  const buscarLower = buscar.toLowerCase().trim();
+  const clientesFiltrados = (customers || []).filter((c) => {
+    if (!buscarLower) return true;
+    const nameMatch = c.nombre?.toLowerCase().includes(buscarLower);
+    const emailMatch = c.email?.toLowerCase().includes(buscarLower);
+    const phoneMatch = c.phone?.toLowerCase().includes(buscarLower);
+    return nameMatch || emailMatch || phoneMatch;
+  });
+
+  return (
+    <div className="max-w-[1000px]">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="font-display font-bold text-xl text-white">👥 Clientes & CRM</h1>
+        <Badge tono="neon">{clientesFiltrados.length} clientes en total</Badge>
+      </div>
+
+      {/* Buscador e Filtros */}
+      <form method="GET" action="/admin/clientes" className="flex flex-wrap gap-2.5 mb-6">
+        <input
+          name="buscar"
+          defaultValue={buscar}
+          placeholder="Buscar por nombre, email, teléfono..."
+          className="flex-1 min-w-[240px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon"
+        />
+
+        <select
+          name="estado"
+          defaultValue={estado}
+          className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon"
+        >
+          <option value="Todos" className="bg-[#030907]">Todos los estados CRM</option>
+          {CRM_ESTADOS.map((e) => (
+            <option key={e.key} value={e.key} className="bg-[#030907]">
+              {e.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          type="submit"
+          className="bg-neon hover:bg-white text-[#020705] px-5 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(0,255,179,0.2)] cursor-pointer"
+        >
+          Filtrar
+        </button>
+
+        {(buscar || estado !== 'Todos') && (
+          <Link
+            href="/admin/clientes"
+            className="border border-white/10 hover:border-white/20 text-muted px-4 py-2 rounded-lg text-sm flex items-center hover:text-white transition-colors"
+          >
+            Limpiar filtros
+          </Link>
+        )}
+      </form>
+
+      {/* Tabla de Clientes */}
+      <div className="glass rounded-2xl overflow-hidden border border-white/5">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/5 text-[11px] uppercase tracking-wider text-muted font-bold bg-white/[0.01]">
+                <th className="px-5 py-3.5">Cliente</th>
+                <th className="px-5 py-3.5">Contacto</th>
+                <th className="px-5 py-3.5 text-center">Pedidos</th>
+                <th className="px-5 py-3.5 text-right">Total Gastado</th>
+                <th className="px-5 py-3.5 text-center">Etapa CRM</th>
+                <th className="px-5 py-3.5 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientesFiltrados.map((c) => {
+                const est = ESTADO_CRM_MAP[c.crm_status] || { label: c.crm_status, tono: 'neutro' };
+                const inicial = (c.nombre?.[0] || c.email?.[0] || '?').toUpperCase();
+                const cleanPhone = c.phone ? c.phone.replace(/\D/g, '') : '';
+                return (
+                  <tr
+                    key={c.id}
+                    className="border-b border-white/5 hover:bg-white/[0.01] transition-colors text-texto"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-v3 to-v4 flex items-center justify-center font-bold text-[#020705] text-xs">
+                          {inicial}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-white text-sm">
+                            {c.nombre || 'Sin nombre'}
+                          </p>
+                          <p className="text-[10px] text-muted">
+                            Creado: {new Date(c.created_at).toLocaleDateString('es-CL')}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex flex-col gap-0.5 text-xs">
+                        {c.email && <span className="text-white/80">{c.email}</span>}
+                        {c.phone && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted">{c.phone}</span>
+                            <a
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#25D366] hover:underline text-[10px] font-bold"
+                            >
+                              💬 Chat
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-center font-semibold text-white/80">
+                      {c.total_orders}
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-bold text-neon font-display">
+                      ${Math.round(c.total_spent).toLocaleString('es-CL')}
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <Badge tono={est.tono}>{est.label}</Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <Link
+                        href={`/admin/clientes/${c.id}`}
+                        className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all inline-block"
+                      >
+                        Ver Ficha →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {clientesFiltrados.length === 0 && (
+          <EmptyState emoji="👥" texto="No se encontraron clientes registrados." />
+        )}
+      </div>
+    </div>
+  );
+}

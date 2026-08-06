@@ -14,6 +14,15 @@ const ESTADO_TONO: Record<EstadoPedido, 'neutro' | 'neon' | 'rojo' | 'am'> = {
   WhatsApp: 'neutro',
 };
 
+const ESTADO_LABEL: Record<EstadoPedido, string> = {
+  Pendiente: 'Pendiente ⏳',
+  Pagado: 'Pagado 🟢',
+  Despachado: 'Despachado 🚚',
+  Completado: 'Entregado ✅',
+  Cancelado: 'Cancelado ❌',
+  WhatsApp: 'WhatsApp 💬',
+};
+
 function saludo(): string {
   const hora = new Date().getHours();
   if (hora < 12) return 'Buenos días';
@@ -21,50 +30,167 @@ function saludo(): string {
   return 'Buenas noches';
 }
 
-export default async function AdminDashboardPage() {
+interface PageProps {
+  searchParams: Promise<{ rango?: string }>;
+}
+
+export default async function AdminDashboardPage({ searchParams }: PageProps) {
+  const { rango = 'mes' } = await searchParams;
   const supabase = createSupabaseServiceClient();
 
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
+  const ahora = new Date();
+  let inicio = new Date();
 
-  const [{ data: pedidosHoy }, { data: pedidosRecientes }, { data: pendientes }, { data: productos }] =
-    await Promise.all([
-      supabase.from('pedidos').select('total').gte('createdAt', inicioHoy.toISOString()),
-      supabase.from('pedidos').select('*').order('createdAt', { ascending: false }).limit(6),
-      supabase.from('pedidos').select('id').eq('status', 'Pendiente'),
-      supabase.from('productos').select('id, nombre, stock, maneja_stock, activo').eq('maneja_stock', true),
-    ]);
+  if (rango === 'hoy') {
+    inicio.setHours(0, 0, 0, 0);
+  } else if (rango === 'mes') {
+    inicio.setDate(1);
+    inicio.setHours(0, 0, 0, 0);
+  } else if (rango === 'año') {
+    inicio.setMonth(0, 1);
+    inicio.setHours(0, 0, 0, 0);
+  } else {
+    // histórico: 2000-01-01
+    inicio = new Date('2000-01-01');
+  }
 
-  const ventasHoy = (pedidosHoy || []).reduce((sum, p) => sum + (p.total || 0), 0);
-  const cantidadPedidosHoy = pedidosHoy?.length || 0;
-  const pedidosPendientes = pendientes?.length || 0;
-  const stockBajo = (productos || []).filter((p) => p.activo && (p.stock ?? 0) <= 3);
+  const [{ data: orders }, { data: recent }, { count: cCount }, { data: lowStock }] = await Promise.all([
+    supabase
+      .from('pedidos')
+      .select('*')
+      .gte('createdAt', inicio.toISOString()),
+    supabase
+      .from('pedidos')
+      .select('*')
+      .order('createdAt', { ascending: false })
+      .limit(6),
+    supabase
+      .from('customers')
+      .select('id', { count: 'exact' }),
+    supabase
+      .from('productos')
+      .select('id, nombre, stock, maneja_stock, activo')
+      .eq('maneja_stock', true)
+      .eq('activo', true)
+      .lte('stock', 3)
+  ]);
+
+  const allOrders = orders || [];
+  
+  // Filtrar pedidos pagados/completados para el cálculo de ingresos
+  const paidOrders = allOrders.filter((o) => ['Pagado', 'Despachado', 'Completado'].includes(o.status));
+  const ventasPeriodo = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalPedidos = allOrders.length;
+  const ticketPromedio = paidOrders.length > 0 ? Math.round(ventasPeriodo / paidOrders.length) : 0;
+
+  // Distribución de estados
+  const statusCounts: Record<EstadoPedido, number> = {
+    Pendiente: 0,
+    Pagado: 0,
+    Despachado: 0,
+    Completado: 0,
+    Cancelado: 0,
+    WhatsApp: 0,
+  };
+
+  allOrders.forEach((o) => {
+    const status = o.status as EstadoPedido;
+    if (statusCounts[status] !== undefined) {
+      statusCounts[status]++;
+    }
+  });
+
+  // Top productos más vendidos (agregado localmente sobre los pedidos cargados)
+  const topProductsMap: Record<string, { nombre: string; qty: number; total: number }> = {};
+  allOrders.forEach((o) => {
+    if (o.status !== 'Cancelado') {
+      const items = (o.items || []) as { productoId: string; nombre: string; qty: number; precio: number }[];
+      items.forEach((item) => {
+        const id = item.productoId;
+        if (!id) return;
+        if (!topProductsMap[id]) {
+          topProductsMap[id] = { nombre: item.nombre, qty: 0, total: 0 };
+        }
+        topProductsMap[id].qty += item.qty || 0;
+        topProductsMap[id].total += (item.qty || 0) * (item.precio || 0);
+      });
+    }
+  });
+
+  const topProducts = Object.values(topProductsMap)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
+
+  const ranges = [
+    { key: 'hoy', label: 'Hoy' },
+    { key: 'mes', label: 'Este Mes' },
+    { key: 'año', label: 'Este Año' },
+    { key: 'historico', label: 'Histórico' },
+  ];
 
   return (
     <div>
       <PageHeader
-        eyebrow={new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
+        eyebrow={ahora.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
         title={`${saludo()} 🌱`}
+        action={
+          <div className="flex gap-1.5 bg-white/5 border border-white/10 rounded-xl p-1 shrink-0">
+            {ranges.map((r) => (
+              <Link
+                key={r.key}
+                href={`/admin?rango=${r.key}`}
+                className={`text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-all ${
+                  rango === r.key
+                    ? 'bg-neon text-[#020705] shadow-[0_0_10px_rgba(0,255,179,0.3)]'
+                    : 'text-muted hover:text-white'
+                }`}
+              >
+                {r.label}
+              </Link>
+            ))}
+          </div>
+        }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Ventas de hoy" value={`$${ventasHoy.toLocaleString('es-CL')}`} accento="neon" />
-        <StatCard label="Pedidos de hoy" value={String(cantidadPedidosHoy)} accento="gold" />
-        <StatCard
-          label="Pendientes de gestionar"
-          value={String(pedidosPendientes)}
-          accento={pedidosPendientes > 0 ? 'am' : 'neon'}
-          hint={pedidosPendientes > 0 ? 'Revisar en Pedidos' : undefined}
-        />
-        <StatCard
-          label="Stock bajo"
-          value={String(stockBajo.length)}
-          accento={stockBajo.length > 0 ? 'rojo' : 'neon'}
-          hint={stockBajo.length > 0 ? 'Revisar en Productos' : 'Todo con stock ok'}
-        />
+      {/* KPI Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Ventas del período" value={`$${ventasPeriodo.toLocaleString('es-CL')}`} accento="neon" />
+        <StatCard label="Cantidad pedidos" value={String(totalPedidos)} accento="gold" />
+        <StatCard label="Ticket promedio" value={`$${ticketPromedio.toLocaleString('es-CL')}`} accento="am" />
+        <StatCard label="Clientes totales" value={String(cCount || 0)} accento="neon" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
+      {/* Operational Breakdown */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        {(Object.keys(statusCounts) as EstadoPedido[]).map((status) => {
+          const count = statusCounts[status];
+          const hasCount = count > 0;
+          return (
+            <div
+              key={status}
+              className={`border rounded-xl p-3.5 text-center transition-all ${
+                hasCount
+                  ? 'bg-white/[0.04] border-[rgba(0,255,179,0.2)] shadow-[0_2px_10px_rgba(0,255,179,0.02)]'
+                  : 'bg-white/[0.01] border-white/5 opacity-50'
+              }`}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted font-bold truncate">
+                {ESTADO_LABEL[status].split(' ')[0]}
+              </p>
+              <p
+                className={`text-xl font-bold font-display mt-1 ${
+                  hasCount ? 'text-neon font-black' : 'text-texto/60'
+                }`}
+              >
+                {count}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent Orders */}
         <div className="lg:col-span-2">
           <SectionCard
             title="Pedidos recientes"
@@ -74,21 +200,24 @@ export default async function AdminDashboardPage() {
               </Link>
             }
           >
-            {!pedidosRecientes || pedidosRecientes.length === 0 ? (
+            {!recent || recent.length === 0 ? (
               <EmptyState emoji="📦" texto="Todavía no hay pedidos." />
             ) : (
               <div className="flex flex-col gap-2.5">
-                {pedidosRecientes.map((p) => (
+                {recent.map((p) => (
                   <Link
                     key={p.id}
-                    href="/admin/pedidos"
+                    href={`/admin/pedidos/${p.id}`}
                     className="flex items-center justify-between gap-3 bg-white/[0.02] hover:bg-white/[0.05] transition-colors rounded-xl px-4 py-3 border border-white/5"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">
                         #{p.id.substring(0, 6).toUpperCase()} · {p.cliente?.nombre || 'Sin nombre'}
                       </p>
-                      <p className="text-xs text-muted">{new Date(p.createdAt).toLocaleString('es-CL')}</p>
+                      <p className="text-xs text-muted">
+                        {p.metodoPago === 'whatsapp' ? '💬 WhatsApp' : '🌐 Web'} ·{' '}
+                        {new Date(p.createdAt).toLocaleDateString('es-CL')}
+                      </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-sm font-bold text-neon">${(p.total || 0).toLocaleString('es-CL')}</span>
@@ -101,38 +230,75 @@ export default async function AdminDashboardPage() {
           </SectionCard>
         </div>
 
-        <div className="flex flex-col gap-4">
+        {/* Sidebar Cards */}
+        <div className="flex flex-col gap-6">
+          {/* Top Selling Products */}
+          <SectionCard title="🔥 Más vendidos">
+            {topProducts.length === 0 ? (
+              <EmptyState emoji="📈" texto="No hay registros de productos vendidos en este período." />
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {topProducts.map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-sm bg-white/[0.01] border border-white/5 rounded-xl px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-medium truncate text-xs">{p.nombre}</p>
+                      <p className="text-[10px] text-muted">${p.total.toLocaleString('es-CL')} generado</p>
+                    </div>
+                    <Badge tono="neon">{p.qty} u.</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Low Stock Alerts */}
           <SectionCard title="⚠️ Stock bajo">
-            {stockBajo.length === 0 ? (
+            {!lowStock || lowStock.length === 0 ? (
               <EmptyState emoji="✅" texto="Todo el inventario está bien." />
             ) : (
               <div className="flex flex-col gap-2">
-                {stockBajo.slice(0, 6).map((p) => (
+                {lowStock.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="text-texto truncate">{p.nombre}</span>
-                    <Badge tono="rojo">{p.stock ?? 0} unid.</Badge>
+                    <span className="text-texto truncate text-xs">{p.nombre}</span>
+                    <Badge tono="rojo">{p.stock ?? 0} u.</Badge>
                   </div>
                 ))}
-                <Link href="/admin/productos" className="text-xs text-neon font-semibold hover:underline mt-1">
-                  Reponer stock →
+                <Link href="/admin/productos" className="text-xs text-neon font-semibold hover:underline mt-2 inline-block">
+                  Reponer stock en catálogo →
                 </Link>
               </div>
             )}
           </SectionCard>
 
+          {/* Quick Access */}
           <SectionCard title="Accesos rápidos">
             <div className="grid grid-cols-2 gap-2">
-              <Link href="/admin/productos" className="text-xs bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-lg px-3 py-2.5 text-texto transition-colors">
+              <Link
+                href="/admin/productos/nuevo"
+                className="text-xs bg-white/[0.03] hover:bg-neon hover:text-[#020705] border border-white/5 rounded-lg px-3 py-2.5 text-texto font-medium transition-colors"
+              >
                 🌿 Nuevo producto
               </Link>
-              <Link href="/admin/destacados" className="text-xs bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-lg px-3 py-2.5 text-texto transition-colors">
-                ⭐ Destacados
+              <Link
+                href="/admin/clientes"
+                className="text-xs bg-white/[0.03] hover:bg-neon hover:text-[#020705] border border-white/5 rounded-lg px-3 py-2.5 text-texto font-medium transition-colors"
+              >
+                👥 Clientes CRM
               </Link>
-              <Link href="/admin/promo-flyer" className="text-xs bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-lg px-3 py-2.5 text-texto transition-colors">
-                📢 Promo Flyer
+              <Link
+                href="/admin/entregas"
+                className="text-xs bg-white/[0.03] hover:bg-neon hover:text-[#020705] border border-white/5 rounded-lg px-3 py-2.5 text-texto font-medium transition-colors"
+              >
+                📅 Config. despacho
               </Link>
-              <Link href="/admin/cupones" className="text-xs bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-lg px-3 py-2.5 text-texto transition-colors">
-                🎟️ Nuevo cupón
+              <Link
+                href="/admin/cupones"
+                className="text-xs bg-white/[0.03] hover:bg-neon hover:text-[#020705] border border-white/5 rounded-lg px-3 py-2.5 text-texto font-medium transition-colors"
+              >
+                🎟️ Crear cupón
               </Link>
             </div>
           </SectionCard>

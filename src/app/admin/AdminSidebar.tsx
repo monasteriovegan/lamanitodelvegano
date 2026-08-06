@@ -23,7 +23,9 @@ const GRUPOS = [
     label: 'Ventas',
     tabs: [
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
+      { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/zonas', label: '🚚 Envíos', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/entregas', label: '📅 Días de Entrega', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/metricas', label: '📊 Métricas', exact: false, roles: ['admin'] as Rol[] },
     ],
   },
