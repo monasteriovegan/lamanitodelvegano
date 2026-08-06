@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { Boom } from "@hapi/boom";
 import makeWASocket, {
+  Browsers,
   DisconnectReason,
   fetchLatestBaileysVersion,
   jidNormalizedUser,
@@ -21,6 +22,8 @@ let whatsappConnected = false;
 let aiEnabled = true;
 let lastEventAt: string | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
+let pairingCode: string | null = null;
+let pairingRequested = false;
 
 function normalizePhone(value: string): string {
   return value.replace(/\D/g, "");
@@ -51,15 +54,9 @@ function isOwnerSelfChat(message: WAMessage): boolean {
 function parseOwnerCommand(text: string): "STOP" | "START" | "STATUS" | null {
   const normalized = text.toLocaleLowerCase("es").trim();
 
-  if (/\b(deja|para|det[eé]n|apaga)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) {
-    return "STOP";
-  }
-  if (/\b(vuelve|empieza|reanuda|activa|enciende)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) {
-    return "START";
-  }
-  if (/\b(estado|activo|activa|funcionando|conectado)\b/.test(normalized)) {
-    return "STATUS";
-  }
+  if (/\b(deja|para|det[eé]n|apaga)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) return "STOP";
+  if (/\b(vuelve|empieza|reanuda|activa|enciende)\b.*\b(responder|respuestas|remy|ia)\b/.test(normalized)) return "START";
+  if (/\b(estado|activo|activa|funcionando|conectado)\b/.test(normalized)) return "STATUS";
   return null;
 }
 
@@ -70,6 +67,7 @@ async function startWhatsApp(): Promise<void> {
   const socket = makeWASocket({
     version,
     auth: state,
+    browser: Browsers.macOS("Google Chrome"),
     logger,
     markOnlineOnConnect: false,
     syncFullHistory: false,
@@ -78,16 +76,29 @@ async function startWhatsApp(): Promise<void> {
 
   socket.ev.on("creds.update", saveCreds);
 
-  socket.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
+  socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
     lastEventAt = new Date().toISOString();
 
+    if (!state.creds.registered && !pairingRequested && (connection === "connecting" || Boolean(qr))) {
+      pairingRequested = true;
+      try {
+        pairingCode = await socket.requestPairingCode(ownerPhone);
+        logger.info({ pairingCode }, "CÓDIGO DE VINCULACIÓN WHATSAPP");
+      } catch (error) {
+        pairingRequested = false;
+        logger.error({ error }, "No se pudo generar el código de vinculación");
+      }
+    }
+
     if (qr) {
-      logger.info("Escanea este QR desde WhatsApp Business > Dispositivos vinculados");
+      logger.info("QR alternativo disponible");
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === "open") {
       whatsappConnected = true;
+      pairingCode = null;
+      pairingRequested = false;
       logger.info({ ownerPhone }, "Wonka WhatsApp Gateway conectado");
     }
 
@@ -95,12 +106,12 @@ async function startWhatsApp(): Promise<void> {
       whatsappConnected = false;
       const statusCode = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
       const loggedOut = statusCode === DisconnectReason.loggedOut;
-
       logger.warn({ statusCode, loggedOut }, "Conexión de WhatsApp cerrada");
 
       if (!loggedOut && !reconnectTimer) {
         reconnectTimer = setTimeout(() => {
           reconnectTimer = null;
+          pairingRequested = false;
           void startWhatsApp();
         }, 5000);
       }
@@ -120,20 +131,14 @@ async function startWhatsApp(): Promise<void> {
 
         if (command === "STOP") {
           aiEnabled = false;
-          await socket.sendMessage(message.key.remoteJid!, {
-            text: "🛑 Remy quedó pausado globalmente en WhatsApp. Seguiré conectado y registrando mensajes, pero no responderé clientes hasta que me actives nuevamente.",
-          });
+          await socket.sendMessage(message.key.remoteJid!, { text: "🛑 Remy quedó pausado globalmente en WhatsApp." });
           continue;
         }
-
         if (command === "START") {
           aiEnabled = true;
-          await socket.sendMessage(message.key.remoteJid!, {
-            text: "✅ Remy quedó activo nuevamente en WhatsApp.",
-          });
+          await socket.sendMessage(message.key.remoteJid!, { text: "✅ Remy quedó activo nuevamente en WhatsApp." });
           continue;
         }
-
         if (command === "STATUS") {
           await socket.sendMessage(message.key.remoteJid!, {
             text: `🎛️ Estado Wonka Gateway\nWhatsApp: ${whatsappConnected ? "conectado" : "desconectado"}\nRemy: ${aiEnabled ? "activo" : "pausado"}\nÚltimo evento: ${lastEventAt ?? "sin eventos"}`,
@@ -143,17 +148,7 @@ async function startWhatsApp(): Promise<void> {
       }
 
       if (message.key.fromMe) continue;
-
-      logger.info(
-        {
-          remoteJid: message.key.remoteJid,
-          messageId: message.key.id,
-          aiEnabled,
-          text,
-        },
-        "Mensaje entrante recibido",
-      );
-
+      logger.info({ remoteJid: message.key.remoteJid, messageId: message.key.id, aiEnabled, text }, "Mensaje entrante recibido");
       if (!aiEnabled) continue;
     }
   });
@@ -162,16 +157,13 @@ async function startWhatsApp(): Promise<void> {
 const server = http.createServer((request, response) => {
   if (request.url === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
-    response.end(
-      JSON.stringify({
-        ok: true,
-        service: "wonka-whatsapp-gateway",
-        processRunning: true,
-        whatsappConnected,
-        aiEnabled,
-        lastEventAt,
-      }),
-    );
+    response.end(JSON.stringify({ ok: true, service: "wonka-whatsapp-gateway", processRunning: true, whatsappConnected, aiEnabled, pairingCode, lastEventAt }));
+    return;
+  }
+
+  if (request.url === "/pairing-code") {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ whatsappConnected, pairingCode }));
     return;
   }
 
