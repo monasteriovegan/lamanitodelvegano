@@ -4,6 +4,8 @@
 
 - Commit: `1a85a7e935dbb5d5113f010ad8c3d433167a0772`
 - Preview confirmado por el usuario: <https://lamanitodelvegano-fnj1awq0h-monasteriovegans-projects.vercel.app/admin>
+- Preview omnicanal con paridad confirmada por el usuario: <https://lamanitodelvegano-e95d1lun6-monasteriovegans-projects.vercel.app/admin>
+- Estado de paridad: **CONFIRMADO**.
 - Identidad visual: panel verde de La Manito del Vegano.
 
 ## Regla de evolución
