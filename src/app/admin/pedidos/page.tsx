@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import type { OperationalStatus } from '@/types/domain';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,22 +33,15 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
   const { buscar = '', status } = await searchParams;
 
   const supabase = createSupabaseServiceClient();
-
-  // Consulta canónica a la tabla `orders`
-  let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
-
-  if (status && status !== 'todos') {
-    query = query.eq('status', status);
-  }
-
-  const { data: rawOrders } = await query;
-
-  // Consulta para obtener todos los conteos de estado en vivo
-  const { data: statusCountsRaw } = await supabase.from('orders').select('status');
+  const orderRepository = new OrderRepository(supabase);
+  const [rawOrders, statusCountsRaw] = await Promise.all([
+    orderRepository.list({ status }),
+    orderRepository.list(),
+  ]);
   const counts: Record<string, number> = {};
   let totalCount = 0;
 
-  statusCountsRaw?.forEach((row: { status: string }) => {
+  statusCountsRaw.forEach((row: { status: string }) => {
     if (row.status) {
       counts[row.status] = (counts[row.status] || 0) + 1;
       totalCount++;
@@ -55,7 +49,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
   });
 
   const buscarLower = buscar.toLowerCase().trim();
-  const orders = (rawOrders || []).filter((o: any) => {
+  const orders = rawOrders.filter((o: any) => {
     if (!buscarLower) return true;
     const numMatch = (o.order_number || o.id || '').toLowerCase().includes(buscarLower);
     const nameMatch = (o.customer_name || '').toLowerCase().includes(buscarLower);

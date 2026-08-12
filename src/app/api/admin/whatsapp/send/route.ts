@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import { normalizePhone } from '@/lib/messaging/normalize';
+import { ConversationRepository } from '@/lib/repositories/conversations-repository';
 
 export async function POST(request: Request) {
   const admin = await getCurrentAdminUser();
@@ -30,12 +31,7 @@ export async function POST(request: Request) {
   }
 
   const db = createSupabaseServiceClient();
-  const { data: conversation } = await db
-    .from('crm_conversations')
-    .select('id,external_thread_id,customer_id')
-    .eq('id', body.conversationId)
-    .eq('channel', 'whatsapp')
-    .maybeSingle();
+  const conversation = await new ConversationRepository(db).findByChannel(body.conversationId, 'whatsapp');
   if (!conversation) {
     return Response.json({ error: 'conversation_not_found' }, { status: 404 });
   }
@@ -45,7 +41,7 @@ export async function POST(request: Request) {
     const result = await sendMessage({
       channel: 'whatsapp',
       conversationId: conversation.id,
-      customerId: conversation.customer_id,
+      customerId: conversation.customer_id ?? undefined,
       to: conversation.external_thread_id,
       text,
     });

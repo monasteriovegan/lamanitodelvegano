@@ -6,39 +6,20 @@ import { requireRole } from '@/lib/supabase/require-role';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaPedidoDespachado } from '@/lib/email/templates';
 import type { EstadoPedido, Pedido } from '@/types/domain';
+import { OrderRepository, normalizeOrderStatus } from '@/lib/repositories/orders-repository';
 
 export async function cambiarEstadoPedido(id: string, nuevoEstado: EstadoPedido) {
   await requireRole(['admin', 'soporte', 'bodega']);
 
   const supabase = createSupabaseServiceClient();
-
-  // Obtener estado anterior
-  const { data: oldPedido } = await supabase.from('pedidos').select('status').eq('id', id).single();
-
-  const { data: pedido, error } = await supabase
-    .from('pedidos')
-    .update({ status: nuevoEstado })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-
-  // Registrar en historial
-  if (oldPedido && oldPedido.status !== nuevoEstado) {
-    await supabase.from('order_status_history').insert({
-      pedido_id: id,
-      old_status: oldPedido.status,
-      new_status: nuevoEstado,
-      notes: `Estado cambiado rápidamente desde el listado`,
-    });
-  }
+  const pedido = await new OrderRepository(supabase).update(id, { status: normalizeOrderStatus(nuevoEstado) });
 
   // Enviar email de despacho
-  if (nuevoEstado === 'Despachado' && pedido?.cliente?.email) {
+  if (nuevoEstado === 'Despachado' && pedido.cliente?.email) {
     enviarEmail({
       to: pedido.cliente.email,
       subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`,
-      html: plantillaPedidoDespachado(pedido as Pedido),
+      html: plantillaPedidoDespachado(pedido as unknown as Pedido),
     }).then((res) => {
       if (!res.ok) console.error('No se pudo enviar email de despacho:', res.error);
     });
@@ -57,39 +38,18 @@ export async function guardarPedidoGestion(
   await requireRole(['admin', 'soporte', 'bodega']);
 
   const supabase = createSupabaseServiceClient();
-
-  // Obtener estado anterior
-  const { data: oldPedido } = await supabase.from('pedidos').select('status').eq('id', id).single();
-
-  const { data: pedido, error } = await supabase
-    .from('pedidos')
-    .update({
-      status: nuevoEstado,
-      tracking_number: trackingNumber || null,
-      admin_notes: adminNotes || null,
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  // Registrar en historial
-  if (oldPedido && oldPedido.status !== nuevoEstado) {
-    await supabase.from('order_status_history').insert({
-      pedido_id: id,
-      old_status: oldPedido.status,
-      new_status: nuevoEstado,
-      notes: 'Actualización en ficha técnica',
-    });
-  }
+  const pedido = await new OrderRepository(supabase).update(id, {
+    status: normalizeOrderStatus(nuevoEstado),
+    tracking_number: trackingNumber,
+    admin_notes: adminNotes,
+  });
 
   // Enviar email de despacho
   if (nuevoEstado === 'Despachado' && pedido?.cliente?.email) {
     enviarEmail({
       to: pedido.cliente.email,
       subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`,
-      html: plantillaPedidoDespachado(pedido as Pedido),
+      html: plantillaPedidoDespachado(pedido as unknown as Pedido),
     }).then((res) => {
       if (!res.ok) console.error('No se pudo enviar email de despacho:', res.error);
     });

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import { Badge, EmptyState } from '../_ui/AdminUI';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,17 +33,10 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
   const { buscar = '', estado = 'Todos' } = await searchParams;
 
   const supabase = createSupabaseServiceClient();
-
-  let query = supabase.from('customers').select('*').order('total_spent', { ascending: false });
-
-  if (estado !== 'Todos') {
-    query = query.or(`stage.eq.${estado},crm_status.eq.${estado}`);
-  }
-
-  const { data: customers } = await query;
+  const customers = await new CustomerRepository(supabase).list({ crmStatus: estado });
 
   const buscarLower = buscar.toLowerCase().trim();
-  const clientesFiltrados = (customers || []).filter((c: any) => {
+  const clientesFiltrados = customers.filter((c: any) => {
     if (!buscarLower) return true;
     const name = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`;
     const nameMatch = name.toLowerCase().includes(buscarLower);

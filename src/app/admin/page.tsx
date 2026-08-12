@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { PageHeader, StatCard, SectionCard, EmptyState, Badge } from './_ui/AdminUI';
 import type { EstadoPedido } from '@/types/domain';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,11 @@ const ESTADO_LABEL: Record<EstadoPedido, string> = {
   Completado: 'Entregado ✅',
   Cancelado: 'Cancelado ❌',
   WhatsApp: 'WhatsApp 💬',
+};
+
+const OPERATIONAL_TO_LEGACY: Record<string, EstadoPedido> = {
+  pending: 'Pendiente', confirmed: 'Pagado', processing: 'Pagado',
+  shipped: 'Despachado', delivered: 'Completado', cancelled: 'Cancelado',
 };
 
 function saludo(): string {
@@ -54,19 +61,12 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
     inicio = new Date('2000-01-01');
   }
 
-  const [{ data: orders }, { data: recent }, { count: cCount }, { data: lowStock }] = await Promise.all([
-    supabase
-      .from('pedidos')
-      .select('*')
-      .gte('createdAt', inicio.toISOString()),
-    supabase
-      .from('pedidos')
-      .select('*')
-      .order('createdAt', { ascending: false })
-      .limit(6),
-    supabase
-      .from('customers')
-      .select('id', { count: 'exact' }),
+  const orderRepository = new OrderRepository(supabase);
+  const customerRepository = new CustomerRepository(supabase);
+  const [orders, recent, customers, { data: lowStock }] = await Promise.all([
+    orderRepository.list({ createdAfter: inicio.toISOString() }),
+    orderRepository.list({ limit: 6 }),
+    customerRepository.list(),
     supabase
       .from('productos')
       .select('id, nombre, stock, maneja_stock, activo')
@@ -74,11 +74,12 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
       .eq('activo', true)
       .lte('stock', 3)
   ]);
+  const cCount = customers.length;
 
-  const allOrders = orders || [];
+  const allOrders = orders;
   
   // Filtrar pedidos pagados/completados para el cálculo de ingresos
-  const paidOrders = allOrders.filter((o) => ['Pagado', 'Despachado', 'Completado'].includes(o.status));
+  const paidOrders = allOrders.filter((o) => ['confirmed', 'processing', 'shipped', 'delivered'].includes(o.status));
   const ventasPeriodo = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalPedidos = allOrders.length;
   const ticketPromedio = paidOrders.length > 0 ? Math.round(ventasPeriodo / paidOrders.length) : 0;
@@ -94,7 +95,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
   };
 
   allOrders.forEach((o) => {
-    const status = o.status as EstadoPedido;
+    const status = OPERATIONAL_TO_LEGACY[o.status] || 'Pendiente';
     if (statusCounts[status] !== undefined) {
       statusCounts[status]++;
     }
@@ -103,7 +104,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
   // Top productos más vendidos (agregado localmente sobre los pedidos cargados)
   const topProductsMap: Record<string, { nombre: string; qty: number; total: number }> = {};
   allOrders.forEach((o) => {
-    if (o.status !== 'Cancelado') {
+    if (o.status !== 'cancelled') {
       const items = (o.items || []) as { productoId: string; nombre: string; qty: number; precio: number }[];
       items.forEach((item) => {
         const id = item.productoId;
@@ -200,7 +201,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
               </Link>
             }
           >
-            {!recent || recent.length === 0 ? (
+            {recent.length === 0 ? (
               <EmptyState emoji="📦" texto="Todavía no hay pedidos." />
             ) : (
               <div className="flex flex-col gap-2.5">
@@ -212,16 +213,16 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">
-                        #{p.id.substring(0, 6).toUpperCase()} · {p.cliente?.nombre || 'Sin nombre'}
+                        #{p.id.substring(0, 6).toUpperCase()} · {p.customer_name || 'Sin nombre'}
                       </p>
                       <p className="text-xs text-muted">
                         {p.metodoPago === 'whatsapp' ? '💬 WhatsApp' : '🌐 Web'} ·{' '}
-                        {new Date(p.createdAt).toLocaleDateString('es-CL')}
+                        {new Date(p.created_at).toLocaleDateString('es-CL')}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-sm font-bold text-neon">${(p.total || 0).toLocaleString('es-CL')}</span>
-                      <Badge tono={ESTADO_TONO[p.status as EstadoPedido] || 'neutro'}>{p.status}</Badge>
+                      <Badge tono={ESTADO_TONO[OPERATIONAL_TO_LEGACY[p.status] || 'Pendiente'] || 'neutro'}>{OPERATIONAL_TO_LEGACY[p.status] || p.status}</Badge>
                     </div>
                   </Link>
                 ))}

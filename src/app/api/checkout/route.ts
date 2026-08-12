@@ -5,20 +5,35 @@ import { validarPin } from '@/lib/pricing/fidelidad';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaConfirmacionPedido } from '@/lib/email/templates';
 import type { CheckoutRequest, Pedido } from '@/types/domain';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 
 /**
  * Único punto de entrada para crear un pedido. Recalcula TODO server-side
  * contra la base de datos real antes de guardar — el cliente solo manda
  * intenciones (IDs, cantidades), nunca precios ni totales.
  *
- * Inserta usando los NOMBRES DE COLUMNA REALES de la tabla `pedidos`
- * compartida con el sitio viejo (camelCase: zonaEnvio, fechaDespacho, etc.)
+ * La escritura pasa por OrderRepository y solo se habilita después de verificar
+ * el schema reconciliado y el descuento atómico de stock UUID.
  */
 export async function POST(req: NextRequest) {
   const body: CheckoutRequest = await req.json();
 
   if (!body.cliente?.nombre || !body.cliente?.telefono) {
     return NextResponse.json({ error: 'Faltan datos del cliente.' }, { status: 400 });
+  }
+
+  const capabilities = getSchemaCapabilities();
+  if (!capabilities.checkoutWrites) {
+    return NextResponse.json(
+      {
+        error: 'Checkout temporalmente bloqueado hasta aplicar y verificar el schema reconciliado.',
+        code: 'SCHEMA_MIGRATION_REQUIRED',
+      },
+      { status: 503 },
+    );
   }
 
   const calculo = await calcularPedido(body);
@@ -51,95 +66,14 @@ export async function POST(req: NextRequest) {
   );
 
   const supabase = createSupabaseServiceClient();
-
-  // Obtener negocio de La Manito por defecto
-  const { data: biz } = await supabase
-    .from('businesses')
-    .select('id')
-    .eq('slug', 'la-manito-del-vegano')
-    .maybeSingle();
-  const businessId = biz?.id;
-
-  let customerId = null;
-  if (businessId) {
-    const cEmail = body.cliente.email ? body.cliente.email.toLowerCase().trim() : null;
-    const cPhone = body.cliente.telefono ? body.cliente.telefono.replace(/\D/g, '') : null;
-
-    if (cEmail || cPhone) {
-      let existingCustomer = null;
-      if (cEmail) {
-        const { data } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('business_id', businessId)
-          .eq('email', cEmail)
-          .maybeSingle();
-        existingCustomer = data;
-      }
-      if (!existingCustomer && cPhone) {
-        const { data } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('business_id', businessId)
-          .eq('phone', cPhone)
-          .maybeSingle();
-        existingCustomer = data;
-      }
-
-      if (existingCustomer) {
-        customerId = existingCustomer.id;
-        const newTotalOrders = (existingCustomer.total_orders || 0) + 1;
-        const newTotalSpent = Number(existingCustomer.total_spent || 0) + totalConFidelidad;
-
-        await supabase
-          .from('customers')
-          .update({
-            total_orders: newTotalOrders,
-            total_spent: newTotalSpent,
-            nombre: body.cliente.nombre || existingCustomer.nombre,
-            direccion: body.cliente.direccion || existingCustomer.direccion,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', customerId);
-
-        // Registrar actividad CRM
-        await supabase
-          .from('crm_activities')
-          .insert({
-            customer_id: customerId,
-            type: 'order_created',
-            description: `Realizó un nuevo pedido por $${totalConFidelidad.toLocaleString('es-CL')}`
-          });
-      } else {
-        const { data: newCustomer } = await supabase
-          .from('customers')
-          .insert({
-            business_id: businessId,
-            email: cEmail || null,
-            phone: cPhone || null,
-            nombre: body.cliente.nombre,
-            direccion: body.cliente.direccion,
-            crm_status: 'customer',
-            total_orders: 1,
-            total_spent: totalConFidelidad
-          })
-          .select()
-          .single();
-
-        if (newCustomer) {
-          customerId = newCustomer.id;
-          // Registrar actividad CRM
-          await supabase
-            .from('crm_activities')
-            .insert({
-              customer_id: customerId,
-              type: 'order_created',
-              description: `Primer pedido registrado por $${totalConFidelidad.toLocaleString('es-CL')}`
-            });
-        }
-      }
-    }
-  }
+  const business = await new BusinessRepository(supabase).requireDefault();
+  const customerRepository = new CustomerRepository(supabase, capabilities);
+  const customer = await customerRepository.upsertCheckoutContact(business.id, {
+    email: body.cliente.email,
+    phone: body.cliente.telefono,
+    nombre: body.cliente.nombre,
+    direccion: body.cliente.direccion,
+  });
 
   const itemsFinales = [...(calculo.itemsResueltos || [])];
   if (calculo.cuponValido?.tipo === 'regalo') {
@@ -152,33 +86,26 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const { data: pedido, error: insertError } = await supabase
-    .from('pedidos')
-    .insert({
-      business_id: businessId,
-      customer_id: customerId,
-      cliente: body.cliente,
-      items: itemsFinales,
-      total: totalConFidelidad,
-      descuentoFidelidad: descuentoFidelidad,
-      puntosCanjeados: puntosCanjeados,
-      puntosGanados: 0,
-      status: body.metodoPago === 'whatsapp' ? 'WhatsApp' : 'Pendiente',
-      zonaEnvio: calculo.zonaNombre,
-      costoEnvio: calculo.costoEnvio,
-      metodoPago: body.metodoPago,
-    })
-    .select()
-    .single();
-
-  if (insertError || !pedido) {
-    console.error('Error creando pedido:', insertError);
-    return NextResponse.json({ error: 'No se pudo crear el pedido.' }, { status: 500 });
-  }
-
-  for (const item of calculo.itemsResueltos || []) {
-    await supabase.rpc('descontar_stock', { p_producto_id: item.productoId, p_cantidad: item.qty });
-  }
+  const pedido = await new OrderRepository(supabase, capabilities).createTransactionalCheckout({
+    businessUnitId: business.id,
+    customerId: customer.id,
+    customerEmail: customer.email || null,
+    customerName: body.cliente.nombre,
+    customerPhone: customer.phone || body.cliente.telefono,
+    address: body.cliente.direccion || null,
+    comuna: null,
+    items: itemsFinales,
+    total: totalConFidelidad,
+    paymentMethod: body.metodoPago,
+    shippingCost: calculo.costoEnvio || 0,
+    shippingZoneId: body.zonaId,
+    shippingZoneName: calculo.zonaNombre || null,
+    loyaltyDiscount: descuentoFidelidad,
+    loyaltyPointsRedeemed: puntosCanjeados,
+    discountTotal: (calculo.descuentoCupon || 0) + descuentoFidelidad,
+    stockItems: calculo.itemsResueltos || [],
+    attribution: body.attribution || {},
+  });
 
   // Email de confirmación — best-effort: si falla, el pedido ya está
   // creado y no debe perderse por un problema de Resend. Se registra el
@@ -187,7 +114,7 @@ export async function POST(req: NextRequest) {
     enviarEmail({
       to: body.cliente.email,
       subject: `Pedido confirmado #${pedido.id.slice(0, 8)} — La Manito Del Vegano`,
-      html: plantillaConfirmacionPedido(pedido as Pedido),
+      html: plantillaConfirmacionPedido({ ...pedido, id: String(pedido.id), cliente: body.cliente, zonaEnvio: calculo.zonaNombre, costoEnvio: calculo.costoEnvio } as unknown as Pedido),
     }).then((res) => {
       if (!res.ok) console.error('No se pudo enviar email de confirmación:', res.error);
     });

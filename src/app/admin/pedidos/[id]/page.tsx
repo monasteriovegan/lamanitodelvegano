@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import OrderActions from './OrderActions';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,54 +15,7 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   const supabase = createSupabaseServiceClient();
-
-  // Intenta consultar la tabla canónica `orders` primero
-  let { data: order } = await supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('id', id)
-    .maybeSingle();
-
-  // Si no la encuentra por UUID id, intenta buscarla por legacy_order_id o fall back a `pedidos`
-  if (!order) {
-    const { data: legacyOrder } = await supabase
-      .from('pedidos')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (legacyOrder) {
-      order = {
-        id: legacyOrder.id,
-        order_number: `MAN-${legacyOrder.id.substring(0, 8)}`,
-        status: legacyOrder.status === 'Pagado' ? 'confirmed' : legacyOrder.status === 'Despachado' ? 'shipped' : legacyOrder.status === 'Completado' ? 'delivered' : legacyOrder.status === 'Cancelado' ? 'cancelled' : 'pending',
-        payment_status: legacyOrder.payment_status || (legacyOrder.status === 'Pagado' ? 'paid' : 'pending'),
-        source: 'web',
-        subtotal: legacyOrder.total || 0,
-        discount_amount: legacyOrder.descuentoFidelidad || 0,
-        shipping_amount: legacyOrder.costoEnvio || 0,
-        tax_amount: 0,
-        total: legacyOrder.total || 0,
-        payment_method: legacyOrder.metodoPago,
-        shipping_zone_name: legacyOrder.zonaEnvio,
-        delivery_date: legacyOrder.fechaDespacho,
-        customer_name: legacyOrder.cliente?.nombre,
-        customer_email: legacyOrder.cliente?.email,
-        customer_phone: legacyOrder.cliente?.telefono,
-        shipping_address: legacyOrder.cliente,
-        notes: legacyOrder.notas,
-        admin_notes: legacyOrder.admin_notes,
-        created_at: legacyOrder.createdAt,
-        updated_at: legacyOrder.createdAt,
-        order_items: (legacyOrder.items || []).map((it: any) => ({
-          product_name: it.nombre,
-          unit_price: it.precio,
-          quantity: it.qty,
-          subtotal: (it.precio || 0) * (it.qty || 1),
-        })),
-      };
-    }
-  }
+  const order = await new OrderRepository(supabase).getById(id);
 
   if (!order) notFound();
 

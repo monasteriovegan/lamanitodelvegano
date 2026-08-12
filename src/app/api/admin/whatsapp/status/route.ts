@@ -1,5 +1,7 @@
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { SettingsRepository } from '@/lib/repositories/settings-repository';
+import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,11 +10,13 @@ export async function GET() {
   if (!admin) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const db = createSupabaseServiceClient();
-  const [{ data: transports }, { data: ai }, { data: integration }] = await Promise.all([
-    db
-      .from('messaging_transport_status')
-      .select('transport,status,last_inbound_at,last_outbound_at,last_error,updated_at'),
-    db.from('crm_ai_settings').select('automatic_ai_enabled').limit(1).maybeSingle(),
+  const capabilities = getSchemaCapabilities();
+  const transportsPromise = capabilities.supportTables
+    ? db.from('messaging_transport_status').select('transport,status,last_inbound_at,last_outbound_at,last_error,updated_at')
+    : Promise.resolve({ data: [], error: null });
+  const [{ data: transports }, ai, { data: integration }] = await Promise.all([
+    transportsPromise,
+    new SettingsRepository(db).getAiSettings(),
     db
       .from('integraciones_secretas')
       .select('wa_phone_number_id')
@@ -32,7 +36,7 @@ export async function GET() {
     quality: 'GREEN',
     transports: transports ?? [],
     crm_sync: 'configured',
-    automatic_ai: ai?.automatic_ai_enabled === true ? 'ON' : 'OFF',
+    automatic_ai: 'OFF',
     real_sends: process.env.META_SEND_MODE === 'live' ? 'ENABLED' : 'DISABLED',
   });
 }

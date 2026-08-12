@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
-
-async function getBusinessId(db: any) {
-  const { data: biz } = await db
-    .from('businesses')
-    .select('id')
-    .eq('slug', 'la-manito-del-vegano')
-    .maybeSingle();
-  return biz?.id || null;
-}
+import { DeliveryRepository } from '@/lib/repositories/delivery-repository';
+import { SchemaCapabilityError } from '@/lib/repositories/schema-capabilities';
 
 export async function GET() {
   const admin = await getCurrentAdminUser();
@@ -18,18 +11,7 @@ export async function GET() {
   }
 
   const db = createSupabaseServiceClient();
-  const businessId = await getBusinessId(db);
-  if (!businessId) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 });
-
-  const { data, error } = await db
-    .from('delivery_settings')
-    .select('*')
-    .eq('business_id', businessId)
-    .maybeSingle();
-
-  if (error && error.code !== 'PGRST116') {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const data = await new DeliveryRepository(db).getSettings();
   return NextResponse.json({ data });
 }
 
@@ -40,26 +22,12 @@ export async function PUT(req: Request) {
   }
 
   const db = createSupabaseServiceClient();
-  const businessId = await getBusinessId(db);
-  if (!businessId) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 });
-
   const body = await req.json();
-  const { data: ex } = await db
-    .from('delivery_settings')
-    .select('id')
-    .eq('business_id', businessId)
-    .maybeSingle();
-
-  const payload = {
-    ...body,
-    business_id: businessId,
-    updated_at: new Date().toISOString(),
-  };
-
-  const result = ex
-    ? await db.from('delivery_settings').update(payload).eq('id', ex.id).select().single()
-    : await db.from('delivery_settings').insert(payload).select().single();
-
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
-  return NextResponse.json({ data: result.data });
+  try {
+    const data = await new DeliveryRepository(db).saveSettings(body);
+    return NextResponse.json({ data });
+  } catch (error) {
+    const status = error instanceof SchemaCapabilityError ? 503 : 400;
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'delivery_update_failed' }, { status });
+  }
 }

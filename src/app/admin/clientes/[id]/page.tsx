@@ -10,6 +10,7 @@ import {
   agregarClienteTag,
   quitarClienteTag,
 } from '../actions';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,41 +49,9 @@ export default async function AdminClienteDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   const supabase = createSupabaseServiceClient();
-
-  // 1. Obtener cliente
-  const { data: c } = await supabase.from('customers').select('*').eq('id', id).maybeSingle();
-  if (!c) notFound();
-
-  // 2. Obtener notas
-  const { data: notes } = await supabase
-    .from('customer_notes')
-    .select('*')
-    .eq('customer_id', id)
-    .order('created_at', { ascending: false });
-
-  // 3. Obtener todas las etiquetas y las asignadas
-  const [{ data: allTags }, { data: assignedTagRows }] = await Promise.all([
-    supabase.from('customer_tags').select('*'),
-    supabase.from('customer_tag_assignments').select('tag_id').eq('customer_id', id),
-  ]);
-
-  const assignedTagIds = new Set((assignedTagRows || []).map((t) => t.tag_id));
-  const assignedTags = (allTags || []).filter((tag) => assignedTagIds.has(tag.id));
-  const unassignedTags = (allTags || []).filter((tag) => !assignedTagIds.has(tag.id));
-
-  // 4. Obtener pedidos
-  const { data: orders } = await supabase
-    .from('pedidos')
-    .select('id, total, status, createdAt, metodoPago')
-    .eq('customer_id', id)
-    .order('createdAt', { ascending: false });
-
-  // 5. Obtener actividades
-  const { data: activities } = await supabase
-    .from('crm_activities')
-    .select('*')
-    .eq('customer_id', id)
-    .order('created_at', { ascending: false });
+  const detail = await new CustomerRepository(supabase).getDetail(id);
+  if (!detail) notFound();
+  const { customer: c, notes, allTags, assignedTags, unassignedTags, orders, activities } = detail;
 
   const ticketPromedio = c.total_orders > 0 ? Math.round(c.total_spent / c.total_orders) : 0;
   const initial = (c.nombre?.[0] || c.email?.[0] || '?').toUpperCase();
@@ -148,7 +117,7 @@ export default async function AdminClienteDetailPage({ params }: PageProps) {
                 <div>
                   <p className="text-xs text-muted uppercase tracking-wider font-semibold">Miembro Desde</p>
                   <p className="text-white font-medium mt-0.5">
-                    {new Date(c.created_at).toLocaleDateString('es-CL', {
+                    {new Date(c.created_at || 0).toLocaleDateString('es-CL', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',

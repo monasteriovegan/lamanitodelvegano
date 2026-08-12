@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { DeliveryRepository } from '@/lib/repositories/delivery-repository';
 import { requireRole } from '@/lib/supabase/require-role';
 import { PageHeader, SectionCard } from '../_ui/AdminUI';
 import {
@@ -18,24 +18,11 @@ export default async function AdminEntregasPage() {
   await requireRole(['admin']);
 
   const supabase = createSupabaseServiceClient();
-
-  const { data: biz } = await supabase
-    .from('businesses')
-    .select('id')
-    .eq('slug', 'la-manito-del-vegano')
-    .maybeSingle();
-  if (!biz) {
-    notFound();
-    return null;
-  }
-  const businessId = biz.id;
-
-  // 2. Obtener configuraciones de entregas
-  const { data: settingsRow } = await supabase
-    .from('delivery_settings')
-    .select('*')
-    .eq('business_id', businessId)
-    .maybeSingle();
+  const deliveryRepository = new DeliveryRepository(supabase);
+  const [settingsRow, blocked] = await Promise.all([
+    deliveryRepository.getSettings(),
+    deliveryRepository.listBlockedDates(),
+  ]);
 
   const settings = settingsRow || {
     enabled_weekdays: [1, 2, 3, 4, 5, 6],
@@ -45,15 +32,6 @@ export default async function AdminEntregasPage() {
     delivery_message: 'Elige tu fecha de entrega preferida ✦',
     max_orders_per_day: 0,
   };
-
-  // 3. Obtener fechas bloqueadas futuras
-  const hoyStr = new Date().toISOString().split('T')[0];
-  const { data: blocked } = await supabase
-    .from('blocked_delivery_dates')
-    .select('*')
-    .eq('business_id', businessId)
-    .gte('date', hoyStr)
-    .order('date');
 
   const blockedList = blocked || [];
 

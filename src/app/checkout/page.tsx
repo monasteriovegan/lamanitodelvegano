@@ -18,6 +18,29 @@ function CheckoutContent() {
   const [direccion, setDireccion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [attribution, setAttribution] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const keys = ['fbclid', 'fbc', 'fbp', 'gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    const captured = Object.fromEntries(
+      keys.map((key) => [key, params.get(key) || '']).filter(([, value]) => value),
+    );
+    const current = {
+      ...captured,
+      landing_url: window.location.href,
+      referrer: document.referrer || '',
+    };
+    let firstTouch: Record<string, string> = {};
+    try {
+      firstTouch = JSON.parse(localStorage.getItem('lmv_cart_attribution') || '{}');
+    } catch {
+      firstTouch = {};
+    }
+    const merged = { ...current, ...firstTouch, ...captured };
+    localStorage.setItem('lmv_cart_attribution', JSON.stringify(merged));
+    setAttribution(merged);
+  }, []);
 
   // InitiateCheckout / begin_checkout — una vez por carga de la página,
   // con el valor real del carrito en ese momento.
@@ -57,6 +80,7 @@ function CheckoutContent() {
           telefono: telefono || null,
           items,
           subtotal,
+          attribution,
         }),
       }).catch(() => {
         // silencioso a propósito: esto es best-effort, nunca debe
@@ -65,7 +89,7 @@ function CheckoutContent() {
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [items, subtotal, nombre, email, telefono]);
+  }, [items, subtotal, nombre, email, telefono, attribution]);
 
   const zonaSeleccionada = zonas.find((z) => z.id === zonaId);
   const totalEstimado = subtotal + (zonaSeleccionada?.precio || 0);
@@ -86,6 +110,7 @@ function CheckoutContent() {
           zonaId: zonaId || null,
           cuponCode: cuponCode || null,
           metodoPago,
+          attribution,
         }),
       });
 

@@ -22,7 +22,7 @@ export interface ResultadoCalculo {
  * Esto es lo que cierra la vulnerabilidad de manipulación de precios del sitio viejo.
  *
  * Nota: usa la estructura REAL de la BD compartida con el sitio viejo
- * (id de producto es text, no uuid; cupones.minMonto en camelCase).
+ * (id de producto es uuid; cupones.minMonto permanece en camelCase).
  */
 export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCalculo> {
   const supabase = createSupabaseServiceClient();

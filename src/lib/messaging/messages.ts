@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { ConversationRepository } from '@/lib/repositories/conversations-repository';
+import { MessageRepository } from '@/lib/repositories/messages-repository';
+import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import { resolveCustomer } from './identity';
 import type { NormalizedMessage, PersistedMessage } from './types';
 
@@ -6,13 +10,8 @@ export async function persistMessage(
   db: SupabaseClient,
   message: NormalizedMessage,
 ): Promise<PersistedMessage> {
-  const { data: existing } = await db
-    .from('crm_messages')
-    .select('id,conversation_id')
-    .eq('provider', message.provider)
-    .eq('transport', message.transport)
-    .eq('provider_message_id', message.provider_message_id)
-    .maybeSingle();
+  const messages = new MessageRepository(db);
+  const existing = await messages.findDuplicate(message);
   if (existing) {
     return {
       duplicate: true,
@@ -22,13 +21,7 @@ export async function persistMessage(
     };
   }
 
-  const { data: business, error: businessError } = await db
-    .from('businesses')
-    .select('id')
-    .eq('slug', 'la-manito-del-vegano')
-    .single();
-  if (businessError) throw businessError;
-
+  const business = await new BusinessRepository(db).requireDefault();
   const isStatus = message.message_type.startsWith('status:');
   const customerId = isStatus
     ? null
@@ -39,70 +32,44 @@ export async function persistMessage(
         name: message.display_name,
       });
 
-  const { data: conversation, error: conversationError } = await db
-    .from('crm_conversations')
-    .upsert(
-      {
-        business_id: business.id,
-        customer_id: customerId,
-        channel: message.channel,
-        external_thread_id: message.external_thread_id,
-        external_username: message.display_name ?? null,
-        status: 'open',
-        last_message_at: message.sent_at,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'business_id,channel,external_thread_id' },
-    )
-    .select('id,customer_id')
-    .single();
-  if (conversationError) throw conversationError;
+  const conversation = await new ConversationRepository(db).upsert({
+    businessUnitId: business.id,
+    customerId,
+    channel: message.channel,
+    externalThreadId: message.external_thread_id,
+    displayName: message.display_name,
+    lastMessageAt: message.sent_at,
+    provider: message.provider,
+    transport: message.transport,
+  });
 
-  const { data: created, error } = await db
-    .from('crm_messages')
-    .insert({
-      conversation_id: conversation.id,
-      channel: message.channel,
-      provider: message.provider,
-      transport: message.transport,
-      provider_message_id: message.provider_message_id,
-      external_message_id: message.provider_message_id,
-      external_thread_id: message.external_thread_id,
-      direction: message.direction,
-      sender_type: message.sender_type,
-      text: message.text,
-      message_type: message.message_type,
-      raw_payload: message.raw_payload,
-      sent_at: message.sent_at,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
+  try {
+    const created = await messages.create(conversation.id, customerId, message);
+    if (!isStatus && getSchemaCapabilities().supportTables) {
+      const now = new Date().toISOString();
+      await db.from('messaging_transport_status').upsert({
+        transport: message.transport,
+        status: 'healthy',
+        last_inbound_at: message.direction === 'inbound' ? now : undefined,
+        last_outbound_at: message.direction === 'outbound' ? now : undefined,
+        updated_at: now,
+      });
+    }
+    return {
+      duplicate: false,
+      conversationId: conversation.id,
+      customerId,
+      messageId: created.id,
+    };
+  } catch (error: any) {
+    if (error?.code === '23505') {
       return {
         duplicate: true,
         conversationId: conversation.id,
-        customerId: conversation.customer_id,
+        customerId,
         messageId: null,
       };
     }
     throw error;
   }
-
-  if (!isStatus) {
-    await db.from('messaging_transport_status').upsert({
-      transport: message.transport,
-      status: 'connected',
-      last_inbound_at: message.direction === 'inbound' ? new Date().toISOString() : undefined,
-      updated_at: new Date().toISOString(),
-    });
-  }
-
-  return {
-    duplicate: false,
-    conversationId: conversation.id,
-    customerId: conversation.customer_id,
-    messageId: created.id,
-  };
 }
