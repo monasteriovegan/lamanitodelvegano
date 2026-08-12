@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import {
   normalizeBaileys,
   normalizeMetaWhatsApp,
@@ -101,4 +102,21 @@ test('misma entrega genera una clave estable por transporte', () => {
     [first.provider, first.transport, first.provider_message_id],
     [second.provider, second.transport, second.provider_message_id],
   );
+});
+
+test('webhook inbound no importa ni invoca proveedores LLM', () => {
+  const source = readFileSync(
+    new URL('../src/app/api/whatsapp/route.ts', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(source, /gemini|openai|anthropic|claude|generarRespuesta/i);
+  assert.match(source, /ai_called: false/);
+});
+
+test('envío real permanece bloqueado salvo habilitación explícita', () => {
+  const source = readFileSync(
+    new URL('../src/lib/messaging/transports/whatsapp-cloud.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /META_SEND_MODE !== 'live'/);
 });
