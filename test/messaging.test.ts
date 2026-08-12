@@ -120,3 +120,15 @@ test('envío real permanece bloqueado salvo habilitación explícita', () => {
   );
   assert.match(source, /META_SEND_MODE !== 'live'/);
 });
+
+test('migración omnicanal permanece transaccional, aditiva y con IA apagada', () => {
+  const source = readFileSync(
+    new URL('../supabase/migracion-omnichannel-commerce-core.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /^begin;/im);
+  assert.match(source, /^commit;/im);
+  assert.doesNotMatch(source, /\b(drop\s+table|drop\s+column|truncate|delete\s+from)\b/i);
+  assert.match(source, /automatic_ai_enabled\s+boolean\s+not\s+null\s+default\s+false/i);
+  assert.match(source, /automatic_ai_enabled=false/i);
+});
