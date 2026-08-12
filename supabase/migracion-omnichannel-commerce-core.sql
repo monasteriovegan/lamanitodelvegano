@@ -1,5 +1,25 @@
 -- Omnichannel Commerce Core — aditiva, idempotente y con IA apagada.
+begin;
 create extension if not exists pgcrypto;
+
+do $$
+declare required_table text; actual_type text;
+begin
+  foreach required_table in array array['businesses','customers','pedidos','orders','crm_activities','productos'] loop
+    if to_regclass('public.'||required_table) is null then
+      raise exception 'omnichannel_preflight_missing_table:%', required_table;
+    end if;
+  end loop;
+  select data_type into actual_type from information_schema.columns where table_schema='public' and table_name='businesses' and column_name='id';
+  if actual_type <> 'uuid' then raise exception 'omnichannel_preflight_type_mismatch:businesses.id:%',actual_type; end if;
+  select data_type into actual_type from information_schema.columns where table_schema='public' and table_name='customers' and column_name='id';
+  if actual_type <> 'uuid' then raise exception 'omnichannel_preflight_type_mismatch:customers.id:%',actual_type; end if;
+  select data_type into actual_type from information_schema.columns where table_schema='public' and table_name='orders' and column_name='id';
+  if actual_type <> 'uuid' then raise exception 'omnichannel_preflight_type_mismatch:orders.id:%',actual_type; end if;
+  select data_type into actual_type from information_schema.columns where table_schema='public' and table_name='productos' and column_name='id';
+  if actual_type <> 'text' then raise exception 'omnichannel_preflight_type_mismatch:productos.id:%',actual_type; end if;
+  if to_regprocedure('public.is_admin()') is null then raise exception 'omnichannel_preflight_missing_function:is_admin'; end if;
+end $$;
 
 create table if not exists customer_identities (
   id uuid primary key default gen_random_uuid(), business_id uuid not null references businesses(id) on delete cascade,
@@ -39,6 +59,11 @@ alter table crm_messages add column if not exists provider_message_id text;
 alter table crm_messages add column if not exists external_thread_id text;
 alter table crm_messages add column if not exists channel text not null default 'whatsapp';
 update crm_messages set provider_message_id=coalesce(provider_message_id,external_message_id,id::text) where provider_message_id is null;
+do $$ begin
+  if exists(select 1 from crm_messages group by provider,transport,provider_message_id having count(*)>1) then
+    raise exception 'omnichannel_preflight_duplicate_provider_messages';
+  end if;
+end $$;
 create unique index if not exists crm_messages_provider_transport_message_uidx on crm_messages(provider,transport,provider_message_id);
 
 create table if not exists crm_ai_settings (
@@ -57,8 +82,11 @@ create table if not exists carts (
   checkout_token_hash text unique, expires_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create unique index if not exists carts_one_active_customer_idx on carts(business_id,customer_id) where status='active' and customer_id is not null;
-alter table crm_conversations drop constraint if exists crm_conversations_active_cart_id_fkey;
-alter table crm_conversations add constraint crm_conversations_active_cart_id_fkey foreign key(active_cart_id) references carts(id) on delete set null;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conname='crm_conversations_active_cart_id_fkey' and conrelid='crm_conversations'::regclass) then
+    alter table crm_conversations add constraint crm_conversations_active_cart_id_fkey foreign key(active_cart_id) references carts(id) on delete set null;
+  end if;
+end $$;
 
 create table if not exists cart_items (
   id uuid primary key default gen_random_uuid(), cart_id uuid not null references carts(id) on delete cascade,
@@ -78,6 +106,12 @@ create table if not exists crm_conversation_orders (
   conversation_id uuid not null references crm_conversations(id) on delete cascade,
   order_id uuid not null references orders(id) on delete cascade, created_at timestamptz not null default now(), primary key(conversation_id,order_id)
 );
+alter table crm_conversation_orders add column if not exists order_id uuid;
+do $$ begin
+  if not exists(select 1 from pg_constraint where conname='crm_conversation_orders_order_id_fkey' and conrelid='crm_conversation_orders'::regclass) then
+    alter table crm_conversation_orders add constraint crm_conversation_orders_order_id_fkey foreign key(order_id) references orders(id) on delete cascade;
+  end if;
+end $$;
 
 create table if not exists conversion_events (
   id uuid primary key default gen_random_uuid(), business_id uuid not null references businesses(id) on delete cascade,
@@ -102,3 +136,5 @@ create index if not exists carts_customer_idx on carts(customer_id,status);
 create index if not exists conversion_events_pending_idx on conversion_events(meta_status,google_status,ga4_status);
 
 do $$ declare t text; begin foreach t in array array['customer_identities','crm_conversations','crm_messages','crm_ai_settings','carts','cart_items','cart_attribution','crm_conversation_orders','conversion_events','messaging_transport_status'] loop execute format('alter table %I enable row level security',t); begin execute format('create policy %I on %I for all to authenticated using (is_admin()) with check (is_admin())','admins_manage_'||t,t); exception when duplicate_object then null; end; end loop; end $$;
+
+commit;
