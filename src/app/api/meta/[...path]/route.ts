@@ -10,6 +10,8 @@ const EXACT_ROUTES: Record<string, string> = {
   'webhooks/leads': '/webhooks/leads',
   'assets/pages': '/api/meta/assets/pages',
   'assets/ad-accounts': '/api/meta/assets/ad-accounts',
+  'assets/whatsapp-business-accounts': '/api/meta/assets/whatsapp-business-accounts',
+  'assets/whatsapp-phone-numbers': '/api/meta/assets/whatsapp-phone-numbers',
   campaigns: '/api/meta/campaigns',
   insights: '/api/meta/insights',
   messages: '/api/meta/messages',
