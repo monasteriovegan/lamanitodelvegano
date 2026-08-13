@@ -64,6 +64,7 @@ export class MessageRepository {
   }
 
   async create(conversationId: string, customerId: string | null, message: NormalizedMessage): Promise<StoredMessage> {
+    const isStatus = message.message_type.startsWith('status:');
     const payload: JsonRecord = {
       conversation_id: conversationId,
       external_message_id: message.provider_message_id,
@@ -77,7 +78,11 @@ export class MessageRepository {
         sender_type: message.sender_type,
         raw: message.raw_payload,
       },
-      status: message.message_type.startsWith('status:') ? message.message_type.slice(7) : 'received',
+      status: isStatus
+        ? message.message_type.slice(7)
+        : message.direction === 'outbound'
+          ? 'sent'
+          : 'received',
     };
     if (this.capabilities.messagingExtensions) {
       payload.provider = message.provider;
@@ -95,4 +100,3 @@ export class MessageRepository {
     return mapMessage(data);
   }
 }
-

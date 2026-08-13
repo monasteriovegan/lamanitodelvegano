@@ -48,6 +48,7 @@ const GRUPOS = [
   {
     label: 'Contenido',
     tabs: [
+      { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/blog', label: '✍️ Blog del Taller', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/mensajes', label: '✉️ Mensajes de Contacto', exact: false, roles: ['admin', 'soporte'] as Rol[] },
     ],
@@ -72,7 +73,6 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
 
   return (
     <aside className="admin-side">
-      {/* Logo */}
       <Link
         href="/admin"
         className="admin-slogo transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-neon"
@@ -89,9 +89,6 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
         </div>
       </Link>
 
-      {/* Navegación agrupada — filtrada por rol. El bloqueo real (si alguien
-          escribe la URL a mano) vive en cada page.tsx vía requireRole(),
-          esto solo evita mostrar botones que igual no podrían usar. */}
       <nav className="admin-smenu">
         {GRUPOS.map((grupo, i) => {
           const tabsVisibles = grupo.tabs.filter((tab) => tab.roles.includes(rol));
@@ -119,7 +116,6 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
         })}
       </nav>
 
-      {/* Footer Info */}
       <div className="mt-4 mb-4 px-2.5">
         <p className="text-[10px] text-muted truncate max-w-[200px]" title={email}>
           👤 {email}
@@ -129,7 +125,6 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
         </p>
       </div>
 
-      {/* Logout Button */}
       <LogoutButton />
     </aside>
   );

@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       customerId: conversation.customer_id ?? undefined,
       to: conversation.external_thread_id,
       text,
+      mode: 'manual',
     });
     const message = await persistMessage(db, {
       channel: 'whatsapp',
