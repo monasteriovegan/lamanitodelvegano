@@ -43,22 +43,23 @@ export async function POST(request: Request) {
   let stored = 0;
   let duplicates = 0;
   let statuses = 0;
+  let appEchoes = 0;
 
   try {
     for (const message of normalizeMetaWhatsApp(payload)) {
-      if (message.message_type.startsWith('status:')) {
-        statuses += 1;
-        await db.from('messaging_transport_status').upsert({
-          transport: 'cloud_api',
-          status: 'connected',
-          updated_at: new Date().toISOString(),
-        });
-        continue;
-      }
+      const isStatus = message.message_type.startsWith('status:');
+      const isAppEcho = Boolean((message.raw_payload as any)?.source === 'whatsapp_business_app');
       const result = await persistMessage(db, message);
-      result.duplicate ? (duplicates += 1) : (stored += 1);
+
+      if (isStatus) {
+        statuses += 1;
+      } else {
+        result.duplicate ? (duplicates += 1) : (stored += 1);
+        if (isAppEcho && !result.duplicate) appEchoes += 1;
+      }
     }
-    return Response.json({ ok: true, stored, duplicates, statuses, ai_called: false });
+
+    return Response.json({ ok: true, stored, duplicates, statuses, app_echoes: appEchoes, ai_called: false });
   } catch (error) {
     console.error('whatsapp_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
