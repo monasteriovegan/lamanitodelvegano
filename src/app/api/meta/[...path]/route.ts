@@ -40,6 +40,7 @@ const RESPONSE_HEADERS = [
 ];
 
 type RouteContext = { params: Promise<{ path: string[] }> };
+type LocalWebhookHandler = (request: Request) => Promise<Response>;
 
 function localWebhookRequest(
   incomingUrl: URL,
@@ -58,6 +59,50 @@ function localWebhookRequest(
     headers: localHeaders,
     body: requestBody,
   });
+}
+
+async function deliverMirroredWebhook(input: {
+  label: string;
+  pathname: string;
+  handler: LocalWebhookHandler;
+  incomingUrl: URL;
+  request: Request;
+  requestBody: Uint8Array;
+  upstreamUrl: URL;
+  upstreamHeaders: Headers;
+}) {
+  const localRequest = localWebhookRequest(
+    input.incomingUrl,
+    input.request,
+    input.requestBody,
+    input.pathname,
+  );
+
+  const [localResult, upstreamResult] = await Promise.allSettled([
+    input.handler(localRequest),
+    fetch(input.upstreamUrl, {
+      method: 'POST',
+      headers: input.upstreamHeaders,
+      body: input.requestBody,
+      redirect: 'manual',
+      cache: 'no-store',
+    }),
+  ]);
+
+  if (upstreamResult.status === 'rejected') {
+    console.error(`Meta ${input.label} upstream compatibility delivery failed`, {
+      error: upstreamResult.reason instanceof Error ? upstreamResult.reason.message : 'unknown_error',
+    });
+  }
+
+  if (localResult.status === 'rejected') {
+    console.error(`Meta ${input.label} local persistence handler failed`, {
+      error: localResult.reason instanceof Error ? localResult.reason.message : 'unknown_error',
+    });
+    return Response.json({ error: 'meta_local_handler_failed' }, { status: 500 });
+  }
+
+  return localResult.value;
 }
 
 async function proxyMetaRequest(request: Request, context: RouteContext) {
@@ -103,43 +148,30 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const requestBody = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
 
-  // Meta is configured to deliver WhatsApp and Messenger/Instagram webhooks to
-  // historical proxied routes. Mirror those signed payloads into our local
-  // Messaging Core while preserving the upstream delivery for compatibility.
-  const localHandler = route === 'webhooks/whatsapp'
-    ? { pathname: '/api/whatsapp', handler: handleLocalWhatsAppWebhook, label: 'WhatsApp' }
-    : route === 'webhooks/messaging'
-      ? { pathname: '/api/instagram', handler: handleLocalInstagramWebhook, label: 'Instagram/Messaging' }
-      : null;
+  if (request.method === 'POST' && requestBody && route === 'webhooks/whatsapp') {
+    return deliverMirroredWebhook({
+      label: 'WhatsApp',
+      pathname: '/api/whatsapp',
+      handler: handleLocalWhatsAppWebhook,
+      incomingUrl,
+      request,
+      requestBody,
+      upstreamUrl,
+      upstreamHeaders: headers,
+    });
+  }
 
-  if (localHandler && request.method === 'POST' && requestBody) {
-    const localRequest = localWebhookRequest(incomingUrl, request, requestBody, localHandler.pathname);
-
-    const [localResult, upstreamResult] = await Promise.allSettled([
-      localHandler.handler(localRequest),
-      fetch(upstreamUrl, {
-        method: 'POST',
-        headers,
-        body: requestBody,
-        redirect: 'manual',
-        cache: 'no-store',
-      }),
-    ]);
-
-    if (upstreamResult.status === 'rejected') {
-      console.error(`Meta ${localHandler.label} upstream compatibility delivery failed`, {
-        error: upstreamResult.reason instanceof Error ? upstreamResult.reason.message : 'unknown_error',
-      });
-    }
-
-    if (localResult.status === 'rejected') {
-      console.error(`Meta ${localHandler.label} local persistence handler failed`, {
-        error: localResult.reason instanceof Error ? localResult.reason.message : 'unknown_error',
-      });
-      return Response.json({ error: 'meta_local_handler_failed' }, { status: 500 });
-    }
-
-    return localResult.value;
+  if (request.method === 'POST' && requestBody && route === 'webhooks/messaging') {
+    return deliverMirroredWebhook({
+      label: 'Instagram/Messaging',
+      pathname: '/api/instagram',
+      handler: handleLocalInstagramWebhook,
+      incomingUrl,
+      request,
+      requestBody,
+      upstreamUrl,
+      upstreamHeaders: headers,
+    });
   }
 
   try {
