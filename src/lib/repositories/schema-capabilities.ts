@@ -29,7 +29,13 @@ export function getSchemaCapabilities(
   env?: { SUPABASE_SCHEMA_VERSION?: string; SUPABASE_CHECKOUT_SCHEMA_READY?: string },
 ): SchemaCapabilities {
   const source = env || process.env;
-  const reconciled = source.SUPABASE_SCHEMA_VERSION === RECONCILED_SCHEMA_VERSION;
+  const configuredVersion = source.SUPABASE_SCHEMA_VERSION?.trim();
+
+  // V2 is already installed in the canonical Supabase project. Older deployments
+  // that do not carry the version flag must therefore use the reconciled schema,
+  // while an explicitly different version still fails closed.
+  const reconciled = !configuredVersion || configuredVersion === RECONCILED_SCHEMA_VERSION;
+
   return {
     version: reconciled ? RECONCILED_SCHEMA_VERSION : 'current',
     reconciled,
@@ -39,6 +45,7 @@ export function getSchemaCapabilities(
     persistentCart: reconciled,
     conversionHub: reconciled,
     messagingExtensions: reconciled,
+    // Checkout writes remain independently gated. This does not enable Production checkout.
     checkoutWrites: reconciled && source.SUPABASE_CHECKOUT_SCHEMA_READY === 'true',
   };
 }
