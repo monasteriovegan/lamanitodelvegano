@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CartProvider, useCart } from '@/lib/cart/CartContext';
+import { useCart } from '@/lib/cart/CartContext';
 import { Navbar } from './Navbar';
 import { CartDrawer } from '@/components/tienda/CartDrawer';
 import { FloatingEffects } from './FloatingEffects';
@@ -38,7 +38,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <CartProvider>
+    <>
       {tallerCerrado && (
         <div
           style={{
@@ -71,6 +71,6 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <CartDrawer />
       <Chatbot />
       <Footer />
-    </CartProvider>
+    </>
   );
 }

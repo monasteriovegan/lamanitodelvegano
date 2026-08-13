@@ -3,6 +3,7 @@ import { Syne, Space_Grotesk, Fraunces } from 'next/font/google';
 import './globals.css';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { AnalyticsScripts } from '@/components/layout/AnalyticsScripts';
+import { CartProvider } from '@/lib/cart/CartContext';
 
 const syne = Syne({
   subsets: ['latin'],
@@ -55,7 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es">
       <body className={`${syne.variable} ${spaceGrotesk.variable} ${fraunces.variable} antialiased`}>
         <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
-        {children}
+        <CartProvider>{children}</CartProvider>
       </body>
     </html>
   );

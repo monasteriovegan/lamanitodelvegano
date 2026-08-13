@@ -2,6 +2,9 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import { PageHeader, Badge } from '../_ui/AdminUI';
 import Link from 'next/link';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +18,7 @@ const fmt = (n: number) =>
 export default async function MetricasPage() {
   await requireRole(['admin']);
   const db = createSupabaseServiceClient();
+  const capabilities = getSchemaCapabilities();
   const now = new Date();
 
   // Last 6 months
@@ -28,28 +32,24 @@ export default async function MetricasPage() {
   });
 
   // Fetch all orders, customers, and events
-  const [
-    { data: allOrders },
-    { data: customers },
-    { data: marketingEvents },
-  ] = await Promise.all([
-    db.from('pedidos').select('*').order('created_at', { ascending: false }),
-    db.from('customers').select('*').order('total_spent', { ascending: false }),
-    db
+  const [allOrders, customers, marketingResult] = await Promise.all([
+    new OrderRepository(db, capabilities).list(),
+    new CustomerRepository(db, capabilities).list(),
+    capabilities.supportTables ? db
       .from('analytics_events')
       .select('*')
       .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
   ]);
+  const marketingEvents = marketingResult.data;
 
-  const orders = allOrders || [];
+  const orders = allOrders;
   
   // Paid orders (including shipped and completed as fallback)
   const paidOrders = orders.filter(
     o =>
       o.payment_status === 'paid' ||
-      o.estado_pago === 'pagado' ||
-      ['Pagado', 'Despachado', 'Completado'].includes(o.status || o.estado)
+      ['confirmed', 'processing', 'shipped', 'delivered'].includes(o.status)
   );
 
   // Sales per month
@@ -60,7 +60,7 @@ export default async function MetricasPage() {
     });
     return {
       label: m.label,
-      revenue: os.reduce((s, o) => s + Number(o.total || o.totalSpent || 0), 0),
+      revenue: os.reduce((s, o) => s + Number(o.total || 0), 0),
       orders: os.length,
     };
   });
@@ -68,10 +68,10 @@ export default async function MetricasPage() {
   const maxRevenue = Math.max(...monthlyData.map(m => m.revenue), 1);
 
   // Global KPIs
-  const totalRevenue = paidOrders.reduce((s, o) => s + Number(o.total || o.totalSpent || 0), 0);
+  const totalRevenue = paidOrders.reduce((s, o) => s + Number(o.total || 0), 0);
   const avgTicket = paidOrders.length ? totalRevenue / paidOrders.length : 0;
   const cancelRate = orders.length
-    ? ((orders.filter(o => ['Cancelado', 'cancelled'].includes(o.status || o.estado)).length / orders.length) * 100).toFixed(1)
+    ? ((orders.filter(o => o.status === 'cancelled').length / orders.length) * 100).toFixed(1)
     : '0';
 
   // Aggregate Top Products from paid orders items jsonb list
@@ -97,7 +97,7 @@ export default async function MetricasPage() {
   const maxProd = Math.max(...topProducts.map(p => p.rev), 1);
 
   // Top Customers
-  const topCustomers = (customers || []).slice(0, 5);
+  const topCustomers = customers.slice(0, 5);
 
   // Marketing Events totals
   const EVENT_LABELS: Record<string, { label: string; color: string; icon: string }> = {

@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
-
-async function getBusinessId(db: any) {
-  const { data: biz } = await db
-    .from('businesses')
-    .select('id')
-    .eq('slug', 'la-manito-del-vegano')
-    .maybeSingle();
-  return biz?.id || null;
-}
+import { DeliveryRepository } from '@/lib/repositories/delivery-repository';
+import { SchemaCapabilityError } from '@/lib/repositories/schema-capabilities';
 
 export async function GET() {
   const admin = await getCurrentAdminUser();
@@ -18,18 +11,8 @@ export async function GET() {
   }
 
   const db = createSupabaseServiceClient();
-  const businessId = await getBusinessId(db);
-  if (!businessId) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 });
-
-  const { data, error } = await db
-    .from('blocked_delivery_dates')
-    .select('*')
-    .eq('business_id', businessId)
-    .gte('date', new Date().toISOString().split('T')[0])
-    .order('date');
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ data: data || [] });
+  const data = await new DeliveryRepository(db).listBlockedDates();
+  return NextResponse.json({ data });
 }
 
 export async function POST(req: Request) {
@@ -39,16 +22,12 @@ export async function POST(req: Request) {
   }
 
   const db = createSupabaseServiceClient();
-  const businessId = await getBusinessId(db);
-  if (!businessId) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 });
-
   const body = await req.json();
-  const payload = {
-    ...body,
-    business_id: businessId,
-  };
-
-  const { data, error } = await db.from('blocked_delivery_dates').insert(payload).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ data }, { status: 201 });
+  try {
+    const data = await new DeliveryRepository(db).blockDate(body);
+    return NextResponse.json({ data }, { status: 201 });
+  } catch (error) {
+    const status = error instanceof SchemaCapabilityError ? 503 : 400;
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'blocked_date_create_failed' }, { status });
+  }
 }

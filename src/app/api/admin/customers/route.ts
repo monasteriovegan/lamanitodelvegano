@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
 
 export async function GET() {
   const admin = await getCurrentAdminUser();
@@ -9,7 +10,10 @@ export async function GET() {
   }
 
   const db = createSupabaseServiceClient();
-  const { data, error } = await db.from('customers').select('*').order('total_spent', { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ data: data || [] });
+  try {
+    const data = await new CustomerRepository(db).list();
+    return NextResponse.json({ data });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'customers_read_failed' }, { status: 400 });
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { useCart } from '@/lib/cart/CartContext';
@@ -10,6 +10,7 @@ import type { Zona } from '@/types/domain';
 function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
+  const idempotencyKey = useRef<string>(crypto.randomUUID());
 
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonaId, setZonaId] = useState('');
@@ -18,6 +19,29 @@ function CheckoutContent() {
   const [direccion, setDireccion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [attribution, setAttribution] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const keys = ['fbclid', 'fbc', 'fbp', 'gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    const captured = Object.fromEntries(
+      keys.map((key) => [key, params.get(key) || '']).filter(([, value]) => value),
+    );
+    const current = {
+      ...captured,
+      landing_url: window.location.href,
+      referrer: document.referrer || '',
+    };
+    let firstTouch: Record<string, string> = {};
+    try {
+      firstTouch = JSON.parse(localStorage.getItem('lmv_cart_attribution') || '{}');
+    } catch {
+      firstTouch = {};
+    }
+    const merged = { ...current, ...firstTouch, ...captured };
+    localStorage.setItem('lmv_cart_attribution', JSON.stringify(merged));
+    setAttribution(merged);
+  }, []);
 
   // InitiateCheckout / begin_checkout — una vez por carga de la página,
   // con el valor real del carrito en ese momento.
@@ -57,6 +81,7 @@ function CheckoutContent() {
           telefono: telefono || null,
           items,
           subtotal,
+          attribution,
         }),
       }).catch(() => {
         // silencioso a propósito: esto es best-effort, nunca debe
@@ -65,7 +90,7 @@ function CheckoutContent() {
     }, 2000);
 
     return () => clearTimeout(timeoutId);
-  }, [items, subtotal, nombre, email, telefono]);
+  }, [items, subtotal, nombre, email, telefono, attribution]);
 
   const zonaSeleccionada = zonas.find((z) => z.id === zonaId);
   const totalEstimado = subtotal + (zonaSeleccionada?.precio || 0);
@@ -81,11 +106,13 @@ function CheckoutContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          idempotencyKey: idempotencyKey.current,
           cliente: { nombre, direccion, telefono, email },
           items: items.map((i) => ({ productoId: i.productoId, qty: i.qty, formato: i.formato, variedad: i.variedad })),
           zonaId: zonaId || null,
           cuponCode: cuponCode || null,
           metodoPago,
+          attribution,
         }),
       });
 
@@ -148,6 +175,7 @@ function CheckoutContent() {
         <h1 className="font-display font-bold text-xl text-white mb-6">🛒 Finalizar pedido</h1>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <input type="hidden" data-testid="checkout-idempotency-key" value={idempotencyKey.current} readOnly />
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Tus datos</h2>
             <div className="flex flex-col gap-2.5">

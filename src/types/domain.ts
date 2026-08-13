@@ -24,7 +24,7 @@ export interface FormatoProducto {
 }
 
 export interface Producto {
-  id: string; // text en BD real, no uuid
+  id: string; // uuid en BD real
   slug: string; // URL propia del producto, para /productos/[slug]
   nombre: string;
   descripcion: string | null; // columna real es 'descripcion', no descripcion_corta/larga
@@ -154,6 +154,7 @@ export interface Pedido {
 // Payload que el cliente manda a /api/checkout — SOLO intenciones, nunca precios finales.
 // El servidor recalcula todo desde la base de datos.
 export interface CheckoutRequest {
+  idempotencyKey?: string;
   cliente: ClienteInfo;
   items: { productoId: string; qty: number; formato?: string | null; variedad?: string | null }[];
   zonaId: string | null;
@@ -162,6 +163,21 @@ export interface CheckoutRequest {
   canjearPuntos?: boolean;
   pinFidelidad?: string;
   metodoPago: 'mercadopago' | 'flow' | 'whatsapp' | 'transfer';
+  attribution?: {
+    fbclid?: string;
+    fbc?: string;
+    fbp?: string;
+    gclid?: string;
+    gbraid?: string;
+    wbraid?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+    landing_url?: string;
+    referrer?: string;
+  };
 }
 
 // ------------------------------------------------------------

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import type { ItemCarrito } from '@/types/domain';
 
 interface CartContextValue {
@@ -34,6 +34,7 @@ const noopCartContext: CartContextValue = {
 // no truene el build — simplemente se comporta como un carrito vacío
 // hasta que el cliente hidrate dentro del Provider real.
 const CartContext = createContext<CartContextValue>(noopCartContext);
+const CART_STORAGE_KEY = 'lmv_cart_v1';
 
 // Una "key" identifica un item único en el carrito: mismo producto pero
 // distinto formato/variedad cuenta como línea separada (igual que el original).
@@ -44,31 +45,58 @@ function itemKey(item: Pick<ItemCarrito, 'productoId' | 'formato' | 'variedad'>)
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ItemCarrito[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || '[]');
+      if (Array.isArray(stored)) setItems(stored as ItemCarrito[]);
+    } catch {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  }, [hydrated, items]);
 
   const addItem = useCallback((newItem: ItemCarrito) => {
     setItems((prev) => {
       const key = itemKey(newItem);
       const existing = prev.find((i) => itemKey(i) === key);
-      if (existing) {
-        return prev.map((i) => (itemKey(i) === key ? { ...i, qty: i.qty + newItem.qty } : i));
-      }
-      return [...prev, newItem];
+      const next = existing
+        ? prev.map((i) => (itemKey(i) === key ? { ...i, qty: i.qty + newItem.qty } : i))
+        : [...prev, newItem];
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
     });
   }, []);
 
   const changeQty = useCallback((key: string, delta: number) => {
-    setItems((prev) =>
-      prev
+    setItems((prev) => {
+      const next = prev
         .map((i) => (itemKey(i) === key ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-        .filter((i) => i.qty > 0)
-    );
+        .filter((i) => i.qty > 0);
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const removeItem = useCallback((key: string) => {
-    setItems((prev) => prev.filter((i) => itemKey(i) !== key));
+    setItems((prev) => {
+      const next = prev.filter((i) => itemKey(i) !== key);
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const clearCart = useCallback(() => {
+    window.localStorage.setItem(CART_STORAGE_KEY, '[]');
+    setItems([]);
+  }, []);
 
   const count = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.qty * i.precio, 0), [items]);
