@@ -1,8 +1,14 @@
+import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizarTelefonoChile } from '@/lib/whatsapp/client';
 
-export async function sendWhatsAppCloud(input: { to: string; text: string }) {
-  if (process.env.META_SEND_MODE !== 'live') {
+export async function sendWhatsAppCloud(
+  input: { to: string; text: string },
+  options: { manual?: boolean } = {},
+) {
+  // Automatic/agent sends remain blocked unless explicitly enabled.
+  // A human admin may still send a manual reply from the authenticated CRM.
+  if (!options.manual && process.env.META_SEND_MODE !== 'live') {
     throw new Error('real_sends_disabled');
   }
 
