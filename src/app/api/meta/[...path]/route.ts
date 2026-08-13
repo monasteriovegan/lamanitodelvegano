@@ -1,4 +1,5 @@
 import { POST as handleLocalWhatsAppWebhook } from '@/app/api/whatsapp/route';
+import { POST as handleLocalInstagramWebhook } from '@/app/api/instagram/route';
 
 const UPSTREAM_ENV_NAME = 'META_PROXY_UPSTREAM_URL';
 
@@ -39,6 +40,25 @@ const RESPONSE_HEADERS = [
 ];
 
 type RouteContext = { params: Promise<{ path: string[] }> };
+
+function localWebhookRequest(
+  incomingUrl: URL,
+  request: Request,
+  requestBody: Uint8Array,
+  pathname: string,
+) {
+  const localHeaders = new Headers();
+  for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {
+    const value = request.headers.get(name);
+    if (value) localHeaders.set(name, value);
+  }
+
+  return new Request(new URL(pathname, incomingUrl.origin), {
+    method: 'POST',
+    headers: localHeaders,
+    body: requestBody,
+  });
+}
 
 async function proxyMetaRequest(request: Request, context: RouteContext) {
   const { path } = await context.params;
@@ -83,24 +103,20 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const requestBody = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
 
-  // Meta's active WhatsApp subscription currently points to this proxied route.
-  // Persist the exact same signed payload in our local Messaging Core first,
-  // while keeping the historical upstream delivery as best-effort compatibility.
-  if (route === 'webhooks/whatsapp' && request.method === 'POST' && requestBody) {
-    const localHeaders = new Headers();
-    for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {
-      const value = request.headers.get(name);
-      if (value) localHeaders.set(name, value);
-    }
+  // Meta is configured to deliver WhatsApp and Messenger/Instagram webhooks to
+  // historical proxied routes. Mirror those signed payloads into our local
+  // Messaging Core while preserving the upstream delivery for compatibility.
+  const localHandler = route === 'webhooks/whatsapp'
+    ? { pathname: '/api/whatsapp', handler: handleLocalWhatsAppWebhook, label: 'WhatsApp' }
+    : route === 'webhooks/messaging'
+      ? { pathname: '/api/instagram', handler: handleLocalInstagramWebhook, label: 'Instagram/Messaging' }
+      : null;
 
-    const localRequest = new Request(new URL('/api/whatsapp', incomingUrl.origin), {
-      method: 'POST',
-      headers: localHeaders,
-      body: requestBody,
-    });
+  if (localHandler && request.method === 'POST' && requestBody) {
+    const localRequest = localWebhookRequest(incomingUrl, request, requestBody, localHandler.pathname);
 
     const [localResult, upstreamResult] = await Promise.allSettled([
-      handleLocalWhatsAppWebhook(localRequest),
+      localHandler.handler(localRequest),
       fetch(upstreamUrl, {
         method: 'POST',
         headers,
@@ -111,16 +127,16 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
     ]);
 
     if (upstreamResult.status === 'rejected') {
-      console.error('Meta WhatsApp upstream compatibility delivery failed', {
+      console.error(`Meta ${localHandler.label} upstream compatibility delivery failed`, {
         error: upstreamResult.reason instanceof Error ? upstreamResult.reason.message : 'unknown_error',
       });
     }
 
     if (localResult.status === 'rejected') {
-      console.error('Meta WhatsApp local persistence handler failed', {
+      console.error(`Meta ${localHandler.label} local persistence handler failed`, {
         error: localResult.reason instanceof Error ? localResult.reason.message : 'unknown_error',
       });
-      return Response.json({ error: 'whatsapp_local_handler_failed' }, { status: 500 });
+      return Response.json({ error: 'meta_local_handler_failed' }, { status: 500 });
     }
 
     return localResult.value;
