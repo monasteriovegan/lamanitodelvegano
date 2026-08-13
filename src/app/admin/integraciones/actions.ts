@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { setupMetaMessaging } from '@/lib/meta/setup-messaging';
 
 const META_APP_ID = '1691394752113175';
 
@@ -26,17 +27,9 @@ async function tryExchangeMetaToken(token: string | null) {
     });
   }
 
-  // Never destroy a credential merely because exchange was not applicable.
   return token;
 }
 
-/**
- * integraciones_secretas no tiene policy de RLS ni para 'authenticated',
- * así que incluso el admin autenticado no puede leerla/escribirla con el
- * cliente normal — a propósito. Aquí, después de verificar manualmente
- * que quien llama es admin, usamos el cliente de service_role SOLO para
- * esta tabla específica.
- */
 export async function guardarIntegraciones(formData: FormData) {
   await requireRole(['admin']);
 
@@ -52,9 +45,6 @@ export async function guardarIntegraciones(formData: FormData) {
     flow_secret_key: (formData.get('flow_secret_key') as string) || null,
     mp_access_token: (formData.get('mp_access_token') as string) || null,
     gemini_api_key: (formData.get('gemini_api_key') as string) || null,
-    // This Meta user token is shared by the official WhatsApp + Instagram
-    // transport. When possible we exchange a fresh Explorer token for its
-    // long-lived form before persisting it.
     wa_access_token: durableMetaToken,
     wa_verify_token: (formData.get('wa_verify_token') as string) || null,
     wa_phone_number_id: (formData.get('wa_phone_number_id') as string) || null,
@@ -67,6 +57,27 @@ export async function guardarIntegraciones(formData: FormData) {
   const { error } = await supabase.from('integraciones_secretas').upsert(payload);
   if (error) throw new Error(error.message);
 
+  // Credential save should never fail merely because Meta is temporarily
+  // unavailable. Configure/verify both messaging assets best-effort and log
+  // only non-secret status information.
+  if (durableMetaToken) {
+    try {
+      const setup = await setupMetaMessaging(durableMetaToken);
+      console.info('meta_messaging_setup', {
+        ok: setup.ok,
+        tokenValid: setup.tokenValid,
+        pageSubscription: setup.pageSubscription?.ok ?? false,
+        wabaSubscription: setup.wabaSubscription?.ok ?? false,
+        warnings: setup.warnings,
+      });
+    } catch (setupError) {
+      console.warn('meta_messaging_setup_failed', {
+        message: setupError instanceof Error ? setupError.message : 'unknown',
+      });
+    }
+  }
+
   revalidatePath('/admin/integraciones');
+  revalidatePath('/admin/conversaciones');
   revalidatePath('/', 'layout');
 }
