@@ -1,10 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const configuredUpstream = process.env.META_PROXY_UPSTREAM_URL;
-  if (!configuredUpstream) {
-    return Response.json({ error: 'meta_proxy_not_configured' }, { status: 503 });
-  }
+  const configuredUpstream = process.env.META_PROXY_UPSTREAM_URL || 'https://synthetiq-meta-dev-proxy.vercel.app';
 
   let upstreamBase: URL;
   try {
