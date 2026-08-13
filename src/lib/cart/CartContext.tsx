@@ -67,26 +67,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => {
       const key = itemKey(newItem);
       const existing = prev.find((i) => itemKey(i) === key);
-      if (existing) {
-        return prev.map((i) => (itemKey(i) === key ? { ...i, qty: i.qty + newItem.qty } : i));
-      }
-      return [...prev, newItem];
+      const next = existing
+        ? prev.map((i) => (itemKey(i) === key ? { ...i, qty: i.qty + newItem.qty } : i))
+        : [...prev, newItem];
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
     });
   }, []);
 
   const changeQty = useCallback((key: string, delta: number) => {
-    setItems((prev) =>
-      prev
+    setItems((prev) => {
+      const next = prev
         .map((i) => (itemKey(i) === key ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-        .filter((i) => i.qty > 0)
-    );
+        .filter((i) => i.qty > 0);
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const removeItem = useCallback((key: string) => {
-    setItems((prev) => prev.filter((i) => itemKey(i) !== key));
+    setItems((prev) => {
+      const next = prev.filter((i) => itemKey(i) !== key);
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const clearCart = useCallback(() => {
+    window.localStorage.setItem(CART_STORAGE_KEY, '[]');
+    setItems([]);
+  }, []);
 
   const count = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.qty * i.precio, 0), [items]);
