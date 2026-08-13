@@ -40,6 +40,15 @@ const RESPONSE_HEADERS = [
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
+function webhookHeaders(request: Request) {
+  const localHeaders = new Headers();
+  for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {
+    const value = request.headers.get(name);
+    if (value) localHeaders.set(name, value);
+  }
+  return localHeaders;
+}
+
 async function proxyMetaRequest(request: Request, context: RouteContext) {
   const { path } = await context.params;
   const route = path.join('/');
@@ -84,15 +93,9 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
   const requestBody = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
 
   if (route === 'webhooks/whatsapp' && request.method === 'POST' && requestBody) {
-    const localHeaders = new Headers();
-    for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {
-      const value = request.headers.get(name);
-      if (value) localHeaders.set(name, value);
-    }
-
     const localRequest = new Request(new URL('/api/whatsapp', incomingUrl.origin), {
       method: 'POST',
-      headers: localHeaders,
+      headers: webhookHeaders(request),
       body: requestBody,
     });
 
@@ -120,6 +123,51 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
       return Response.json({ error: 'whatsapp_local_handler_failed' }, { status: 500 });
     }
 
+    return localResult.value;
+  }
+
+  // The Meta app historically points Instagram/Messenger notifications to
+  // /api/meta/webhooks/messaging. Mirror that signed payload into the local
+  // Instagram handler as well as the existing upstream backend. This keeps
+  // the CRM working even if the app-level callback has not yet moved to
+  // /api/instagram, and avoids importing a second Next route handler here.
+  if (route === 'webhooks/messaging' && request.method === 'POST' && requestBody) {
+    const localUrl = new URL('/api/instagram', incomingUrl.origin);
+    const [localResult, upstreamResult] = await Promise.allSettled([
+      fetch(localUrl, {
+        method: 'POST',
+        headers: webhookHeaders(request),
+        body: requestBody,
+        redirect: 'manual',
+        cache: 'no-store',
+      }),
+      fetch(upstreamUrl, {
+        method: 'POST',
+        headers,
+        body: requestBody,
+        redirect: 'manual',
+        cache: 'no-store',
+      }),
+    ]);
+
+    if (upstreamResult.status === 'rejected') {
+      console.error('Meta Instagram upstream compatibility delivery failed', {
+        error: upstreamResult.reason instanceof Error ? upstreamResult.reason.message : 'unknown_error',
+      });
+    }
+
+    if (localResult.status === 'rejected') {
+      console.error('Meta Instagram local persistence delivery failed', {
+        error: localResult.reason instanceof Error ? localResult.reason.message : 'unknown_error',
+      });
+      return Response.json({ error: 'instagram_local_handler_failed' }, { status: 500 });
+    }
+
+    if (!localResult.value.ok) {
+      console.error('Meta Instagram local persistence handler returned non-2xx', {
+        status: localResult.value.status,
+      });
+    }
     return localResult.value;
   }
 
