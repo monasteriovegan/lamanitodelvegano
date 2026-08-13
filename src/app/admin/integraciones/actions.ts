@@ -36,6 +36,7 @@ export async function guardarIntegraciones(formData: FormData) {
   const supabase = createSupabaseServiceClient();
   const submittedMetaToken = (formData.get('wa_access_token') as string) || null;
   const durableMetaToken = await tryExchangeMetaToken(submittedMetaToken);
+  const verifyToken = (formData.get('wa_verify_token') as string) || null;
 
   const payload = {
     id: 'global',
@@ -46,7 +47,7 @@ export async function guardarIntegraciones(formData: FormData) {
     mp_access_token: (formData.get('mp_access_token') as string) || null,
     gemini_api_key: (formData.get('gemini_api_key') as string) || null,
     wa_access_token: durableMetaToken,
-    wa_verify_token: (formData.get('wa_verify_token') as string) || null,
+    wa_verify_token: verifyToken,
     wa_phone_number_id: (formData.get('wa_phone_number_id') as string) || null,
     resend_api_key: (formData.get('resend_api_key') as string) || null,
     resend_from_email: (formData.get('resend_from_email') as string) || null,
@@ -57,15 +58,13 @@ export async function guardarIntegraciones(formData: FormData) {
   const { error } = await supabase.from('integraciones_secretas').upsert(payload);
   if (error) throw new Error(error.message);
 
-  // Credential save should never fail merely because Meta is temporarily
-  // unavailable. Configure/verify both messaging assets best-effort and log
-  // only non-secret status information.
   if (durableMetaToken) {
     try {
-      const setup = await setupMetaMessaging(durableMetaToken);
+      const setup = await setupMetaMessaging(durableMetaToken, { verifyToken });
       console.info('meta_messaging_setup', {
         ok: setup.ok,
         tokenValid: setup.tokenValid,
+        instagramAppSubscription: setup.instagramAppSubscription?.ok ?? false,
         pageSubscription: setup.pageSubscription?.ok ?? false,
         wabaSubscription: setup.wabaSubscription?.ok ?? false,
         warnings: setup.warnings,
