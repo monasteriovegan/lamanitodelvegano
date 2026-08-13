@@ -18,7 +18,7 @@ set local statement_timeout = '120s';
 --    de tocar el schema.
 -- ---------------------------------------------------------------------------
 
-do $preflight$
+do language plpgsql $preflight$
 declare
   required_table text;
   forbidden_table text;
@@ -390,7 +390,7 @@ alter table public.productos add column if not exists allergens text[];
 alter table public.productos add column if not exists is_new boolean;
 alter table public.productos add column if not exists is_featured boolean;
 
-do $productos_constraints$
+do language plpgsql $productos_constraints$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -424,7 +424,7 @@ alter table public.pedidos add column if not exists tracking_number text;
 alter table public.pedidos add column if not exists admin_notes text;
 alter table public.pedidos add column if not exists updated_at timestamptz;
 
-do $pedidos_constraints$
+do language plpgsql $pedidos_constraints$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -492,7 +492,7 @@ alter table public.omnichannel_contacts add column if not exists total_spent num
 alter table public.omnichannel_contacts add column if not exists total_orders integer;
 alter table public.omnichannel_contacts add column if not exists last_order_at timestamptz;
 
-do $contact_constraints$
+do language plpgsql $contact_constraints$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -525,7 +525,7 @@ alter table public.conversations add column if not exists order_id integer;
 alter table public.conversations add column if not exists status text;
 alter table public.conversations add column if not exists metadata jsonb;
 
-do $conversation_constraints$
+do language plpgsql $conversation_constraints$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -564,7 +564,7 @@ alter table public.omnichannel_messages add column if not exists sent_at timesta
 alter table public.omnichannel_messages add column if not exists delivered_at timestamptz;
 alter table public.omnichannel_messages add column if not exists read_at timestamptz;
 
-do $message_constraints$
+do language plpgsql $message_constraints$
 begin
   if not exists (
     select 1 from pg_constraint
@@ -1357,7 +1357,7 @@ grant execute on function public.checkout_create_order_v2(
 -- 7. RLS y grants explicitos para Data API.
 -- ---------------------------------------------------------------------------
 
-do $private_rls$
+do language plpgsql $private_rls$
 declare
   table_name text;
   policy_name text;
@@ -1501,7 +1501,7 @@ alter policy leer_productos on public.productos
   to authenticated
   using ((select public.is_admin()));
 
-do $product_admin_read$
+do language plpgsql $product_admin_read$
 begin
   if not exists (
     select 1 from pg_policies
