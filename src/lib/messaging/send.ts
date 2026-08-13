@@ -1,7 +1,8 @@
 import { sendWhatsAppCloud } from './transports/whatsapp-cloud';
+import { sendInstagramMeta } from './transports/instagram-meta';
 
-type WhatsAppSendInput = {
-  channel: 'whatsapp';
+type SendInput = {
+  channel: 'whatsapp' | 'instagram';
   customerId?: string;
   conversationId: string;
   to: string;
@@ -9,10 +10,13 @@ type WhatsAppSendInput = {
   mode?: 'manual' | 'automatic';
 };
 
-export async function sendMessage(input: WhatsAppSendInput) {
-  if (input.channel !== 'whatsapp') throw new Error('unsupported_channel');
-  return sendWhatsAppCloud(
-    { to: input.to, text: input.text },
-    { manual: input.mode === 'manual' },
-  );
+export async function sendMessage(input: SendInput) {
+  const options = { manual: input.mode === 'manual' };
+  if (input.channel === 'whatsapp') {
+    return sendWhatsAppCloud({ to: input.to, text: input.text }, options);
+  }
+  if (input.channel === 'instagram') {
+    return sendInstagramMeta({ to: input.to, text: input.text }, options);
+  }
+  throw new Error('unsupported_channel');
 }
