@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import type { ItemCarrito } from '@/types/domain';
 
 interface CartContextValue {
@@ -34,6 +34,7 @@ const noopCartContext: CartContextValue = {
 // no truene el build — simplemente se comporta como un carrito vacío
 // hasta que el cliente hidrate dentro del Provider real.
 const CartContext = createContext<CartContextValue>(noopCartContext);
+const CART_STORAGE_KEY = 'lmv_cart_v1';
 
 // Una "key" identifica un item único en el carrito: mismo producto pero
 // distinto formato/variedad cuenta como línea separada (igual que el original).
@@ -44,6 +45,23 @@ function itemKey(item: Pick<ItemCarrito, 'productoId' | 'formato' | 'variedad'>)
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ItemCarrito[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || '[]');
+      if (Array.isArray(stored)) setItems(stored as ItemCarrito[]);
+    } catch {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  }, [hydrated, items]);
 
   const addItem = useCallback((newItem: ItemCarrito) => {
     setItems((prev) => {

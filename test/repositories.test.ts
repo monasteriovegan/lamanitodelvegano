@@ -174,3 +174,11 @@ test('checkout pre-migración se bloquea antes de escribir', () => {
     'el bloqueo debe ocurrir antes de cálculos o escrituras',
   );
 });
+
+test('el carrito persiste al navegar desde la tienda al checkout', () => {
+  const source = read('src/lib/cart/CartContext.tsx');
+  assert.match(source, /CART_STORAGE_KEY/);
+  assert.match(source, /localStorage\.getItem\(CART_STORAGE_KEY\)/);
+  assert.match(source, /localStorage\.setItem\(CART_STORAGE_KEY/);
+  assert.match(source, /if \(!hydrated\) return/);
+});
