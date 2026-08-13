@@ -1,3 +1,5 @@
+import { POST as handleLocalWhatsAppWebhook } from '@/app/api/whatsapp/route';
+
 const UPSTREAM_ENV_NAME = 'META_PROXY_UPSTREAM_URL';
 
 const EXACT_ROUTES: Record<string, string> = {
@@ -78,13 +80,57 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
   headers.set('x-forwarded-host', incomingUrl.host);
   headers.set('x-forwarded-proto', incomingUrl.protocol.replace(':', ''));
 
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+  const requestBody = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
+
+  // Meta's active WhatsApp subscription currently points to this proxied route.
+  // Persist the exact same signed payload in our local Messaging Core first,
+  // while keeping the historical upstream delivery as best-effort compatibility.
+  if (route === 'webhooks/whatsapp' && request.method === 'POST' && requestBody) {
+    const localHeaders = new Headers();
+    for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {
+      const value = request.headers.get(name);
+      if (value) localHeaders.set(name, value);
+    }
+
+    const localRequest = new Request(new URL('/api/whatsapp', incomingUrl.origin), {
+      method: 'POST',
+      headers: localHeaders,
+      body: requestBody,
+    });
+
+    const [localResult, upstreamResult] = await Promise.allSettled([
+      handleLocalWhatsAppWebhook(localRequest),
+      fetch(upstreamUrl, {
+        method: 'POST',
+        headers,
+        body: requestBody,
+        redirect: 'manual',
+        cache: 'no-store',
+      }),
+    ]);
+
+    if (upstreamResult.status === 'rejected') {
+      console.error('Meta WhatsApp upstream compatibility delivery failed', {
+        error: upstreamResult.reason instanceof Error ? upstreamResult.reason.message : 'unknown_error',
+      });
+    }
+
+    if (localResult.status === 'rejected') {
+      console.error('Meta WhatsApp local persistence handler failed', {
+        error: localResult.reason instanceof Error ? localResult.reason.message : 'unknown_error',
+      });
+      return Response.json({ error: 'whatsapp_local_handler_failed' }, { status: 500 });
+    }
+
+    return localResult.value;
+  }
+
   try {
     const upstreamResponse = await fetch(upstreamUrl, {
       method: request.method,
       headers,
-      body: request.method === 'GET' || request.method === 'HEAD'
-        ? undefined
-        : await request.arrayBuffer(),
+      body: requestBody,
       redirect: 'manual',
       cache: 'no-store',
     });
