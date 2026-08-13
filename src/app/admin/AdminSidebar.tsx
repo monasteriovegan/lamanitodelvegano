@@ -32,6 +32,7 @@ const GRUPOS = [
     tabs: [
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
+      { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/reservas', label: '📅 Reservas', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/zonas', label: '🚚 Envíos', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/entregas', label: '📅 Días de Entrega', exact: false, roles: ['admin'] as Rol[] },
@@ -48,7 +49,6 @@ const GRUPOS = [
   {
     label: 'Contenido',
     tabs: [
-      { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/blog', label: '✍️ Blog del Taller', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/mensajes', label: '✉️ Mensajes de Contacto', exact: false, roles: ['admin', 'soporte'] as Rol[] },
     ],
