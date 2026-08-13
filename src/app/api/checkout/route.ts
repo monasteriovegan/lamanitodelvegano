@@ -20,8 +20,9 @@ import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
  */
 export async function POST(req: NextRequest) {
   const body: CheckoutRequest = await req.json();
+  const idempotencyKey = req.headers.get('Idempotency-Key') || body.idempotencyKey;
 
-  if (!body.cliente?.nombre || !body.cliente?.telefono) {
+  if (!body.cliente?.nombre || !body.cliente?.telefono || !idempotencyKey) {
     return NextResponse.json({ error: 'Faltan datos del cliente.' }, { status: 400 });
   }
 
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   const pedido = await new OrderRepository(supabase, capabilities).createTransactionalCheckout({
+    idempotencyKey,
     businessUnitId: business.id,
     customerId: customer.id,
     customerEmail: customer.email || null,

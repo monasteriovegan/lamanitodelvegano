@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { useCart } from '@/lib/cart/CartContext';
@@ -10,6 +10,7 @@ import type { Zona } from '@/types/domain';
 function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
+  const idempotencyKey = useRef<string>(crypto.randomUUID());
 
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonaId, setZonaId] = useState('');
@@ -105,6 +106,7 @@ function CheckoutContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          idempotencyKey: idempotencyKey.current,
           cliente: { nombre, direccion, telefono, email },
           items: items.map((i) => ({ productoId: i.productoId, qty: i.qty, formato: i.formato, variedad: i.variedad })),
           zonaId: zonaId || null,
@@ -173,6 +175,7 @@ function CheckoutContent() {
         <h1 className="font-display font-bold text-xl text-white mb-6">🛒 Finalizar pedido</h1>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <input type="hidden" data-testid="checkout-idempotency-key" value={idempotencyKey.current} readOnly />
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Tus datos</h2>
             <div className="flex flex-col gap-2.5">

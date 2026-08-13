@@ -154,6 +154,7 @@ export interface Pedido {
 // Payload que el cliente manda a /api/checkout — SOLO intenciones, nunca precios finales.
 // El servidor recalcula todo desde la base de datos.
 export interface CheckoutRequest {
+  idempotencyKey?: string;
   cliente: ClienteInfo;
   items: { productoId: string; qty: number; formato?: string | null; variedad?: string | null }[];
   zonaId: string | null;

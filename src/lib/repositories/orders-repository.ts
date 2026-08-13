@@ -54,6 +54,7 @@ export type OrderListFilters = {
 };
 
 export type CheckoutOrderInput = {
+  idempotencyKey: string;
   businessUnitId: string;
   customerId: string | null;
   customerEmail: string | null;
@@ -264,6 +265,7 @@ export class OrderRepository {
     requireSchemaCapability(this.capabilities, 'orderExtensions');
     const { data, error } = await this.db
       .rpc('checkout_create_order_v2', {
+        p_idempotency_key: input.idempotencyKey,
         p_business_unit_id: input.businessUnitId,
         p_customer_id: input.customerId,
         p_customer_email: input.customerEmail,

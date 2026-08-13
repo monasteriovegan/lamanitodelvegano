@@ -95,6 +95,22 @@ test('checkout v2 concentra pedido, stock, carrito, atribución y conversión en
   assert.doesNotMatch(route, /createCheckoutOrder/);
 });
 
+test('checkout v2 es idempotente antes de crear pedido o descontar stock', () => {
+  const migration = read('supabase/patch-checkout-idempotency.sql');
+  const repository = read('src/lib/repositories/orders-repository.ts');
+  const route = read('src/app/api/checkout/route.ts');
+  assert.match(migration, /p_idempotency_key text/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(migration, /checkout_token_hash = token_hash/);
+  assert.match(migration, /idempotent_replay/);
+  assert.ok(
+    migration.indexOf("if found then") < migration.indexOf("insert into public.carts"),
+    'el replay debe resolverse antes de crear carrito, pedido o descontar stock',
+  );
+  assert.match(repository, /p_idempotency_key: input\.idempotencyKey/);
+  assert.match(route, /Idempotency-Key/);
+});
+
 test('customer identities se persisten con upsert idempotente', () => {
   const source = read('src/lib/repositories/customers-repository.ts');
   assert.match(source, /private async upsertIdentities/);
