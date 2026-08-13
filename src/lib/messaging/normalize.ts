@@ -10,13 +10,13 @@ export function normalizePhone(value: string) {
 }
 
 function messageText(message: any): string | null {
-  return message?.text?.body ?? message?.text ?? message?.button?.text ?? message?.postback?.title ?? null;
+  return message?.text?.body ?? message?.text ?? message?.button?.text ?? message?.postback?.title ?? message?.title ?? null;
 }
 
 function messageType(message: any): string {
   if (message?.type) return String(message.type);
   if (message?.attachments?.length) return String(message.attachments[0]?.type || 'attachment');
-  if (message?.postback) return 'postback';
+  if (message?.postback || message?.payload) return 'postback';
   if (message?.text) return 'text';
   return 'unknown';
 }
@@ -121,13 +121,13 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
 
       const eventBody = message ?? postback;
       const text = messageText(eventBody);
-      const type = messageType(eventBody);
+      const type = postback ? 'postback' : messageType(eventBody);
       const timestamp = Number(event?.timestamp ?? entry?.time ?? Date.now());
 
       normalized.push({
         channel: 'instagram',
         provider: 'meta',
-        transport: 'cloud_api',
+        transport: 'instagram_api',
         provider_message_id: mid,
         external_thread_id: counterpartyId,
         external_user_id: counterpartyId,
