@@ -1,5 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { normalizeMetaWhatsApp } from '@/lib/messaging/normalize';
+import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmac } from '@/lib/messaging/signature';
 
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  const supabase = createSupabaseServiceClient();
-  const { data: config } = await supabase
+  const db = createSupabaseServiceClient();
+  const { data: config } = await db
     .from('integraciones_secretas')
     .select('wa_verify_token')
     .eq('id', 'global')
@@ -39,29 +39,23 @@ export async function POST(request: Request) {
     return Response.json({ error: 'invalid_json' }, { status: 400 });
   }
 
+  if (payload?.object !== 'instagram') {
+    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false });
+  }
+
   const db = createSupabaseServiceClient();
   let stored = 0;
   let duplicates = 0;
-  let statuses = 0;
-  let appEchoes = 0;
 
   try {
-    for (const message of normalizeMetaWhatsApp(payload)) {
-      const isStatus = message.message_type.startsWith('status:');
-      const isAppEcho = Boolean((message.raw_payload as any)?.source === 'whatsapp_business_app');
+    for (const message of normalizeMetaInstagram(payload)) {
       const result = await persistMessage(db, message);
-
-      if (isStatus) {
-        statuses += 1;
-      } else {
-        result.duplicate ? (duplicates += 1) : (stored += 1);
-        if (isAppEcho && !result.duplicate) appEchoes += 1;
-      }
+      result.duplicate ? (duplicates += 1) : (stored += 1);
     }
 
-    return Response.json({ ok: true, stored, duplicates, statuses, app_echoes: appEchoes, ai_called: false });
+    return Response.json({ ok: true, stored, duplicates, ai_called: false });
   } catch (error) {
-    console.error('whatsapp_webhook_persist_failed', {
+    console.error('instagram_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
     });
     return Response.json({ error: 'persist_failed' }, { status: 500 });

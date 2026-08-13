@@ -3,7 +3,7 @@ export type Channel = 'whatsapp' | 'instagram' | 'messenger' | 'web' | 'manual';
 export type NormalizedMessage = {
   channel: Channel;
   provider: 'meta' | 'whatsapp_web' | 'web' | 'manual';
-  transport: 'cloud_api' | 'baileys' | 'web' | 'manual';
+  transport: 'cloud_api' | 'instagram_api' | 'baileys' | 'web' | 'manual';
   provider_message_id: string;
   external_thread_id: string;
   external_user_id: string;

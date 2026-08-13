@@ -83,9 +83,6 @@ async function proxyMetaRequest(request: Request, context: RouteContext) {
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   const requestBody = hasBody ? new Uint8Array(await request.arrayBuffer()) : undefined;
 
-  // Meta's active WhatsApp subscription currently points to this proxied route.
-  // Persist the exact same signed payload in our local Messaging Core first,
-  // while keeping the historical upstream delivery as best-effort compatibility.
   if (route === 'webhooks/whatsapp' && request.method === 'POST' && requestBody) {
     const localHeaders = new Headers();
     for (const name of ['content-type', 'user-agent', 'x-hub-signature-256']) {

@@ -79,12 +79,12 @@ export default async function AdminIntegracionesPage() {
         </fieldset>
 
         <fieldset className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
-          <legend className="text-sm font-bold text-white px-1">💬 WhatsApp Business</legend>
+          <legend className="text-sm font-bold text-white px-1">💬 Meta Messaging — WhatsApp + Instagram</legend>
           <p className="text-[11px] text-muted mb-3">
-            URL del webhook a pegar en Meta: <code className="text-neon">tu-dominio.cl/api/whatsapp</code>
+            El token de Meta habilita el envío oficial por WhatsApp e Instagram. Al guardar un token nuevo, el servidor intenta convertirlo a una credencial de mayor duración y verificar las suscripciones de mensajería. La IA automática sigue desactivada.
           </p>
           <div className="mt-2 mb-3">
-            <label className="block text-xs text-muted mb-1.5">Access Token</label>
+            <label className="block text-xs text-muted mb-1.5">Meta User Access Token</label>
             <input
               name="wa_access_token"
               type="password"
@@ -93,16 +93,16 @@ export default async function AdminIntegracionesPage() {
             />
           </div>
           <div className="mb-3">
-            <label className="block text-xs text-muted mb-1.5">Phone Number ID</label>
+            <label className="block text-xs text-muted mb-1.5">WhatsApp Phone Number ID</label>
             <input
               name="wa_phone_number_id"
               defaultValue={integraciones?.wa_phone_number_id || ''}
               className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
             />
-            <p className="text-[10px] text-muted mt-1">Necesario para poder ENVIAR mensajes, no solo recibirlos.</p>
+            <p className="text-[10px] text-muted mt-1">Necesario para poder ENVIAR mensajes por WhatsApp Cloud API.</p>
           </div>
           <div>
-            <label className="block text-xs text-muted mb-1.5">Verify Token (webhook)</label>
+            <label className="block text-xs text-muted mb-1.5">Verify Token (webhooks Meta)</label>
             <input
               name="wa_verify_token"
               defaultValue={integraciones?.wa_verify_token || ''}

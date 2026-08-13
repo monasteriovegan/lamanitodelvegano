@@ -74,6 +74,39 @@ async function applyProviderStatus(
   };
 }
 
+async function findCrossTransportDuplicate(
+  db: SupabaseClient,
+  conversationId: string,
+  message: NormalizedMessage,
+): Promise<{ id: string; customer_id: string | null } | null> {
+  // Cloud API and Baileys can observe the same physical WhatsApp message with
+  // different provider IDs. Only dedupe exact text copies from different
+  // transports and within a very tight timestamp window so two intentional
+  // repeated customer messages are not collapsed.
+  if (message.channel !== 'whatsapp' || !message.text || !['cloud_api', 'baileys'].includes(message.transport)) {
+    return null;
+  }
+
+  const at = new Date(message.sent_at).getTime();
+  if (!Number.isFinite(at)) return null;
+  const lower = new Date(at - 2500).toISOString();
+  const upper = new Date(at + 2500).toISOString();
+
+  const { data, error } = await db
+    .from('omnichannel_messages')
+    .select('id,customer_id,transport')
+    .eq('conversation_id', conversationId)
+    .eq('direction', message.direction)
+    .eq('body', message.text)
+    .neq('transport', message.transport)
+    .gte('sent_at', lower)
+    .lte('sent_at', upper)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { id: String(data.id), customer_id: data.customer_id ?? null } : null;
+}
+
 export async function persistMessage(
   db: SupabaseClient,
   message: NormalizedMessage,
@@ -110,6 +143,17 @@ export async function persistMessage(
     provider: message.provider,
     transport: message.transport,
   });
+
+  const crossTransportDuplicate = await findCrossTransportDuplicate(db, conversation.id, message);
+  if (crossTransportDuplicate) {
+    await updateTransportHealth(db, message);
+    return {
+      duplicate: true,
+      conversationId: conversation.id,
+      customerId: crossTransportDuplicate.customer_id ?? customerId,
+      messageId: crossTransportDuplicate.id,
+    };
+  }
 
   try {
     const created = await messages.create(conversation.id, customerId, message);
