@@ -1,14 +1,17 @@
 import 'server-only';
 
+const DEFAULT_APP_ID = '1691394752113175';
 const DEFAULT_PAGE_ID = '1210803402107834';
 const DEFAULT_IG_BUSINESS_ID = '17841419477422736';
 const DEFAULT_WABA_ID = '1129249369256097';
+const DEFAULT_SITE_URL = 'https://lamanitodelvegano.vercel.app';
 
 export type MetaMessagingSetupResult = {
   ok: boolean;
   tokenValid: boolean;
   permissions: string[];
   page: { id: string; name: string | null; instagramBusinessId: string | null } | null;
+  instagramAppSubscription: { ok: boolean; status: number; callbackUrl?: string; error?: string } | null;
   pageSubscription: { ok: boolean; status: number; fields?: string[]; error?: string } | null;
   wabaSubscription: { ok: boolean; status: number; subscribed?: boolean; error?: string } | null;
   warnings: string[];
@@ -32,7 +35,52 @@ function graphError(body: any, fallback: string) {
   return String(body?.error?.message || body?.message || fallback);
 }
 
-export async function setupMetaMessaging(userAccessToken: string): Promise<MetaMessagingSetupResult> {
+async function configureInstagramAppCallback(version: string, verifyToken?: string | null) {
+  if (!process.env.META_APP_SECRET || !verifyToken) {
+    return { ok: false, status: 0, error: 'Falta META_APP_SECRET o verify token' };
+  }
+
+  const appId = process.env.META_APP_ID || DEFAULT_APP_ID;
+  const tokenUrl = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
+  tokenUrl.searchParams.set('client_id', appId);
+  tokenUrl.searchParams.set('client_secret', process.env.META_APP_SECRET);
+  tokenUrl.searchParams.set('grant_type', 'client_credentials');
+  const tokenResponse = await fetch(tokenUrl, { cache: 'no-store' });
+  const tokenBody = await tokenResponse.json().catch(() => ({}));
+  if (!tokenResponse.ok || !tokenBody?.access_token) {
+    return { ok: false, status: tokenResponse.status, error: graphError(tokenBody, 'No se obtuvo App Access Token') };
+  }
+
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, '');
+  const callbackUrl = `${siteUrl}/api/instagram`;
+  const subscriptionUrl = new URL(`https://graph.facebook.com/${version}/${appId}/subscriptions`);
+  const body = new URLSearchParams({
+    object: 'instagram',
+    callback_url: callbackUrl,
+    fields: 'messages,messaging_postbacks',
+    verify_token: verifyToken,
+    include_values: 'true',
+  });
+
+  const response = await fetch(subscriptionUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${String(tokenBody.access_token)}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body,
+    cache: 'no-store',
+  });
+  const responseBody = await response.json().catch(() => ({}));
+  return response.ok && responseBody?.success
+    ? { ok: true, status: response.status, callbackUrl }
+    : { ok: false, status: response.status, callbackUrl, error: graphError(responseBody, 'No se pudo configurar callback Instagram') };
+}
+
+export async function setupMetaMessaging(
+  userAccessToken: string,
+  options: { verifyToken?: string | null } = {},
+): Promise<MetaMessagingSetupResult> {
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
   const pageId = process.env.META_PAGE_ID || DEFAULT_PAGE_ID;
   const instagramBusinessId = process.env.META_INSTAGRAM_BUSINESS_ID || DEFAULT_IG_BUSINESS_ID;
@@ -42,10 +90,16 @@ export async function setupMetaMessaging(userAccessToken: string): Promise<MetaM
     tokenValid: false,
     permissions: [],
     page: null,
+    instagramAppSubscription: null,
     pageSubscription: null,
     wabaSubscription: null,
     warnings: [],
   };
+
+  result.instagramAppSubscription = await configureInstagramAppCallback(version, options.verifyToken);
+  if (!result.instagramAppSubscription.ok && result.instagramAppSubscription.error) {
+    result.warnings.push(`Instagram webhook: ${result.instagramAppSubscription.error}`);
+  }
 
   const permissionsUrl = new URL(`https://graph.facebook.com/${version}/me/permissions`);
   const permissionsResult = await graphJson(permissionsUrl, userAccessToken);
@@ -79,8 +133,6 @@ export async function setupMetaMessaging(userAccessToken: string): Promise<MetaM
     };
 
     if (page.access_token) {
-      // For Facebook Login, the linked Page is the asset that receives the
-      // messaging webhook subscription. Keep the fields minimal and official.
       const subscribeUrl = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(String(page.id))}/subscribed_apps`);
       subscribeUrl.searchParams.set('subscribed_fields', 'messages,messaging_postbacks');
       const subscribeResult = await graphJson(subscribeUrl, String(page.access_token), { method: 'POST' });
@@ -88,11 +140,11 @@ export async function setupMetaMessaging(userAccessToken: string): Promise<MetaM
       if (subscribeResult.response.ok && subscribeResult.body?.success) {
         const inspectUrl = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(String(page.id))}/subscribed_apps`);
         const inspectResult = await graphJson(inspectUrl, String(page.access_token));
-        const app = (inspectResult.body?.data || []).find((item: any) => String(item?.id || '') === (process.env.META_APP_ID || '1691394752113175'));
+        const app = (inspectResult.body?.data || []).find((item: any) => String(item?.id || '') === (process.env.META_APP_ID || DEFAULT_APP_ID));
         result.pageSubscription = {
           ok: true,
           status: subscribeResult.response.status,
-          fields: Array.isArray(app?.subscribed_fields) ? app.subscribed_fields.map(String) : ['messages', 'messaging_postbacks'],
+          fields: Array.isArray(app?.subscribed_fields) ? app.subscribed_fields.map((field: unknown) => String(field)) : ['messages', 'messaging_postbacks'],
         };
       } else {
         result.pageSubscription = {
@@ -108,8 +160,6 @@ export async function setupMetaMessaging(userAccessToken: string): Promise<MetaM
     result.warnings.push('No se encontró la Página vinculada a @lamanitodelvegano en /me/accounts.');
   }
 
-  // Preserve the already-working WhatsApp subscription. POSTing the same
-  // official `messages` field is idempotent and avoids changing number/certificate/coexistence settings.
   const wabaUrl = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(wabaId)}/subscribed_apps`);
   wabaUrl.searchParams.set('subscribed_fields', 'messages');
   const wabaResult = await graphJson(wabaUrl, userAccessToken, { method: 'POST' });
@@ -128,6 +178,10 @@ export async function setupMetaMessaging(userAccessToken: string): Promise<MetaM
   const missing = required.filter((permission) => !result.permissions.includes(permission));
   if (missing.length) result.warnings.push(`Permisos faltantes: ${missing.join(', ')}`);
 
-  result.ok = result.tokenValid && Boolean(result.pageSubscription?.ok) && Boolean(result.wabaSubscription?.ok) && missing.length === 0;
+  result.ok = result.tokenValid
+    && Boolean(result.instagramAppSubscription?.ok)
+    && Boolean(result.pageSubscription?.ok)
+    && Boolean(result.wabaSubscription?.ok)
+    && missing.length === 0;
   return result;
 }
