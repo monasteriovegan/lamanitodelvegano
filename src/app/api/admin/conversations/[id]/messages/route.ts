@@ -17,7 +17,7 @@ export async function GET(
     .from('conversations')
     .select('id,channel')
     .eq('id', id)
-    .eq('channel', 'whatsapp')
+    .in('channel', ['whatsapp', 'instagram', 'web'])
     .maybeSingle();
 
   if (conversationError) return NextResponse.json({ error: conversationError.message }, { status: 400 });
@@ -37,10 +37,12 @@ export async function GET(
     .eq('id', id);
 
   return NextResponse.json({
+    channel: conversation.channel,
     data: (data || []).map((message: any) => ({
       ...message,
       provider: message.provider || message.payload?.provider || null,
       transport: message.transport || message.payload?.transport || null,
+      source: message.payload?.source || message.payload?.raw?.source || null,
       timestamp: message.sent_at || message.created_at,
     })),
   });
