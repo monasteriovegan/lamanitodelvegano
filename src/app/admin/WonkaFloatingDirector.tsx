@@ -28,7 +28,7 @@ export function WonkaFloatingDirector() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingTool | null>(null);
   const [initialized, setInitialized] = useState(false);
-  const bottom = useRef<HTMLDivElement | null>(null);
+  const chatRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open || initialized) return;
@@ -46,7 +46,11 @@ export function WonkaFloatingDirector() {
       .finally(() => setLoading(false));
   }, [open, initialized]);
 
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading, pending]);
+  useEffect(() => {
+    const node = chatRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading, pending]);
 
   async function send(textOverride?: string) {
     const text = String(textOverride ?? input).trim();
@@ -86,13 +90,12 @@ export function WonkaFloatingDirector() {
       if (!response.ok) throw new Error(body.error || 'No se pudo ejecutar la acción');
       const label = toolLabel(pending);
       setPending(null);
-      const synthetic: Message = {
+      setMessages((current) => [...current, {
         id: `action-${Date.now()}`,
         role: 'assistant',
         content: `✓ ${label} ejecutado correctamente.`,
         created_at: new Date().toISOString(),
-      };
-      setMessages((current) => [...current, synthetic]);
+      }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo ejecutar la acción');
     } finally {
@@ -101,9 +104,9 @@ export function WonkaFloatingDirector() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[900]" data-wonka-floating>
+    <div className="fixed bottom-[82px] right-3 z-[900] md:bottom-4 md:right-4" data-wonka-floating>
       {open && (
-        <section className="absolute bottom-[74px] right-0 w-[min(430px,calc(100vw-24px))] h-[min(680px,calc(100vh-110px))] rounded-2xl border border-neon/30 bg-[#03100b]/[0.98] shadow-[0_20px_70px_rgba(0,0,0,0.65),0_0_30px_rgba(0,255,179,0.12)] backdrop-blur-xl overflow-hidden flex flex-col">
+        <section className="fixed inset-x-2 bottom-[82px] top-3 rounded-2xl border border-neon/30 bg-[#03100b]/[0.99] shadow-[0_20px_70px_rgba(0,0,0,0.65),0_0_30px_rgba(0,255,179,0.12)] backdrop-blur-xl overflow-hidden flex flex-col md:absolute md:inset-auto md:bottom-[74px] md:right-0 md:w-[min(430px,calc(100vw-24px))] md:h-[min(680px,calc(100vh-110px))]">
           <header className="shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-black text-white">🎩 Wonka · Director</div>
@@ -111,11 +114,11 @@ export function WonkaFloatingDirector() {
             </div>
             <div className="flex gap-2 items-center">
               <span className="text-[9px] rounded-full border border-neon/25 bg-neon/10 px-2 py-1 text-neon">● online</span>
-              <button onClick={() => setOpen(false)} className="w-7 h-7 rounded-full border border-white/10 text-white/60 hover:text-white">×</button>
+              <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full border border-white/10 text-white/60 hover:text-white">×</button>
             </div>
           </header>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+          <div ref={chatRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3">
             {messages.length === 0 && !loading && (
               <div className="py-8 text-center">
                 <div className="text-4xl">🎩</div>
@@ -145,12 +148,11 @@ export function WonkaFloatingDirector() {
                 </div>
               </div>
             )}
-            <div ref={bottom} />
           </div>
 
           {error && <div className="shrink-0 mx-3 mb-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-[10px] text-red-200">{error}</div>}
 
-          <footer className="shrink-0 border-t border-white/10 bg-[#03100b] p-3">
+          <footer className="shrink-0 border-t border-white/10 bg-[#03100b] p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
               <textarea
                 value={input}
@@ -175,7 +177,7 @@ export function WonkaFloatingDirector() {
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? 'Cerrar Wonka' : 'Abrir Wonka, director personal'}
         title="Hablar con Wonka"
-        className="relative w-[62px] h-[62px] rounded-full border-2 border-neon bg-[#03100b] shadow-[0_0_22px_rgba(0,255,179,0.35)] overflow-hidden hover:scale-105 transition-transform"
+        className="relative w-[56px] h-[56px] md:w-[62px] md:h-[62px] rounded-full border-2 border-neon bg-[#03100b] shadow-[0_0_22px_rgba(0,255,179,0.35)] overflow-hidden hover:scale-105 transition-transform"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/monk_gorilla.png" alt="Wonka Director" className="w-full h-full object-cover" />
