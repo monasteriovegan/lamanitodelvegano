@@ -1,0 +1,1 @@
+Observability rollout is additive. Production database schema was migrated with provider pricing, quota configuration and usage event ledger tables. Merge application code only after Vercel preview succeeds.
