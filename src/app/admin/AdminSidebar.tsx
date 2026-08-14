@@ -12,6 +12,12 @@ const GRUPOS = [
     tabs: [{ href: '/admin', label: '🏠 Inicio', exact: true, roles: ['admin', 'soporte', 'bodega'] as Rol[] }],
   },
   {
+    label: 'Director',
+    tabs: [
+      { href: '/admin/wonka', label: '🎩 Wonka Hub', exact: false, roles: ['admin'] as Rol[] },
+    ],
+  },
+  {
     label: 'Catálogo',
     tabs: [
       { href: '/admin/productos', label: '🌿 Productos', exact: false, roles: ['admin', 'bodega'] as Rol[] },
@@ -32,7 +38,6 @@ const GRUPOS = [
     tabs: [
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
-      // Keep the live omnichannel inbox beside the CRM customer workflow.
       { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/reservas', label: '📅 Reservas', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/zonas', label: '🚚 Envíos', exact: false, roles: ['admin'] as Rol[] },
@@ -74,19 +79,11 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
 
   return (
     <aside className="admin-side">
-      <Link
-        href="/admin"
-        className="admin-slogo transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-neon"
-        title="Volver al inicio del panel"
-      >
+      <Link href="/admin" className="admin-slogo transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-neon" title="Volver al inicio del panel">
         <span>🌱</span>
         <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '0.5px', color: 'white' }}>
-            La Manito
-          </div>
-          <div style={{ fontSize: '10px', opacity: 0.65, fontWeight: 600, color: '#2ecc71' }}>
-            Panel de Control
-          </div>
+          <div style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '0.5px', color: 'white' }}>La Manito</div>
+          <div style={{ fontSize: '10px', opacity: 0.65, fontWeight: 600, color: '#2ecc71' }}>Panel de Control</div>
         </div>
       </Link>
 
@@ -94,23 +91,12 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
         {GRUPOS.map((grupo, i) => {
           const tabsVisibles = grupo.tabs.filter((tab) => tab.roles.includes(rol));
           if (tabsVisibles.length === 0) return null;
-
           return (
             <div key={i} className={i > 0 ? 'mt-3' : ''}>
-              {grupo.label && (
-                <p className="text-[10px] uppercase tracking-[0.12em] text-white/25 font-semibold px-3.5 mb-1.5 mt-2">
-                  {grupo.label}
-                </p>
-              )}
+              {grupo.label && <p className="text-[10px] uppercase tracking-[0.12em] text-white/25 font-semibold px-3.5 mb-1.5 mt-2">{grupo.label}</p>}
               {tabsVisibles.map((tab) => {
-                const isActive = tab.exact
-                  ? pathname === tab.href
-                  : pathname === tab.href || pathname.startsWith(tab.href + '/');
-                return (
-                  <Link key={tab.href} href={tab.href} className={`atab ${isActive ? 'on' : ''}`}>
-                    {tab.label}
-                  </Link>
-                );
+                const isActive = tab.exact ? pathname === tab.href : pathname === tab.href || pathname.startsWith(tab.href + '/');
+                return <Link key={tab.href} href={tab.href} className={`atab ${isActive ? 'on' : ''}`}>{tab.label}</Link>;
               })}
             </div>
           );
@@ -118,14 +104,9 @@ export function AdminSidebar({ email, rol }: { email: string; rol: Rol }) {
       </nav>
 
       <div className="mt-4 mb-4 px-2.5">
-        <p className="text-[10px] text-muted truncate max-w-[200px]" title={email}>
-          👤 {email}
-        </p>
-        <p className="text-[10px] font-semibold" style={{ color: '#00ffb3' }}>
-          {ROL_LABEL[rol]}
-        </p>
+        <p className="text-[10px] text-muted truncate max-w-[200px]" title={email}>👤 {email}</p>
+        <p className="text-[10px] font-semibold" style={{ color: '#00ffb3' }}>{ROL_LABEL[rol]}</p>
       </div>
-
       <LogoutButton />
     </aside>
   );
