@@ -4,11 +4,11 @@ import { normalizarTelefonoChile } from '@/lib/whatsapp/client';
 
 export async function sendWhatsAppCloud(
   input: { to: string; text: string },
-  options: { manual?: boolean } = {},
+  options: { manual?: boolean; automatic?: boolean } = {},
 ) {
-  // Automatic/agent sends remain blocked unless explicitly enabled.
-  // A human admin may still send a manual reply from the authenticated CRM.
-  if (!options.manual && process.env.META_SEND_MODE !== 'live') {
+  // Human CRM sends and explicitly authorized Remy sends are allowed.
+  // Every other automatic path remains blocked unless the global Meta send mode is live.
+  if (!options.manual && !options.automatic && process.env.META_SEND_MODE !== 'live') {
     throw new Error('real_sends_disabled');
   }
 
@@ -37,6 +37,7 @@ export async function sendWhatsAppCloud(
         type: 'text',
         text: { body: input.text, preview_url: false },
       }),
+      cache: 'no-store',
     },
   );
   const body = await response.json().catch(() => ({}));
