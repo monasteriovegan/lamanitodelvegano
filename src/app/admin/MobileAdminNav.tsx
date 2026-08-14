@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
+// Mobile-first navigation used only below the desktop breakpoint.
 const primary = [
   { href: '/admin', icon: '🏠', label: 'Inicio', exact: true },
   { href: '/admin/conversaciones', icon: '💬', label: 'Chats' },
