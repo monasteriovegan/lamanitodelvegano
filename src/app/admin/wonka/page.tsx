@@ -3,5 +3,18 @@ import WonkaHubClient from './WonkaHubClient';
 
 export default async function WonkaHubPage() {
   await requireRole(['admin']);
-  return <WonkaHubClient />;
+  return (
+    <div className="wonka-hub-compact">
+      <style>{`
+        @media (min-width: 768px) {
+          .wonka-hub-compact > div > div.grid > section {
+            min-height: 0 !important;
+            height: calc(100vh - 190px);
+            max-height: 780px;
+          }
+        }
+      `}</style>
+      <WonkaHubClient />
+    </div>
+  );
 }
