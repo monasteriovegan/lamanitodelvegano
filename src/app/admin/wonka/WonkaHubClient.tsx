@@ -42,7 +42,7 @@ export default function WonkaHubClient() {
   const [mcpToken, setMcpToken] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
   const [calendar, setCalendar] = useState<CalendarStatus | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/wonka/chat', { cache: 'no-store' });
@@ -66,7 +66,9 @@ export default function WonkaHubClient() {
   }, [load, loadCalendar]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const panel = chatScrollRef.current;
+    if (!panel) return;
+    panel.scrollTo({ top: panel.scrollHeight, behavior: 'smooth' });
   }, [messages, sending, pending]);
 
   useEffect(() => {
@@ -171,16 +173,16 @@ export default function WonkaHubClient() {
           <div className="flex flex-wrap gap-2 text-[11px]">
             <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">● Director online</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/55">Gemini · Tool Layer</span>
-            {installPrompt && <button onClick={() => void install()} className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">⬇ Instalar app</button>}
+            {installPrompt && <button onClick={() => void install()} className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">⬇ Instalar panel</button>}
           </div>
         }
       />
 
       {error && <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-xs text-red-200">{error}</div>}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-5">
-        <section className="rounded-2xl border border-white/10 bg-[#050e0a] min-h-[720px] flex flex-col overflow-hidden">
-          <header className="border-b border-white/10 px-5 py-4 flex items-center justify-between gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-5 items-start">
+        <section className="rounded-2xl border border-white/10 bg-[#050e0a] h-[calc(100vh-190px)] min-h-[560px] max-h-[820px] flex flex-col overflow-hidden sticky top-4">
+          <header className="shrink-0 border-b border-white/10 px-5 py-4 flex items-center justify-between gap-3">
             <div>
               <div className="font-display font-black text-lg text-white">🎩 Hablar con Wonka</div>
               <div className="text-[11px] text-white/40 mt-1">Mismo director, misma memoria operativa, herramientas reales del negocio.</div>
@@ -188,7 +190,7 @@ export default function WonkaHubClient() {
             <div className="text-[10px] text-neon/70">acciones reales requieren confirmación</div>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 bg-black/10">
+          <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 bg-black/10 overscroll-contain">
             {loading ? (
               <div className="text-xs text-white/40 text-center py-12">Cargando memoria de Wonka…</div>
             ) : messages.length === 0 ? (
@@ -221,10 +223,9 @@ export default function WonkaHubClient() {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
 
-          <footer className="border-t border-white/10 p-4 bg-[#050e0a]">
+          <footer className="shrink-0 border-t border-white/10 p-4 bg-[#050e0a]">
             <div className="flex gap-3 items-end">
               <textarea
                 value={input}
@@ -235,7 +236,7 @@ export default function WonkaHubClient() {
                     void send();
                   }
                 }}
-                rows={3}
+                rows={2}
                 maxLength={8000}
                 placeholder="Wonka, ¿qué tengo pendiente hoy?"
                 className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-neon/50"
@@ -288,9 +289,9 @@ export default function WonkaHubClient() {
           </section>
 
           <section className="rounded-2xl border border-neon/15 bg-neon/[0.04] p-4">
-            <h3 className="font-bold text-white text-sm">📱 App de empresa</h3>
-            <p className="mt-2 text-xs leading-5 text-white/50">Abre esta pantalla desde el teléfono de empresa y usa “Instalar app” cuando el navegador lo ofrezca. Wonka queda como acceso directo independiente.</p>
-            <div className="mt-3 text-[10px] text-white/35">También puedes usar “Añadir a pantalla de inicio” desde el menú del navegador.</div>
+            <h3 className="font-bold text-white text-sm">📱 Synthetiq Panel</h3>
+            <p className="mt-2 text-xs leading-5 text-white/50">La app instalable ahora abre el panel administrativo completo. Wonka queda disponible como director flotante en todo el admin.</p>
+            <div className="mt-3 text-[10px] text-white/35">Desde Chrome usa “Instalar aplicación” o “Añadir a pantalla de inicio”.</div>
           </section>
         </aside>
       </div>
