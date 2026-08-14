@@ -2,11 +2,12 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Wonka Hub · Synthetiq',
-    short_name: 'Wonka Hub',
-    description: 'Director personal y operativo de Synthetiq y La Manito del Vegano.',
-    start_url: '/admin/wonka',
-    scope: '/',
+    id: '/admin',
+    name: 'Synthetiq Panel Maestro',
+    short_name: 'Synthetiq',
+    description: 'Panel maestro de Synthetiq para dirigir negocios, conversaciones, CRM, pedidos, métricas y agentes como Wonka y Remy.',
+    start_url: '/admin',
+    scope: '/admin',
     display: 'standalone',
     background_color: '#020705',
     theme_color: '#00ffb3',
