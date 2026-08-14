@@ -14,11 +14,6 @@ type StoredMessage = {
 type PendingTool = { name: string; args: Record<string, unknown> };
 type CalendarStatus = { oauthConfigured: boolean; connected: boolean; account: string | null; expiresAt: string | null };
 
-type DeferredInstallPrompt = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
 function time(value: string) {
   return new Date(value).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
 }
@@ -38,11 +33,10 @@ export default function WonkaHubClient() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingTool | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null);
   const [mcpToken, setMcpToken] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
   const [calendar, setCalendar] = useState<CalendarStatus | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const chatRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/wonka/chat', { cache: 'no-store' });
@@ -66,17 +60,18 @@ export default function WonkaHubClient() {
   }, [load, loadCalendar]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const node = chatRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
   }, [messages, sending, pending]);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/wonka-sw.js').catch(() => undefined);
-    const handler = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as DeferredInstallPrompt);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Wonka Hub ya es el chat completo: ocultamos el segundo launcher flotante solo aquí.
+    const floating = document.querySelector<HTMLElement>('[data-wonka-floating]');
+    if (!floating) return;
+    const previous = floating.style.display;
+    floating.style.display = 'none';
+    return () => { floating.style.display = previous; };
   }, []);
 
   const send = async (textOverride?: string) => {
@@ -146,13 +141,6 @@ export default function WonkaHubClient() {
     }
   };
 
-  const install = async () => {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice.catch(() => undefined);
-    setInstallPrompt(null);
-  };
-
   const quickActions = useMemo(() => [
     'Wonka, dame un resumen operativo del negocio ahora.',
     '¿Qué pedidos recientes necesitan atención?',
@@ -163,69 +151,84 @@ export default function WonkaHubClient() {
   ], []);
 
   return (
-    <div className="max-w-[1320px] text-crema">
-      <PageHeader
-        eyebrow="✦ Director personal"
-        title="Wonka Hub"
-        action={
-          <div className="flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">● Director online</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/55">Gemini · Tool Layer</span>
-            {installPrompt && <button onClick={() => void install()} className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">⬇ Instalar app</button>}
-          </div>
-        }
-      />
-
-      {error && <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-xs text-red-200">{error}</div>}
-
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-5">
-        <section className="rounded-2xl border border-white/10 bg-[#050e0a] min-h-[720px] flex flex-col overflow-hidden">
-          <header className="border-b border-white/10 px-5 py-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="font-display font-black text-lg text-white">🎩 Hablar con Wonka</div>
-              <div className="text-[11px] text-white/40 mt-1">Mismo director, misma memoria operativa, herramientas reales del negocio.</div>
+    <div className="text-crema md:max-w-[1320px]">
+      <div className="hidden md:block">
+        <PageHeader
+          eyebrow="✦ Director personal"
+          title="Wonka Hub"
+          action={
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">● Director online</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/55">Gemini · Tool Layer</span>
             </div>
-            <div className="text-[10px] text-neon/70">acciones reales requieren confirmación</div>
+          }
+        />
+      </div>
+
+      {error && <div className="fixed left-3 right-3 top-16 z-[60] rounded-xl border border-red-400/30 bg-[#2a0c0c] px-4 py-3 text-xs text-red-200 md:static md:mb-4">{error}</div>}
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <section className="fixed inset-x-0 top-0 bottom-[68px] z-40 flex min-h-0 flex-col overflow-hidden bg-[#050e0a] md:static md:min-h-[720px] md:rounded-2xl md:border md:border-white/10">
+          <header className="shrink-0 border-b border-white/10 px-3 py-2.5 md:px-5 md:py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="font-display text-base font-black text-white md:text-lg">🎩 Wonka</div>
+                  <span className="rounded-full border border-neon/25 bg-neon/10 px-2 py-0.5 text-[9px] font-bold text-neon">● online</span>
+                </div>
+                <div className="mt-0.5 text-[10px] text-white/40 md:mt-1 md:text-[11px]">Director personal · Gemini · Tool Layer</div>
+              </div>
+              <div className="hidden text-[10px] text-neon/70 md:block">acciones reales requieren confirmación</div>
+            </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4 bg-black/10">
+          <div className="shrink-0 border-b border-white/8 bg-black/10 px-2 py-2 md:hidden">
+            <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {quickActions.slice(0, 4).map((action, index) => (
+                <button key={action} onClick={() => void send(action)} disabled={sending} className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-semibold text-white/65 disabled:opacity-40">
+                  {index === 0 ? '⚡ Resumen' : index === 1 ? '📦 Pedidos' : index === 2 ? '💬 Chats' : '🤖 Remy'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div ref={chatRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-black/10 px-3 py-3 md:space-y-4 md:px-6 md:py-6">
             {loading ? (
-              <div className="text-xs text-white/40 text-center py-12">Cargando memoria de Wonka…</div>
+              <div className="py-12 text-center text-xs text-white/40">Cargando memoria de Wonka…</div>
             ) : messages.length === 0 ? (
-              <div className="max-w-xl mx-auto py-12 text-center">
-                <div className="text-5xl mb-5">🎩</div>
+              <div className="mx-auto max-w-xl py-12 text-center">
+                <div className="mb-5 text-5xl">🎩</div>
                 <h2 className="text-xl font-black text-white">Tu director está listo</h2>
-                <p className="mt-3 text-sm text-white/50 leading-6">Puedes preguntarle por pedidos, clientes, conversaciones, catálogo, calendario y estado de Remy. Los cambios importantes se confirman antes de ejecutarse.</p>
+                <p className="mt-3 text-sm leading-6 text-white/50">Pregúntale por pedidos, clientes, conversaciones, catálogo, calendario y Remy. Los cambios importantes se confirman antes de ejecutarse.</p>
               </div>
             ) : messages.map((message) => {
               if (!['user', 'assistant'].includes(message.role)) return null;
               const mine = message.role === 'user';
               return (
                 <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${mine ? 'bg-neon text-[#03110b] rounded-br-md' : 'bg-white/[0.06] text-white border border-white/10 rounded-bl-md'}`}>
+                  <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-[14px] leading-5 md:max-w-[88%] md:px-4 md:py-3 md:text-sm md:leading-6 ${mine ? 'rounded-br-md bg-neon text-[#03110b]' : 'rounded-bl-md border border-white/10 bg-white/[0.06] text-white'}`}>
                     <div className="whitespace-pre-wrap break-words">{message.content}</div>
                     <div className={`mt-1.5 text-[9px] ${mine ? 'text-black/45' : 'text-white/30'}`}>{mine ? 'Tú' : 'Wonka'} · {time(message.created_at)}</div>
                   </div>
                 </div>
               );
             })}
-            {sending && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-xs text-white/45">Wonka está pensando y consultando herramientas…</div></div>}
+            {sending && <div className="flex justify-start"><div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-2.5 text-xs text-white/45">Wonka está pensando…</div></div>}
 
             {pending && (
-              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 max-w-2xl">
-                <div className="text-xs uppercase tracking-wider text-amber-200/70 font-bold">Confirmación requerida</div>
+              <div className="max-w-2xl rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 md:p-4">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200/70 md:text-xs">Confirmación requerida</div>
                 <div className="mt-2 text-sm font-bold text-white">{describeTool(pending)}</div>
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => void confirmTool()} disabled={confirming} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-black disabled:opacity-50">{confirming ? 'Ejecutando…' : 'Confirmar acción'}</button>
-                  <button onClick={() => setPending(null)} className="rounded-full border border-white/10 px-4 py-2 text-xs font-bold text-white/60">Cancelar</button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => void confirmTool()} disabled={confirming} className="min-h-11 rounded-full bg-amber-300 px-4 py-2 text-xs font-black text-black disabled:opacity-50">{confirming ? 'Ejecutando…' : 'Confirmar acción'}</button>
+                  <button onClick={() => setPending(null)} className="min-h-11 rounded-full border border-white/10 px-4 py-2 text-xs font-bold text-white/60">Cancelar</button>
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
 
-          <footer className="border-t border-white/10 p-4 bg-[#050e0a]">
-            <div className="flex gap-3 items-end">
+          <footer className="shrink-0 border-t border-white/10 bg-[#050e0a] p-2.5 pb-[max(10px,env(safe-area-inset-bottom))] md:p-4">
+            <div className="flex items-end gap-2 md:gap-3">
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -237,24 +240,24 @@ export default function WonkaHubClient() {
                 }}
                 rows={3}
                 maxLength={8000}
-                placeholder="Wonka, ¿qué tengo pendiente hoy?"
-                className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-neon/50"
+                placeholder="Escribe a Wonka…"
+                className="h-11 min-h-11 flex-1 resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:border-neon/50 md:h-auto md:px-4 md:py-3"
               />
-              <button onClick={() => void send()} disabled={sending || !input.trim()} className="rounded-xl bg-neon text-black font-black text-sm px-5 py-3 disabled:opacity-40 hover:bg-white transition-colors">Enviar</button>
+              <button onClick={() => void send()} disabled={sending || !input.trim()} className="min-h-11 rounded-xl bg-neon px-4 py-2.5 text-sm font-black text-black transition-colors hover:bg-white disabled:opacity-40 md:px-5 md:py-3">Enviar</button>
             </div>
           </footer>
         </section>
 
-        <aside className="space-y-5">
+        <aside className="hidden space-y-5 md:block">
           <section className="rounded-2xl border border-white/10 bg-[#050e0a] p-4">
-            <h3 className="font-bold text-white text-sm">⚡ Atajos</h3>
+            <h3 className="text-sm font-bold text-white">⚡ Atajos</h3>
             <div className="mt-3 space-y-2">
-              {quickActions.map((action) => <button key={action} onClick={() => void send(action)} disabled={sending} className="w-full text-left rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-xs text-white/60 hover:text-white hover:border-neon/30 transition-colors">{action}</button>)}
+              {quickActions.map((action) => <button key={action} onClick={() => void send(action)} disabled={sending} className="w-full rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-left text-xs text-white/60 transition-colors hover:border-neon/30 hover:text-white">{action}</button>)}
             </div>
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-[#050e0a] p-4">
-            <h3 className="font-bold text-white text-sm">🧠 Capacidades actuales</h3>
+            <h3 className="text-sm font-bold text-white">🧠 Capacidades actuales</h3>
             <div className="mt-3 grid gap-2 text-xs text-white/55">
               <div className="rounded-lg bg-white/[0.03] p-2.5">✓ Pedidos y estado de pago</div>
               <div className="rounded-lg bg-white/[0.03] p-2.5">✓ CRM y búsqueda de clientes</div>
@@ -273,9 +276,9 @@ export default function WonkaHubClient() {
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-[#050e0a] p-4">
-            <h3 className="font-bold text-white text-sm">🔌 Synthetiq MCP</h3>
+            <h3 className="text-sm font-bold text-white">🔌 Synthetiq MCP</h3>
             <p className="mt-2 text-xs leading-5 text-white/45">El mismo Tool Layer puede ser usado por clientes MCP como ChatGPT/Codex compatibles. Genera primero un token de solo lectura.</p>
-            <div className="mt-3 rounded-lg bg-black/20 border border-white/8 px-3 py-2 text-[10px] font-mono text-neon/70 break-all">https://lamanitodelvegano.vercel.app/api/mcp</div>
+            <div className="mt-3 break-all rounded-lg border border-white/8 bg-black/20 px-3 py-2 font-mono text-[10px] text-neon/70">https://lamanitodelvegano.vercel.app/api/mcp</div>
             {!mcpToken ? (
               <button onClick={() => void createMcpToken()} disabled={creatingToken} className="mt-3 rounded-full border border-neon/30 bg-neon/10 px-4 py-2 text-xs font-bold text-neon disabled:opacity-50">{creatingToken ? 'Generando…' : 'Generar token MCP lectura'}</button>
             ) : (
@@ -288,9 +291,8 @@ export default function WonkaHubClient() {
           </section>
 
           <section className="rounded-2xl border border-neon/15 bg-neon/[0.04] p-4">
-            <h3 className="font-bold text-white text-sm">📱 App de empresa</h3>
-            <p className="mt-2 text-xs leading-5 text-white/50">Abre esta pantalla desde el teléfono de empresa y usa “Instalar app” cuando el navegador lo ofrezca. Wonka queda como acceso directo independiente.</p>
-            <div className="mt-3 text-[10px] text-white/35">También puedes usar “Añadir a pantalla de inicio” desde el menú del navegador.</div>
+            <h3 className="text-sm font-bold text-white">📱 Synthetiq Panel Maestro</h3>
+            <p className="mt-2 text-xs leading-5 text-white/50">En el teléfono abre “Más” y toca “Instalar Panel Maestro”. La app instalada abre el /admin completo, no solamente Wonka.</p>
           </section>
         </aside>
       </div>
