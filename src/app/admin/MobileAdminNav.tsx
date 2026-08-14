@@ -18,6 +18,7 @@ const primary = [
 
 const more = [
   { href: '/admin/wonka', icon: '🎩', label: 'Wonka Hub' },
+  { href: '/admin/agentes', icon: '🤖', label: 'Agentes & modelos' },
   { href: '/admin/computer', icon: '🖥️', label: 'Synthetiq Computer' },
   { href: '/admin/uso-costos', icon: '💸', label: 'Uso & Costos' },
   { href: '/admin/productos', icon: '🌿', label: 'Productos' },
