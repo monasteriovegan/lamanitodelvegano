@@ -62,6 +62,7 @@ const GRUPOS = [
   {
     label: 'Sistema',
     tabs: [
+      { href: '/admin/uso-costos', label: '💸 Uso & Costos', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/ajustes', label: '⚙️ Ajustes', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/integraciones', label: '🔌 Integraciones', exact: false, roles: ['admin'] as Rol[] },
     ],
