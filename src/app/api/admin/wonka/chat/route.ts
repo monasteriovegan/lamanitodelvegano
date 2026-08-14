@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   if (messages.length > 0 && messages[messages.length - 1].role === 'user') messages[messages.length - 1].text = contextualizedText;
 
   try {
-    const result = await runWonkaChat(db, { ownerId: admin.id, messages });
+    const result = await runWonkaChat(db, { ownerId: admin.id, messages, threadId: thread.id });
     const saved = await db.from('wonka_messages').insert({
       thread_id: thread.id,
       role: 'assistant',
