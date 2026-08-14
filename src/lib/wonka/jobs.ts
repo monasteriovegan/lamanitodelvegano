@@ -19,6 +19,7 @@ export async function chooseResource(db: SupabaseClient, input: { resourceType: 
   const resources = await listResources(db, input);
   return resources
     .filter((r: any) => r.quota_remaining == null || Number(r.quota_remaining) > 0)
+    .filter((r: any) => !Boolean(r.metadata?.manual_provider_choice))
     .sort((a: any, b: any) => {
       const modeRank: Record<string, number> = { quota_web: 1, local_open_source: 2, credit: 3, api: 4, manual: 5 };
       const ar = modeRank[String(a.mode)] ?? 99;
@@ -37,7 +38,11 @@ export async function createWonkaJob(db: SupabaseClient, input: {
   resourceId?: string | null;
   riskLevel?: 'low' | 'medium' | 'high';
   input?: Record<string, unknown>;
+  directlyAuthorized?: boolean;
 }) {
+  const now = new Date().toISOString();
+  const directlyAuthorized = Boolean(input.directlyAuthorized);
+  const status = directlyAuthorized ? 'queued' : 'awaiting_approval';
   const { data, error } = await db.from('wonka_jobs').insert({
     owner_user_id: input.ownerUserId || null,
     business_unit_id: input.businessUnitId || null,
@@ -46,13 +51,22 @@ export async function createWonkaJob(db: SupabaseClient, input: {
     instruction: input.instruction.slice(0, 12000),
     provider: input.provider || null,
     resource_id: input.resourceId || null,
-    status: 'awaiting_approval',
-    approval_required: true,
+    status,
+    approval_required: !directlyAuthorized,
+    approved_at: directlyAuthorized ? now : null,
+    approved_by: directlyAuthorized ? (input.ownerUserId || null) : null,
     risk_level: input.riskLevel || 'medium',
     input: input.input || {},
-  }).select('id,business_unit_id,job_type,title,instruction,provider,resource_id,status,approval_required,risk_level,input,created_at').single();
+  }).select('id,business_unit_id,job_type,title,instruction,provider,resource_id,status,approval_required,risk_level,input,approved_at,created_at').single();
   if (error) throw error;
-  await db.from('wonka_job_events').insert({ job_id: data.id, event_type: 'created', status: 'awaiting_approval', message: 'Trabajo preparado por Wonka y pendiente de aprobación.' });
+  await db.from('wonka_job_events').insert({
+    job_id: data.id,
+    event_type: directlyAuthorized ? 'created_authorized' : 'created',
+    status,
+    message: directlyAuthorized
+      ? 'Trabajo creado y autorizado por la orden directa del dueño.'
+      : 'Trabajo preparado por Wonka y pendiente de aprobación.',
+  });
   return data;
 }
 
