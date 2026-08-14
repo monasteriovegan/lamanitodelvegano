@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createCalendarEvent, listCalendarEvents } from '@/lib/wonka/google-calendar';
 
 export type WonkaToolContext = {
   actorType: 'wonka' | 'mcp' | 'admin';
@@ -59,6 +60,38 @@ export const WONKA_TOOLS: WonkaTool[] = [
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 40 } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'calendar_events',
+    description: 'Consulta próximos eventos del Google Calendar principal del dueño. Requiere que Google Calendar esté conectado.',
+    write: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        time_min: { type: 'string', description: 'RFC3339; por defecto ahora' },
+        time_max: { type: 'string', description: 'RFC3339 opcional' },
+        limit: { type: 'integer', minimum: 1, maximum: 30 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_calendar_event',
+    description: 'Crea una reunión/evento en Google Calendar. Es una escritura real y requiere confirmación explícita.',
+    write: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        summary: { type: 'string' },
+        start: { type: 'string', description: 'Fecha/hora RFC3339' },
+        end: { type: 'string', description: 'Fecha/hora RFC3339' },
+        description: { type: 'string' },
+        attendee_emails: { type: 'array', items: { type: 'string' } },
+        time_zone: { type: 'string' },
+      },
+      required: ['summary', 'start', 'end'],
       additionalProperties: false,
     },
   },
@@ -162,6 +195,21 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const { data, error } = await query;
       if (error) throw error;
       result = data || [];
+    } else if (toolName === 'calendar_events') {
+      result = await listCalendarEvents(db, {
+        timeMin: args?.time_min ? String(args.time_min) : undefined,
+        timeMax: args?.time_max ? String(args.time_max) : undefined,
+        maxResults: Number(args?.limit || 10),
+      });
+    } else if (toolName === 'create_calendar_event') {
+      result = await createCalendarEvent(db, {
+        summary: String(args?.summary || ''),
+        start: String(args?.start || ''),
+        end: String(args?.end || ''),
+        description: args?.description ? String(args.description) : undefined,
+        attendeeEmails: Array.isArray(args?.attendee_emails) ? args.attendee_emails.map(String) : [],
+        timeZone: args?.time_zone ? String(args.time_zone) : 'America/Santiago',
+      });
     } else if (toolName === 'set_remy_global') {
       const enabled = Boolean(args?.enabled);
       const { error } = await db.from('integraciones_secretas').update({ ai_enabled: enabled, updated_at: new Date().toISOString() }).eq('id', 'global');
