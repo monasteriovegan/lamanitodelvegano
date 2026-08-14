@@ -1,5 +1,5 @@
-const CACHE = 'wonka-hub-v1';
-const SHELL = ['/admin/wonka', '/manifest.webmanifest'];
+const CACHE = 'synthetiq-admin-v2';
+const SHELL = ['/admin', '/admin/wonka', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch(() => undefined));
@@ -7,7 +7,10 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
@@ -24,6 +27,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/admin/wonka')))
+      .catch(() => caches.match(request).then((cached) => cached || caches.match('/admin')))
   );
 });
