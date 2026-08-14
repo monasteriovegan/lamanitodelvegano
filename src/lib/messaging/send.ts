@@ -8,15 +8,19 @@ type SendInput = {
   to: string;
   text: string;
   mode?: 'manual' | 'automatic';
+  automationAuthorized?: boolean;
 };
 
 export async function sendMessage(input: SendInput) {
-  const options = { manual: input.mode === 'manual' };
+  const manual = input.mode === 'manual';
   if (input.channel === 'whatsapp') {
-    return sendWhatsAppCloud({ to: input.to, text: input.text }, options);
+    return sendWhatsAppCloud(
+      { to: input.to, text: input.text },
+      { manual, automatic: input.mode === 'automatic' && input.automationAuthorized === true },
+    );
   }
   if (input.channel === 'instagram') {
-    return sendInstagramMeta({ to: input.to, text: input.text }, options);
+    return sendInstagramMeta({ to: input.to, text: input.text }, { manual });
   }
   throw new Error('unsupported_channel');
 }

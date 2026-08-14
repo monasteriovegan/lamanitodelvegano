@@ -2,6 +2,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaWhatsApp } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmac } from '@/lib/messaging/signature';
+import { maybeAutoReply } from '@/lib/ai/remy';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
   let duplicates = 0;
   let statuses = 0;
   let appEchoes = 0;
+  let aiCalled = 0;
+  let aiReplied = 0;
 
   try {
     for (const message of normalizeMetaWhatsApp(payload)) {
@@ -57,9 +60,31 @@ export async function POST(request: Request) {
         result.duplicate ? (duplicates += 1) : (stored += 1);
         if (isAppEcho && !result.duplicate) appEchoes += 1;
       }
+
+      if (!result.duplicate && !isStatus && !isAppEcho && message.direction === 'inbound') {
+        try {
+          const ai = await maybeAutoReply(db, result, message);
+          if (ai.called) aiCalled += 1;
+          if (ai.replied) aiReplied += 1;
+        } catch (error) {
+          console.error('remy_auto_reply_failed', {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }
     }
 
-    return Response.json({ ok: true, stored, duplicates, statuses, app_echoes: appEchoes, ai_called: false });
+    return Response.json({
+      ok: true,
+      stored,
+      duplicates,
+      statuses,
+      app_echoes: appEchoes,
+      ai_called: aiCalled > 0,
+      ai_replied: aiReplied > 0,
+    });
   } catch (error) {
     console.error('whatsapp_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
