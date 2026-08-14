@@ -4,6 +4,7 @@ import { WONKA_TOOLS, runWonkaTool } from '@/lib/wonka/tools';
 import { WONKA_COMPUTER_TOOLS, getComputerToolDefinition, isComputerTool, runComputerTool } from '@/lib/wonka/computer-tools';
 import { WONKA_GOOGLE_TOOLS, getGoogleToolDefinition, isGoogleTool, runGoogleTool } from '@/lib/wonka/google-tools';
 import { recordGeminiUsage } from '@/lib/observability/usage';
+import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS, ...WONKA_GOOGLE_TOOLS];
@@ -91,10 +92,18 @@ export async function runWonkaChat(
   db: SupabaseClient,
   input: { ownerId: string; messages: ChatMessage[]; threadId?: string | null; businessUnitId?: string | null },
 ): Promise<{ text: string; pendingTool?: PendingToolCall; toolResults?: Array<{ name: string; result: unknown }> }> {
-  const { data: config } = await db.from('integraciones_secretas').select('gemini_api_key,ai_model').eq('id', 'global').maybeSingle();
+  const { data: config } = await db.from('integraciones_secretas').select('gemini_api_key,ai_provider,ai_model').eq('id', 'global').maybeSingle();
+  const runtime = await getAgentRuntimeConfig(db, 'wonka', {
+    provider: config?.ai_provider || 'gemini',
+    model: config?.ai_model || DEFAULT_MODEL,
+    executionMode: 'api',
+  });
+  if (!runtime.enabled) throw new Error('wonka_runtime_disabled');
+  if (runtime.executionMode !== 'api') throw new Error(`wonka_execution_mode_not_supported:${runtime.executionMode}`);
+  if (runtime.provider !== 'gemini') throw new Error(`wonka_provider_not_supported:${runtime.provider}`);
   const apiKey = String(config?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
   if (!apiKey) throw new Error('missing_gemini_key');
-  const model = String(config?.ai_model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const model = String(runtime.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 
   let businessUnitId = input.businessUnitId || null;
   if (!businessUnitId) {
@@ -105,7 +114,7 @@ export async function runWonkaChat(
   const contents = input.messages.slice(-18).map((message) => ({ role: message.role, parts: [{ text: message.text }] }));
 
   const firstCall = await callGemini(apiKey, model, contents);
-  await recordGeminiUsage(db, { ...usageContext, usage: firstCall.body?.usageMetadata, latencyMs: firstCall.latencyMs, metadata: { stage: 'initial' } });
+  await recordGeminiUsage(db, { ...usageContext, usage: firstCall.body?.usageMetadata, latencyMs: firstCall.latencyMs, metadata: { stage: 'initial', runtime_mode: runtime.executionMode } });
   const first = firstCall.body;
   const parts = candidateParts(first);
   const functionCalls = parts.filter((part: any) => part?.functionCall?.name).map((part: any) => ({ name: String(part.functionCall.name), args: (part.functionCall.args && typeof part.functionCall.args === 'object') ? part.functionCall.args : {} }));
@@ -140,6 +149,6 @@ export async function runWonkaChat(
   const modelContent = first?.candidates?.[0]?.content || { role: 'model', parts };
   const functionResponseParts = results.map((item) => ({ functionResponse: { name: item.name, response: { result: item.result } } }));
   const secondCall = await callGemini(apiKey, model, [...contents, modelContent, { role: 'user', parts: functionResponseParts }]);
-  await recordGeminiUsage(db, { ...usageContext, usage: secondCall.body?.usageMetadata, latencyMs: secondCall.latencyMs, metadata: { stage: 'tool_followup', tools: results.map((item) => item.name) } });
+  await recordGeminiUsage(db, { ...usageContext, usage: secondCall.body?.usageMetadata, latencyMs: secondCall.latencyMs, metadata: { stage: 'tool_followup', tools: results.map((item) => item.name), runtime_mode: runtime.executionMode } });
   return { text: extractText(candidateParts(secondCall.body)) || 'Consulté los datos.', toolResults: results };
 }
