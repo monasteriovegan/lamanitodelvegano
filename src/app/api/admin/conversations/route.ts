@@ -13,14 +13,11 @@ export async function GET(request: Request) {
   const db = createSupabaseServiceClient();
   let query = db
     .from('conversations')
-    .select('id,customer_id,contact_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels')
+    .select('id,customer_id,contact_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels,ai_enabled')
     .in('channel', allowedChannels)
     .order('last_message_at', { ascending: false });
 
-  if (requestedChannel && allowedChannels.includes(requestedChannel)) {
-    query = query.eq('channel', requestedChannel);
-  }
-
+  if (requestedChannel && allowedChannels.includes(requestedChannel)) query = query.eq('channel', requestedChannel);
   const { data: conversations, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const rows = conversations || [];
@@ -28,13 +25,11 @@ export async function GET(request: Request) {
 
   const contactIds = Array.from(new Set(rows.map((row: any) => row.customer_id || row.contact_id).filter(Boolean)));
   const conversationIds = rows.map((row: any) => row.id);
-
   const [{ data: contacts }, { data: messages }] = await Promise.all([
     contactIds.length
       ? db.from('omnichannel_contacts').select('id,display_name,nombre,phone,email,external_id,crm_status,metadata').in('id', contactIds)
       : Promise.resolve({ data: [] as any[] }),
-    db
-      .from('omnichannel_messages')
+    db.from('omnichannel_messages')
       .select('conversation_id,body,direction,status,created_at,sent_at,message_type')
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: false })
@@ -59,7 +54,6 @@ export async function GET(request: Request) {
       ? new Date(new Date(lastInboundAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
       : null;
     const personal = Boolean(contact?.metadata?.personal || row.metadata?.personal || row.labels?.includes?.('personal'));
-
     return {
       id: row.id,
       channel: row.channel,
@@ -82,6 +76,7 @@ export async function GET(request: Request) {
       lastInboundAt,
       serviceWindowExpiresAt,
       personal,
+      aiEnabled: Boolean(row.ai_enabled) && !personal,
     };
   });
 
