@@ -4,6 +4,7 @@ import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import type { NormalizedMessage, PersistedMessage } from '@/lib/messaging/types';
 import { recordGeminiUsage } from '@/lib/observability/usage';
+import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -49,7 +50,15 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
 
   const inboundAt = new Date(inbound.sent_at).getTime();
   if (!Number.isFinite(inboundAt) || Date.now() - inboundAt > SERVICE_WINDOW_MS) return { called: false, replied: false, reason: 'service_window_closed' };
-  const provider = String(config.ai_provider || 'gemini');
+
+  const runtime = await getAgentRuntimeConfig(db, 'remy', {
+    provider: config?.ai_provider || 'gemini',
+    model: config?.ai_model || DEFAULT_MODEL,
+    executionMode: 'api',
+  });
+  if (!runtime.enabled) return { called: false, replied: false, reason: 'agent_runtime_off' };
+  if (runtime.executionMode !== 'api') return { called: false, replied: false, reason: 'unsupported_execution_mode' };
+  const provider = runtime.provider;
   if (provider !== 'gemini') return { called: false, replied: false, reason: 'unsupported_provider' };
   const apiKey = String(config.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
   if (!apiKey) return { called: false, replied: false, reason: 'missing_gemini_key' };
@@ -59,7 +68,7 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
     loadCatalog(db),
   ]);
   const history = (recent || []).reverse().map((message: any) => ({ role: message.direction === 'outbound' ? 'model' : 'user', parts: [{ text: String(message.body || '') }] })).filter((item: any) => item.parts[0].text.trim());
-  const model = String(config.ai_model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const model = runtime.model || DEFAULT_MODEL;
   const customPrompt = String(config.ai_system_prompt || '').trim();
   const systemPrompt = `${basePrompt(catalog)}${customPrompt ? `\n\nINSTRUCCIONES ADICIONALES DEL NEGOCIO:\n${customPrompt}` : ''}`;
   const generated = await generateWithGemini(apiKey, model, systemPrompt, history);
@@ -71,7 +80,7 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
     model,
     usage: generated.raw?.usageMetadata,
     latencyMs: generated.latencyMs,
-    metadata: { channel: 'whatsapp', automatic: true },
+    metadata: { channel: 'whatsapp', automatic: true, runtime_mode: runtime.executionMode },
   });
 
   const sendResult = await sendMessage({ channel: 'whatsapp', conversationId: persisted.conversationId, customerId: persisted.customerId || undefined, to: inbound.external_thread_id, text: generated.text, mode: 'automatic', automationAuthorized: true, agent: 'remy' });

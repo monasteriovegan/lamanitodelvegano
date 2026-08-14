@@ -15,6 +15,7 @@ const GRUPOS = [
     label: 'Director',
     tabs: [
       { href: '/admin/wonka', label: '🎩 Wonka Hub', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/agentes', label: '🤖 Agentes & modelos', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/computer', label: '🖥️ Synthetiq Computer', exact: false, roles: ['admin'] as Rol[] },
     ],
   },
