@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 
 function statusBadge(status: string) {
   if (status === 'completed') return <Badge tono="neon">✓ completado</Badge>;
-  if (status === 'failed') return <Badge tono="red">falló</Badge>;
-  if (status === 'running') return <Badge tono="gold">ejecutando</Badge>;
-  if (status === 'queued') return <Badge tono="gold">en cola</Badge>;
+  if (status === 'failed') return <Badge tono="rojo">falló</Badge>;
+  if (status === 'running') return <Badge tono="am">ejecutando</Badge>;
+  if (status === 'queued') return <Badge tono="am">en cola</Badge>;
   if (status === 'awaiting_approval') return <Badge tono="am">requiere aprobación</Badge>;
   return <Badge>{status}</Badge>;
 }
