@@ -10,6 +10,15 @@ export type ComputerToolDefinition = {
   inputSchema: Record<string, unknown>;
 };
 
+const BROWSER_STEP_SCHEMA = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', enum: ['goto','click_text','click_button','fill_label','fill_placeholder','press','wait_text','wait_ms','select_label','check_label'] },
+    url: { type: 'string' }, text: { type: 'string' }, name: { type: 'string' }, label: { type: 'string' }, placeholder: { type: 'string' },
+    value: { type: 'string' }, key: { type: 'string' }, ms: { type: 'integer' }, timeout_ms: { type: 'integer' }, exact: { type: 'boolean' },
+  },
+};
+
 export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
   {
     name: 'synthetiq_resources',
@@ -25,7 +34,7 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
   },
   {
     name: 'prepare_browser_job',
-    description: 'Crea un trabajo para el Browser Worker: abrir una web, rellenar formularios, subir/descargar archivos o usar Flow/Higgsfield/ChatGPT web/Gemini web/Claude web. Si la orden del dueño es directa e inequívoca y la tarea no es sensible, puede quedar autorizada y en cola sin pedir una segunda confirmación.',
+    description: 'Crea un trabajo para el Browser Worker: abrir una web, rellenar formularios, subir/descargar archivos o usar Flow/Higgsfield/ChatGPT web/Gemini web/Claude web. Puede incluir pasos estructurados de Playwright sin usar otro LLM. Si la orden del dueño es directa e inequívoca y no es sensible, queda autorizada y en cola sin segunda confirmación.',
     write: true,
     confirmationMode: 'direct_command',
     inputSchema: {
@@ -34,13 +43,14 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
         title: { type: 'string' }, instruction: { type: 'string' }, url: { type: 'string' },
         provider: { type: 'string', description: 'Proveedor explícito. Para LLM web usar chatgpt_web, gemini_web o claude_web solo si Esteban lo pidió.' },
         business_unit_id: { type: 'string' }, risk_level: { type: 'string', enum: ['low','medium','high'] },
+        steps: { type: 'array', items: BROWSER_STEP_SCHEMA },
       },
       required: ['title','instruction'], additionalProperties: false,
     },
   },
   {
     name: 'prepare_media_job',
-    description: 'Crea una generación de imagen o video usando un proveedor disponible. Flow/Higgsfield pueden usar cuota web. Synthetiq Media está desconectado hasta que el proyecto externo se una. Si Esteban ordena generar directamente, la generación puede quedar en cola sin una segunda confirmación.',
+    description: 'Crea una generación de imagen o video. Flow/Higgsfield pueden usar cuota web. Synthetiq Media está desconectado hasta que el proyecto externo se una. Si Esteban ordena generar directamente, queda en cola sin una segunda confirmación. browser_steps es opcional para automatizaciones web ya conocidas.',
     write: true,
     confirmationMode: 'direct_command',
     inputSchema: {
@@ -49,6 +59,7 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
         title: { type: 'string' }, prompt: { type: 'string' }, media_type: { type: 'string', enum: ['image','video'] },
         provider: { type: 'string' }, model: { type: 'string' }, aspect_ratio: { type: 'string' }, duration_seconds: { type: 'integer' },
         business_unit_id: { type: 'string' }, reference_urls: { type: 'array', items: { type: 'string' } },
+        browser_steps: { type: 'array', items: BROWSER_STEP_SCHEMA },
       },
       required: ['title','prompt','media_type'], additionalProperties: false,
     },
@@ -69,13 +80,8 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
   },
 ];
 
-export function isComputerTool(name: string) {
-  return WONKA_COMPUTER_TOOLS.some((tool) => tool.name === name);
-}
-
-export function getComputerToolDefinition(name: string) {
-  return WONKA_COMPUTER_TOOLS.find((tool) => tool.name === name) || null;
-}
+export function isComputerTool(name: string) { return WONKA_COMPUTER_TOOLS.some((tool) => tool.name === name); }
+export function getComputerToolDefinition(name: string) { return WONKA_COMPUTER_TOOLS.find((tool) => tool.name === name) || null; }
 
 export async function runComputerTool(
   db: SupabaseClient,
@@ -95,13 +101,18 @@ export async function runComputerTool(
     const explicit = args?.provider ? resources.find((r: any) => String(r.provider).toLowerCase() === String(args.provider).toLowerCase()) : null;
     if (args?.provider && !explicit) throw new Error('requested_browser_provider_unavailable');
     const resource = explicit || await chooseResource(db, { resourceType: 'browser', businessUnitId: args?.business_unit_id || null });
+    if (!resource) throw new Error('no_browser_resource_available');
     return createWonkaJob(db, {
       ownerUserId: ctx.actorId || null,
       businessUnitId: args?.business_unit_id || null,
       jobType: 'browser', title: String(args?.title || 'Trabajo de navegador'), instruction: String(args?.instruction || ''),
-      provider: resource?.provider || args?.provider || null, resourceId: resource?.id || null,
+      provider: resource.provider, resourceId: resource.id,
       riskLevel: args?.risk_level || 'medium', directlyAuthorized: Boolean(ctx.directlyAuthorized),
-      input: { url: args?.url || null, routing: resource ? { mode: resource.mode, label: resource.label } : null },
+      input: {
+        url: args?.url || null,
+        steps: Array.isArray(args?.steps) ? args.steps.slice(0, 50) : [],
+        routing: { mode: resource.mode, label: resource.label },
+      },
     });
   }
 
@@ -119,6 +130,7 @@ export async function runComputerTool(
       input: {
         media_type: args?.media_type, prompt: args?.prompt, model: args?.model || null, aspect_ratio: args?.aspect_ratio || null,
         duration_seconds: args?.duration_seconds || null, reference_urls: Array.isArray(args?.reference_urls) ? args.reference_urls : [],
+        steps: Array.isArray(args?.browser_steps) ? args.browser_steps.slice(0, 50) : [],
         routing: { mode: resource.mode, label: resource.label, quota_remaining: resource.quota_remaining, quota_unit: resource.quota_unit },
       },
     });
