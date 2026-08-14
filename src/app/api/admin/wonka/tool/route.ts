@@ -2,15 +2,17 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { WONKA_TOOLS, runWonkaTool } from '@/lib/wonka/tools';
 import { WONKA_COMPUTER_TOOLS, isComputerTool, runComputerTool } from '@/lib/wonka/computer-tools';
+import { WONKA_GOOGLE_TOOLS, isGoogleTool, runGoogleTool } from '@/lib/wonka/google-tools';
 
-const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS];
+const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS, ...WONKA_GOOGLE_TOOLS];
 
 function describeAction(name: string, args: Record<string, unknown>) {
   if (name === 'set_remy_global') return `${Boolean(args.enabled) ? 'Activé' : 'Pausé'} Remy globalmente.`;
   if (name === 'set_conversation_ai') return `${Boolean(args.enabled) ? 'Activé' : 'Pausé'} Remy en la conversación indicada.`;
   if (name === 'create_calendar_event') return `Creé el evento “${String(args.summary || 'evento')}” en Google Calendar.`;
+  if (name === 'send_email') return `Envié el correo “${String(args.subject || 'sin asunto')}”.`;
   if (name === 'prepare_browser_job') return `Preparé el trabajo de navegador “${String(args.title || 'sin título')}”.`;
-  if (name === 'prepare_media_job') return `Preparé la generación “${String(args.title || 'sin título')}” y seleccioné la mejor ruta de recursos disponible.`;
+  if (name === 'prepare_media_job') return `Preparé la generación “${String(args.title || 'sin título')}”.`;
   if (name === 'approve_wonka_job') return 'Aprobé el trabajo y quedó en cola para el worker.';
   if (name === 'cancel_wonka_job') return 'Cancelé el trabajo indicado.';
   return `Ejecuté ${name}.`;
@@ -32,7 +34,9 @@ export async function POST(request: Request) {
     const db = createSupabaseServiceClient();
     const result = isComputerTool(name)
       ? await runComputerTool(db, name, args, { actorId: admin.id, allowWrite: true })
-      : await runWonkaTool(db, name, args, { actorType: 'admin', actorId: admin.id, allowWrite: true });
+      : isGoogleTool(name)
+        ? await runGoogleTool(db, name, args, { allowWrite: true })
+        : await runWonkaTool(db, name, args, { actorType: 'admin', actorId: admin.id, allowWrite: true });
 
     const { data: thread } = await db.from('wonka_threads').select('id').eq('owner_user_id', admin.id).order('updated_at', { ascending: false }).limit(1).maybeSingle();
     let receipt = null;
