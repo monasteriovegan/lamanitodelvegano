@@ -12,6 +12,7 @@ type StoredMessage = {
 };
 
 type PendingTool = { name: string; args: Record<string, unknown> };
+type CalendarStatus = { oauthConfigured: boolean; connected: boolean; account: string | null; expiresAt: string | null };
 
 type DeferredInstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -25,6 +26,7 @@ function time(value: string) {
 function describeTool(tool: PendingTool) {
   if (tool.name === 'set_remy_global') return `${Boolean(tool.args?.enabled) ? 'Activar' : 'Pausar'} Remy globalmente`;
   if (tool.name === 'set_conversation_ai') return `${Boolean(tool.args?.enabled) ? 'Activar' : 'Pausar'} Remy en una conversación`;
+  if (tool.name === 'create_calendar_event') return `Crear en Google Calendar: ${String(tool.args?.summary || 'evento')}`;
   return `Ejecutar ${tool.name}`;
 }
 
@@ -39,6 +41,7 @@ export default function WonkaHubClient() {
   const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null);
   const [mcpToken, setMcpToken] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
+  const [calendar, setCalendar] = useState<CalendarStatus | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -50,9 +53,17 @@ export default function WonkaHubClient() {
     setPending(lastPending);
   }, []);
 
+  const loadCalendar = useCallback(async () => {
+    const response = await fetch('/api/admin/wonka/google-calendar/status', { cache: 'no-store' });
+    if (!response.ok) return;
+    setCalendar(await response.json());
+  }, []);
+
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : 'Error cargando Wonka')).finally(() => setLoading(false));
-  }, [load]);
+    Promise.all([load(), loadCalendar()])
+      .catch((err) => setError(err instanceof Error ? err.message : 'Error cargando Wonka'))
+      .finally(() => setLoading(false));
+  }, [load, loadCalendar]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -106,6 +117,7 @@ export default function WonkaHubClient() {
       if (!response.ok) throw new Error(body.error || 'No se pudo ejecutar la acción');
       const action = describeTool(pending);
       setPending(null);
+      await loadCalendar();
       await send(`Acción confirmada y ejecutada: ${action}. Resultado: ${JSON.stringify(body.result)}. Confírmame brevemente el nuevo estado.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo ejecutar la acción');
@@ -147,6 +159,7 @@ export default function WonkaHubClient() {
     '¿Cuántas conversaciones tengo sin leer y por qué canales?',
     'Muéstrame el estado de Remy y las conversaciones donde está activo.',
     'Revisa el catálogo y dime qué productos activos tenemos.',
+    '¿Qué tengo en mi calendario próximamente?',
   ], []);
 
   return (
@@ -182,7 +195,7 @@ export default function WonkaHubClient() {
               <div className="max-w-xl mx-auto py-12 text-center">
                 <div className="text-5xl mb-5">🎩</div>
                 <h2 className="text-xl font-black text-white">Tu director está listo</h2>
-                <p className="mt-3 text-sm text-white/50 leading-6">Puedes preguntarle por pedidos, clientes, conversaciones, catálogo y estado de Remy. Los cambios importantes se confirman antes de ejecutarse.</p>
+                <p className="mt-3 text-sm text-white/50 leading-6">Puedes preguntarle por pedidos, clientes, conversaciones, catálogo, calendario y estado de Remy. Los cambios importantes se confirman antes de ejecutarse.</p>
               </div>
             ) : messages.map((message) => {
               if (!['user', 'assistant'].includes(message.role)) return null;
@@ -248,8 +261,15 @@ export default function WonkaHubClient() {
               <div className="rounded-lg bg-white/[0.03] p-2.5">✓ WhatsApp / Instagram / Web</div>
               <div className="rounded-lg bg-white/[0.03] p-2.5">✓ Catálogo y stock</div>
               <div className="rounded-lg bg-white/[0.03] p-2.5">✓ Control seguro de Remy</div>
-              <div className="rounded-lg border border-amber-400/10 bg-amber-400/[0.04] p-2.5 text-amber-100/60">◷ Google Calendar: credenciales preparadas, falta autorizar la cuenta</div>
+              <div className={`rounded-lg p-2.5 ${calendar?.connected ? 'bg-neon/[0.06] text-neon/80' : 'border border-amber-400/10 bg-amber-400/[0.04] text-amber-100/60'}`}>
+                {calendar?.connected ? `✓ Google Calendar · ${calendar.account || 'conectado'}` : '◷ Google Calendar pendiente de autorización'}
+              </div>
             </div>
+            {!calendar?.connected && (
+              calendar?.oauthConfigured
+                ? <a href="/api/admin/wonka/google-calendar/connect" className="mt-3 inline-flex rounded-full border border-neon/30 bg-neon/10 px-4 py-2 text-xs font-bold text-neon">Conectar Google Calendar</a>
+                : <p className="mt-3 text-[10px] leading-4 text-amber-100/55">El flujo OAuth ya está implementado. Para habilitar el botón faltan GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en el entorno de Vercel.</p>
+            )}
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-[#050e0a] p-4">
