@@ -140,10 +140,7 @@ async function clickClickableContainingText(page, candidates) {
   }, candidates);
 }
 
-async function downloadReference(url, jobId) {
-  const safe = safeUrl(url);
-  const response = await fetch(safe, { redirect: 'follow' });
-  if (!response.ok) throw new Error(`reference_download_failed:${response.status}`);
+async function saveReferenceResponse(response, jobId) {
   const contentType = String(response.headers.get('content-type') || 'image/jpeg').split(';')[0];
   if (!['image/jpeg','image/png','image/webp'].includes(contentType)) throw new Error('reference_not_supported_image');
   const data = Buffer.from(await response.arrayBuffer());
@@ -154,6 +151,29 @@ async function downloadReference(url, jobId) {
   const file = path.join(dir, `${jobId}-reference.${ext}`);
   await fs.writeFile(file, data);
   return file;
+}
+
+async function downloadReferenceUrl(url, jobId) {
+  const safe = safeUrl(url);
+  const response = await fetch(safe, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`reference_download_failed:${response.status}`);
+  return saveReferenceResponse(response, jobId);
+}
+
+async function downloadReferencePath(referencePath, jobId) {
+  const endpoint = new URL(`${API_URL}/api/worker/attachment`);
+  endpoint.searchParams.set('job_id', jobId);
+  endpoint.searchParams.set('path', String(referencePath));
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    redirect: 'follow',
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`worker_attachment_download_failed:${response.status}:${detail.slice(0, 180)}`);
+  }
+  return saveReferenceResponse(response, jobId);
 }
 
 async function ensureFlowProject(page) {
@@ -184,9 +204,12 @@ async function selectFlowVideoMode(page) {
 
 async function runFlowMediaJob(page, job, input) {
   await ensureFlowProject(page);
+  const referencePaths = Array.isArray(input.reference_paths) ? input.reference_paths.filter(Boolean).slice(0, 1) : [];
   const referenceUrls = Array.isArray(input.reference_urls) ? input.reference_urls.filter(Boolean).slice(0, 1) : [];
-  if (referenceUrls.length) {
-    const file = await downloadReference(String(referenceUrls[0]), job.id);
+  if (referencePaths.length || referenceUrls.length) {
+    const file = referencePaths.length
+      ? await downloadReferencePath(String(referencePaths[0]), job.id)
+      : await downloadReferenceUrl(String(referenceUrls[0]), job.id);
     const fileInput = page.locator('input[type="file"]').first();
     await fileInput.waitFor({ state: 'attached', timeout: 15000 });
     await fileInput.setInputFiles(file);
@@ -217,7 +240,7 @@ async function runFlowMediaJob(page, job, input) {
       submitted: true,
       provider: 'google_flow',
       media_type: input.media_type || null,
-      reference_count: referenceUrls.length,
+      reference_count: referencePaths.length + referenceUrls.length,
       observation,
       screenshot_path: screenshot,
       note: 'Solicitud enviada a Google Flow desde Chrome Wonka.',
