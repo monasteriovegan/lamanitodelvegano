@@ -1,5 +1,6 @@
 import { requireRole } from '@/lib/supabase/require-role';
 import WonkaHubClient from './WonkaHubClient';
+import WonkaImageFlowComposer from './WonkaImageFlowComposer';
 
 export default async function WonkaHubPage() {
   await requireRole(['admin']);
@@ -15,6 +16,7 @@ export default async function WonkaHubPage() {
         }
       `}</style>
       <WonkaHubClient />
+      <WonkaImageFlowComposer />
     </div>
   );
 }
