@@ -8,6 +8,9 @@ const WORKER_ID = String(process.env.SYNTHETIQ_WORKER_ID || 'synthetiq-browser-r
 const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 5000));
 const HEADLESS = String(process.env.BROWSER_HEADLESS || 'true') !== 'false';
 const DATA_DIR = String(process.env.BROWSER_DATA_DIR || '/data');
+const CDP_URL = String(process.env.BROWSER_CDP_URL || '').trim();
+const WORKER_PROVIDERS = String(process.env.WORKER_PROVIDERS || 'synthetiq_browser')
+  .split(',').map((v) => v.trim()).filter(Boolean);
 
 if (!TOKEN) throw new Error('missing_SYNTHETIQ_WORKER_TOKEN');
 
@@ -15,11 +18,13 @@ const providerUrls = {
   chatgpt_web: 'https://chatgpt.com/',
   gemini_web: 'https://gemini.google.com/app',
   claude_web: 'https://claude.ai/',
-  google_flow: process.env.GOOGLE_FLOW_URL || '',
-  higgsfield: process.env.HIGGSFIELD_URL || '',
+  google_flow: process.env.GOOGLE_FLOW_URL || 'https://labs.google/fx/tools/flow/',
+  higgsfield: process.env.HIGGSFIELD_URL || 'https://higgsfield.ai/',
 };
 
 const contexts = new Map();
+const cdpPages = new Map();
+let cdpBrowser = null;
 
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
@@ -68,7 +73,30 @@ async function getContext(provider) {
   return context;
 }
 
+async function getCdpPage(provider) {
+  if (!cdpBrowser) cdpBrowser = await chromium.connectOverCDP(CDP_URL);
+  const contexts = cdpBrowser.contexts();
+  const context = contexts[0];
+  if (!context) throw new Error('cdp_context_missing');
+  const key = safeProfileName(provider);
+  const cached = cdpPages.get(key);
+  if (cached && !cached.isClosed()) return cached;
+  const target = providerUrls[provider] || '';
+  let page = null;
+  if (target) {
+    const host = new URL(target).hostname;
+    page = context.pages().find((p) => {
+      try { return new URL(p.url()).hostname === host; } catch { return false; }
+    }) || null;
+  }
+  page ||= context.pages().find((p) => p.url() === 'about:blank') || null;
+  page ||= await context.newPage();
+  cdpPages.set(key, page);
+  return page;
+}
+
 async function getPage(provider) {
+  if (CDP_URL) return getCdpPage(provider);
   const context = await getContext(provider);
   const pages = context.pages();
   return pages[0] || await context.newPage();
@@ -149,10 +177,10 @@ async function updateJob(jobId, result) {
 }
 
 async function loop() {
-  console.log('synthetiq_browser_worker_started', { API_URL, WORKER_ID, headless: HEADLESS });
+  console.log('synthetiq_browser_worker_started', { API_URL, WORKER_ID, headless: HEADLESS, cdp: Boolean(CDP_URL), providers: WORKER_PROVIDERS });
   while (true) {
     try {
-      const claimed = await api({ action: 'claim', worker_id: WORKER_ID, capabilities: ['browser', 'media'] });
+      const claimed = await api({ action: 'claim', worker_id: WORKER_ID, capabilities: ['browser', 'media'], providers: WORKER_PROVIDERS });
       const job = claimed?.job;
       if (!job) { await sleep(POLL_MS); continue; }
       console.log('job_claimed', { id: job.id, type: job.job_type, provider: job.provider });
@@ -174,6 +202,7 @@ async function loop() {
 
 async function shutdown() {
   for (const context of contexts.values()) await context.close().catch(() => undefined);
+  if (cdpBrowser) await cdpBrowser.close().catch(() => undefined);
   process.exit(0);
 }
 process.on('SIGTERM', shutdown);
