@@ -297,7 +297,19 @@ async function attachFlowStartFrame(page, file) {
   }
   if (!await addButton.isEnabled().catch(() => false)) throw new Error('flow_add_to_prompt_disabled');
   await addButton.click({ timeout: 8000 });
-  await sleep(1800);
+  await sleep(700);
+
+  const doneButton = page.getByRole('button', { name: /Hecho|Done/i }).first();
+  if (await doneButton.count().catch(() => 0) && await doneButton.isVisible().catch(() => false)) {
+    await doneButton.click({ timeout: 8000 });
+    await sleep(1400);
+  } else {
+    const doneText = page.getByText(/^(Hecho|Done)$/i).filter({ visible: true }).first();
+    if (await doneText.count().catch(() => 0)) {
+      await doneText.click({ timeout: 8000 });
+      await sleep(1400);
+    }
+  }
 }
 
 async function fillFlowPrompt(page, prompt) {
