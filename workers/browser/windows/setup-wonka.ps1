@@ -28,7 +28,7 @@ try {
 Write-Host "\nGenera una clave en Panel Maestro > Synthetiq Computer > Generar clave para este PC." -ForegroundColor Yellow
 $SecureToken = Read-Host 'Pega aquí la clave local' -AsSecureString
 $Encrypted = ConvertFrom-SecureString $SecureToken
-Set-Content -Path $TokenFile -Value $Encrypted -Encoding UTF8
+Set-Content -Path $TokenFile -Value $Encrypted -Encoding UTF8 -NoNewline
 
 $ChromeCandidates = @(
   (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
