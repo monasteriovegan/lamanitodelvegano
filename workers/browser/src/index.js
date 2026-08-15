@@ -176,9 +176,32 @@ async function downloadReferencePath(referencePath, jobId) {
   return saveReferenceResponse(response, jobId);
 }
 
+async function waitForFlowReady(page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => undefined);
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
+
+  await page.waitForFunction(() => {
+    const bodyText = String(document.body?.innerText || '').toLowerCase();
+    const stillLoading = bodyText.includes('cargando') || bodyText.includes('loading');
+    const hasPrompt = Boolean(
+      document.querySelector('textarea[aria-label="Texto editable"]') ||
+      document.querySelector('input[aria-label="Texto editable"]') ||
+      document.querySelector('textarea[aria-label="Editable text"]') ||
+      document.querySelector('input[aria-label="Editable text"]') ||
+      document.querySelector('[contenteditable="true"][aria-label="Texto editable"]') ||
+      document.querySelector('[contenteditable="true"][aria-label="Editable text"]')
+    );
+    return hasPrompt && !stillLoading;
+  }, { timeout: 45000 });
+
+  await sleep(1200);
+}
+
 async function ensureFlowProject(page) {
   if (!/\/project\//.test(page.url())) {
-    if (!page.url().includes('labs.google')) await page.goto(providerUrls.google_flow, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    if (!page.url().includes('labs.google')) {
+      await page.goto(providerUrls.google_flow, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    }
     const newProject = page.getByRole('button', { name: /new project|nuevo proyecto/i }).first();
     if (await newProject.count()) await newProject.click({ timeout: 15000 });
     else {
@@ -186,20 +209,80 @@ async function ensureFlowProject(page) {
       if (!clicked) throw new Error('flow_new_project_control_not_found');
     }
     await page.waitForURL(/\/project\//, { timeout: 30000 });
-    await sleep(1500);
   }
+  await waitForFlowReady(page);
+}
+
+async function openFlowModePicker(page) {
+  const selectors = [
+    page.getByRole('button', { name: /nano banana|imagen|image|video|vídeo|veo/i }).first(),
+    page.getByText(/nano banana|imagen|image|video|vídeo|veo/i).first(),
+  ];
+
+  for (const selector of selectors) {
+    try {
+      if (await selector.count()) {
+        await selector.click({ timeout: 5000 });
+        await sleep(800);
+        return true;
+      }
+    } catch {}
+  }
+
+  const clicked = await clickClickableContainingText(page, ['nano banana', 'imagen', 'image', 'video', 'vídeo', 'veo']).catch(() => false);
+  if (clicked) await sleep(800);
+  return Boolean(clicked);
 }
 
 async function selectFlowVideoMode(page) {
+  await waitForFlowReady(page);
   const bodyBefore = await page.locator('body').innerText().catch(() => '');
-  if (/veo\s*3\.1|gemini omni/i.test(bodyBefore) && !/nano banana/i.test(bodyBefore)) return;
+  const lowerBefore = String(bodyBefore || '').toLowerCase();
 
-  const opened = await clickClickableContainingText(page, ['nano banana', 'imagen', 'image']);
-  if (!opened) throw new Error('flow_generation_type_control_not_found');
-  await sleep(700);
-  const clickedVideo = await clickClickableContainingText(page, ['vídeo', 'video']);
-  if (!clickedVideo) throw new Error('flow_video_option_not_found');
-  await sleep(1200);
+  if ((lowerBefore.includes('veo') || lowerBefore.includes('gemini omni')) && !lowerBefore.includes('nano banana')) return;
+
+  const opened = await openFlowModePicker(page);
+  if (!opened) {
+    const observation = await observe(page);
+    throw new Error(`flow_generation_type_control_not_found:${JSON.stringify({
+      buttons: observation.buttons?.slice(0, 20) || [],
+      text: String(observation.text || '').slice(0, 500),
+    })}`);
+  }
+
+  const candidates = [/vídeo/i, /video/i, /veo/i, /gemini omni/i];
+  let clicked = false;
+  for (const regex of candidates) {
+    try {
+      const button = page.getByRole('button', { name: regex }).first();
+      if (await button.count()) {
+        await button.click({ timeout: 5000 });
+        clicked = true;
+        break;
+      }
+    } catch {}
+    try {
+      const text = page.getByText(regex).first();
+      if (await text.count()) {
+        await text.click({ timeout: 5000 });
+        clicked = true;
+        break;
+      }
+    } catch {}
+  }
+
+  if (!clicked) clicked = Boolean(await clickClickableContainingText(page, ['vídeo', 'video', 'veo', 'gemini omni']).catch(() => false));
+
+  if (!clicked) {
+    const observation = await observe(page);
+    throw new Error(`flow_video_option_not_found:${JSON.stringify({
+      buttons: observation.buttons?.slice(0, 20) || [],
+      text: String(observation.text || '').slice(0, 500),
+    })}`);
+  }
+
+  await sleep(1500);
+  await waitForFlowReady(page);
 }
 
 async function runFlowMediaJob(page, job, input) {
@@ -214,16 +297,32 @@ async function runFlowMediaJob(page, job, input) {
     await fileInput.waitFor({ state: 'attached', timeout: 15000 });
     await fileInput.setInputFiles(file);
     await sleep(2500);
+    await waitForFlowReady(page);
   }
 
   if (String(input.media_type || '').toLowerCase() === 'video') await selectFlowVideoMode(page);
 
   const prompt = String(input.prompt || job.instruction || '').trim();
   if (!prompt) throw new Error('flow_prompt_required');
-  const promptInput = page.locator('input[aria-label="Texto editable"],textarea[aria-label="Texto editable"],input[aria-label="Editable text"],textarea[aria-label="Editable text"]').first();
-  await promptInput.waitFor({ state: 'visible', timeout: 15000 });
-  await promptInput.fill(prompt);
+  const promptInput = page.locator([
+    'input[aria-label="Texto editable"]',
+    'textarea[aria-label="Texto editable"]',
+    'input[aria-label="Editable text"]',
+    'textarea[aria-label="Editable text"]',
+    '[contenteditable="true"][aria-label="Texto editable"]',
+    '[contenteditable="true"][aria-label="Editable text"]',
+  ].join(',')).first();
+  await promptInput.waitFor({ state: 'visible', timeout: 20000 });
+  try {
+    await promptInput.fill(prompt);
+  } catch {
+    await promptInput.click({ timeout: 10000 });
+    await page.keyboard.press('Control+A').catch(() => undefined);
+    await page.keyboard.press('Backspace').catch(() => undefined);
+    await page.keyboard.type(prompt, { delay: 8 });
+  }
 
+  await waitForFlowReady(page);
   const createButtons = page.getByRole('button', { name: /crear|create/i });
   const count = await createButtons.count();
   if (count > 0) await createButtons.nth(count - 1).click({ timeout: 15000 });
