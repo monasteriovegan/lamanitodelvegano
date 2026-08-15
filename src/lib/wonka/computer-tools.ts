@@ -50,7 +50,7 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
   },
   {
     name: 'prepare_media_job',
-    description: 'Crea una generación de imagen o video. Flow/Higgsfield pueden usar cuota web. Synthetiq Media está desconectado hasta que el proyecto externo se una. Si Esteban ordena generar directamente, queda en cola sin una segunda confirmación. browser_steps es opcional para automatizaciones web ya conocidas.',
+    description: 'Crea una generación de imagen o video. Flow/Higgsfield pueden usar cuota web. Synthetiq Media está desconectado hasta que el proyecto externo se una. Para archivos adjuntos internos de Wonka usa reference_paths; reference_urls queda para referencias externas. Si Esteban ordena generar directamente, queda en cola sin una segunda confirmación.',
     write: true,
     confirmationMode: 'direct_command',
     inputSchema: {
@@ -58,7 +58,9 @@ export const WONKA_COMPUTER_TOOLS: ComputerToolDefinition[] = [
       properties: {
         title: { type: 'string' }, prompt: { type: 'string' }, media_type: { type: 'string', enum: ['image','video'] },
         provider: { type: 'string' }, model: { type: 'string' }, aspect_ratio: { type: 'string' }, duration_seconds: { type: 'integer' },
-        business_unit_id: { type: 'string' }, reference_urls: { type: 'array', items: { type: 'string' } },
+        business_unit_id: { type: 'string' },
+        reference_urls: { type: 'array', items: { type: 'string' } },
+        reference_paths: { type: 'array', items: { type: 'string' }, description: 'Rutas internas seguras de adjuntos de Wonka. No son URLs públicas.' },
         browser_steps: { type: 'array', items: BROWSER_STEP_SCHEMA },
       },
       required: ['title','prompt','media_type'], additionalProperties: false,
@@ -129,7 +131,9 @@ export async function runComputerTool(
       provider: resource.provider, resourceId: resource.id, riskLevel: 'medium', directlyAuthorized: Boolean(ctx.directlyAuthorized),
       input: {
         media_type: args?.media_type, prompt: args?.prompt, model: args?.model || null, aspect_ratio: args?.aspect_ratio || null,
-        duration_seconds: args?.duration_seconds || null, reference_urls: Array.isArray(args?.reference_urls) ? args.reference_urls : [],
+        duration_seconds: args?.duration_seconds || null,
+        reference_urls: Array.isArray(args?.reference_urls) ? args.reference_urls.slice(0, 4) : [],
+        reference_paths: Array.isArray(args?.reference_paths) ? args.reference_paths.slice(0, 4) : [],
         steps: Array.isArray(args?.browser_steps) ? args.browser_steps.slice(0, 50) : [],
         routing: { mode: resource.mode, label: resource.label, quota_remaining: resource.quota_remaining, quota_unit: resource.quota_unit },
       },
