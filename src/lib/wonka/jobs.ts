@@ -41,7 +41,10 @@ export async function createWonkaJob(db: SupabaseClient, input: {
   directlyAuthorized?: boolean;
 }) {
   const now = new Date().toISOString();
-  const directlyAuthorized = Boolean(input.directlyAuthorized);
+  const routingMode = String((input.input as any)?.routing?.mode || '');
+  // Generaciones media que usan una cuota web ya incluida son reversibles y no requieren una segunda aprobación.
+  const includedQuotaMedia = input.jobType === 'media' && routingMode === 'quota_web';
+  const directlyAuthorized = Boolean(input.directlyAuthorized || includedQuotaMedia);
   const status = directlyAuthorized ? 'queued' : 'awaiting_approval';
   const { data, error } = await db.from('wonka_jobs').insert({
     owner_user_id: input.ownerUserId || null,
@@ -64,21 +67,52 @@ export async function createWonkaJob(db: SupabaseClient, input: {
     event_type: directlyAuthorized ? 'created_authorized' : 'created',
     status,
     message: directlyAuthorized
-      ? 'Trabajo creado y autorizado por la orden directa del dueño.'
+      ? 'Trabajo creado y autorizado por la orden directa del dueño o por usar una cuota web incluida.'
       : 'Trabajo preparado por Wonka y pendiente de aprobación.',
   });
   return data;
 }
 
 export async function approveWonkaJob(db: SupabaseClient, input: { jobId: string; approvedBy?: string | null }) {
-  const { data: current, error: currentError } = await db.from('wonka_jobs').select('id,status').eq('id', input.jobId).maybeSingle();
-  if (currentError) throw currentError;
+  const approvable = ['awaiting_approval', 'draft', 'waiting_user'];
+  const requestedId = String(input.jobId || '').trim();
+  const looksLikeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId);
+
+  let current: { id: string; status: string } | null = null;
+  if (looksLikeUuid) {
+    let exactQuery = db.from('wonka_jobs').select('id,status').eq('id', requestedId);
+    if (input.approvedBy) exactQuery = exactQuery.eq('owner_user_id', input.approvedBy);
+    const exact = await exactQuery.maybeSingle();
+    if (exact.error) throw exact.error;
+    current = exact.data as { id: string; status: string } | null;
+  }
+
+  // Si el modelo entregó un ID inválido/inexistente, solo hacemos fallback cuando hay exactamente
+  // un trabajo aprobable del dueño. Nunca adivinamos entre varios trabajos pendientes.
+  if (!current && input.approvedBy) {
+    const pending = await db.from('wonka_jobs')
+      .select('id,status')
+      .eq('owner_user_id', input.approvedBy)
+      .in('status', approvable)
+      .order('created_at', { ascending: false })
+      .limit(2);
+    if (pending.error) throw pending.error;
+    if ((pending.data || []).length > 1) throw new Error('job_approval_ambiguous');
+    current = (pending.data || [])[0] as { id: string; status: string } | null;
+  }
+
   if (!current) throw new Error('job_not_found');
-  if (!['awaiting_approval', 'draft', 'waiting_user'].includes(String(current.status))) throw new Error('job_not_approvable');
+  if (!approvable.includes(String(current.status))) throw new Error('job_not_approvable');
+
+  const resolvedJobId = current.id;
   const now = new Date().toISOString();
-  const { data, error } = await db.from('wonka_jobs').update({ status: 'queued', approved_at: now, approved_by: input.approvedBy || null, updated_at: now }).eq('id', input.jobId).select('id,status,approved_at').single();
+  const { data, error } = await db.from('wonka_jobs')
+    .update({ status: 'queued', approval_required: false, approved_at: now, approved_by: input.approvedBy || null, updated_at: now })
+    .eq('id', resolvedJobId)
+    .select('id,status,approved_at')
+    .single();
   if (error) throw error;
-  await db.from('wonka_job_events').insert({ job_id: input.jobId, event_type: 'approved', status: 'queued', message: 'Trabajo aprobado y listo para un worker.' });
+  await db.from('wonka_job_events').insert({ job_id: resolvedJobId, event_type: 'approved', status: 'queued', message: 'Trabajo aprobado y listo para un worker.' });
   return data;
 }
 
