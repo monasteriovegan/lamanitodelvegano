@@ -9,7 +9,7 @@ $Port = 9222
 
 if (-not (Test-Path $TokenFile)) { throw 'Falta la clave local. Ejecuta primero setup-wonka.ps1.' }
 
-$Encrypted = Get-Content -Raw -Path $TokenFile
+$Encrypted = (Get-Content -Raw -Path $TokenFile).Trim()
 $SecureToken = ConvertTo-SecureString $Encrypted
 $Ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureToken)
 try { $Token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Ptr) }
