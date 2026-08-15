@@ -57,5 +57,8 @@ Write-Host "Chrome Wonka: $ProfileDir"
 Write-Host 'Puedes minimizar esta ventana. No la cierres mientras quieras que Wonka use las cuotas web.' -ForegroundColor Yellow
 
 Push-Location $Root
-try { node src/index.js }
+try {
+  if (Test-Path 'src/local-runner.js') { node src/local-runner.js }
+  else { node src/index.js }
+}
 finally { Pop-Location }
