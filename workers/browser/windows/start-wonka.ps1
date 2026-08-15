@@ -25,6 +25,16 @@ if (-not $Chrome) { throw 'No encontré Google Chrome instalado.' }
 
 New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
 
+# Actualiza automáticamente el worker antes de cada arranque.
+$RawBase = 'https://raw.githubusercontent.com/monasteriovegan/lamanitodelvegano/main/workers/browser'
+try {
+  Invoke-WebRequest -Uri "$RawBase/src/index.js" -OutFile (Join-Path $Root 'src\index.js') -UseBasicParsing
+  Invoke-WebRequest -Uri "$RawBase/src/local-runner.js" -OutFile (Join-Path $Root 'src\local-runner.js') -UseBasicParsing
+  Write-Host 'Worker actualizado desde GitHub.' -ForegroundColor DarkGray
+} catch {
+  Write-Host 'No se pudo autoactualizar; usaré la versión local disponible.' -ForegroundColor Yellow
+}
+
 # Chrome 136+ requiere un user-data-dir no predeterminado para remote debugging.
 Start-Process -FilePath $Chrome -ArgumentList @(
   "--remote-debugging-port=$Port",
