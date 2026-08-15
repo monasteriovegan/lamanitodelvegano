@@ -75,8 +75,8 @@ async function getContext(provider) {
 
 async function getCdpPage(provider) {
   if (!cdpBrowser) cdpBrowser = await chromium.connectOverCDP(CDP_URL);
-  const contexts = cdpBrowser.contexts();
-  const context = contexts[0];
+  const browserContexts = cdpBrowser.contexts();
+  const context = browserContexts[0];
   if (!context) throw new Error('cdp_context_missing');
   const key = safeProfileName(provider);
   const cached = cdpPages.get(key);
@@ -126,6 +126,105 @@ async function observe(page) {
   return { title, url, text, buttons: buttons.slice(0, 40), links: links.slice(0, 40), inputs };
 }
 
+async function clickClickableContainingText(page, candidates) {
+  return page.evaluate((texts) => {
+    const normalized = texts.map((v) => String(v).toLowerCase());
+    const nodes = Array.from(document.querySelectorAll('button,[role="button"],div,span'));
+    for (const node of nodes) {
+      const own = String(node.textContent || '').trim().toLowerCase();
+      if (!own || !normalized.some((text) => own.includes(text))) continue;
+      const clickable = node.closest('button,[role="button"]') || node;
+      if (clickable instanceof HTMLElement) { clickable.click(); return true; }
+    }
+    return false;
+  }, candidates);
+}
+
+async function downloadReference(url, jobId) {
+  const safe = safeUrl(url);
+  const response = await fetch(safe, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`reference_download_failed:${response.status}`);
+  const contentType = String(response.headers.get('content-type') || 'image/jpeg').split(';')[0];
+  if (!['image/jpeg','image/png','image/webp'].includes(contentType)) throw new Error('reference_not_supported_image');
+  const data = Buffer.from(await response.arrayBuffer());
+  if (data.length > 15 * 1024 * 1024) throw new Error('reference_too_large');
+  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+  const dir = path.join(DATA_DIR, 'downloads');
+  await fs.mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${jobId}-reference.${ext}`);
+  await fs.writeFile(file, data);
+  return file;
+}
+
+async function ensureFlowProject(page) {
+  if (!/\/project\//.test(page.url())) {
+    if (!page.url().includes('labs.google')) await page.goto(providerUrls.google_flow, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const newProject = page.getByRole('button', { name: /new project|nuevo proyecto/i }).first();
+    if (await newProject.count()) await newProject.click({ timeout: 15000 });
+    else {
+      const clicked = await clickClickableContainingText(page, ['new project', 'nuevo proyecto']);
+      if (!clicked) throw new Error('flow_new_project_control_not_found');
+    }
+    await page.waitForURL(/\/project\//, { timeout: 30000 });
+    await sleep(1500);
+  }
+}
+
+async function selectFlowVideoMode(page) {
+  const bodyBefore = await page.locator('body').innerText().catch(() => '');
+  if (/veo\s*3\.1|gemini omni/i.test(bodyBefore) && !/nano banana/i.test(bodyBefore)) return;
+
+  const opened = await clickClickableContainingText(page, ['nano banana', 'imagen', 'image']);
+  if (!opened) throw new Error('flow_generation_type_control_not_found');
+  await sleep(700);
+  const clickedVideo = await clickClickableContainingText(page, ['vídeo', 'video']);
+  if (!clickedVideo) throw new Error('flow_video_option_not_found');
+  await sleep(1200);
+}
+
+async function runFlowMediaJob(page, job, input) {
+  await ensureFlowProject(page);
+  const referenceUrls = Array.isArray(input.reference_urls) ? input.reference_urls.filter(Boolean).slice(0, 1) : [];
+  if (referenceUrls.length) {
+    const file = await downloadReference(String(referenceUrls[0]), job.id);
+    const fileInput = page.locator('input[type="file"]').first();
+    await fileInput.waitFor({ state: 'attached', timeout: 15000 });
+    await fileInput.setInputFiles(file);
+    await sleep(2500);
+  }
+
+  if (String(input.media_type || '').toLowerCase() === 'video') await selectFlowVideoMode(page);
+
+  const prompt = String(input.prompt || job.instruction || '').trim();
+  if (!prompt) throw new Error('flow_prompt_required');
+  const promptInput = page.locator('input[aria-label="Texto editable"],textarea[aria-label="Texto editable"],input[aria-label="Editable text"],textarea[aria-label="Editable text"]').first();
+  await promptInput.waitFor({ state: 'visible', timeout: 15000 });
+  await promptInput.fill(prompt);
+
+  const createButtons = page.getByRole('button', { name: /crear|create/i });
+  const count = await createButtons.count();
+  if (count > 0) await createButtons.nth(count - 1).click({ timeout: 15000 });
+  else {
+    const clicked = await clickClickableContainingText(page, ['crear', 'create']);
+    if (!clicked) throw new Error('flow_create_control_not_found');
+  }
+  await sleep(2500);
+  const observation = await observe(page);
+  const screenshot = await snapshot(page, job.id);
+  return {
+    status: 'completed',
+    output: {
+      submitted: true,
+      provider: 'google_flow',
+      media_type: input.media_type || null,
+      reference_count: referenceUrls.length,
+      observation,
+      screenshot_path: screenshot,
+      note: 'Solicitud enviada a Google Flow desde Chrome Wonka.',
+    },
+  };
+}
+
 async function runStep(page, step) {
   const action = String(step?.action || '');
   if (action === 'goto') return page.goto(safeUrl(step.url), { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -146,6 +245,11 @@ async function processJob(job) {
   const provider = String(job.provider || 'synthetiq_browser');
   const page = await getPage(provider);
   const input = job.input && typeof job.input === 'object' ? job.input : {};
+
+  if (provider === 'google_flow' && job.job_type === 'media' && (input.prompt || job.instruction)) {
+    return runFlowMediaJob(page, job, input);
+  }
+
   const startUrl = input.url || providerUrls[provider] || '';
   if (startUrl) await page.goto(safeUrl(startUrl), { waitUntil: 'domcontentloaded', timeout: 60000 });
 
