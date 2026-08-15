@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$Root = Split-Path -Parent $PSScriptRoot
 $StateDir = Join-Path $env:LOCALAPPDATA 'Synthetiq'
 $ProfileDir = Join-Path $StateDir 'ChromeWonka'
 $TokenFile = Join-Path $StateDir 'worker-token.txt'
