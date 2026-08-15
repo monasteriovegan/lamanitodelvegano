@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null) as {
     action?: string; job_id?: string; worker_id?: string; status?: string; output?: unknown; error?: string;
-    screenshot_url?: string; external_job_id?: string; capabilities?: string[];
+    screenshot_url?: string; external_job_id?: string; capabilities?: string[]; providers?: string[];
   } | null;
   const action = String(body?.action || '');
 
@@ -28,15 +28,17 @@ export async function POST(request: Request) {
     const capabilities = Array.isArray(body?.capabilities) && body!.capabilities!.length
       ? body!.capabilities!.map(String).filter((v) => ['browser','media','workflow','computer'].includes(v))
       : ['browser'];
+    const providers = Array.isArray(body?.providers)
+      ? body!.providers!.map((v) => String(v).trim()).filter(Boolean).slice(0, 30)
+      : [];
     if (!capabilities.length) return Response.json({ error: 'no_capabilities' }, { status: 400 });
 
-    const { data: job, error } = await db.from('wonka_jobs')
+    let query = db.from('wonka_jobs')
       .select('id,business_unit_id,job_type,title,instruction,provider,resource_id,input,risk_level')
       .eq('status', 'queued')
-      .in('job_type', capabilities)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .in('job_type', capabilities);
+    if (providers.length) query = query.in('provider', providers);
+    const { data: job, error } = await query.order('created_at', { ascending: true }).limit(1).maybeSingle();
     if (error) return Response.json({ error: error.message }, { status: 400 });
     if (!job) return Response.json({ job: null });
 
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (claimed.error) return Response.json({ error: claimed.error.message }, { status: 400 });
     if (!claimed.data) return Response.json({ job: null });
-    await db.from('wonka_job_events').insert({ job_id: job.id, event_type: 'claimed', status: 'running', message: `Tomado por ${workerId}.`, payload: { worker_id: workerId, token_id: workerToken.id, capabilities } });
+    await db.from('wonka_job_events').insert({ job_id: job.id, event_type: 'claimed', status: 'running', message: `Tomado por ${workerId}.`, payload: { worker_id: workerId, token_id: workerToken.id, capabilities, providers } });
     return Response.json({ job: claimed.data });
   }
 
