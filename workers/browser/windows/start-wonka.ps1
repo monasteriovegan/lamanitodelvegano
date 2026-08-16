@@ -35,6 +35,20 @@ try {
   Write-Host 'No se pudo autoactualizar; usaré la versión local disponible.' -ForegroundColor Yellow
 }
 
+# Cierra exclusivamente instancias del perfil Chrome Wonka para evitar sesiones CDP estancadas.
+$ProfileNeedle = [Regex]::Escape($ProfileDir)
+try {
+  $WonkaChrome = Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object {
+    $_.CommandLine -and $_.CommandLine -match $ProfileNeedle
+  }
+  foreach ($Proc in $WonkaChrome) {
+    Stop-Process -Id $Proc.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  if ($WonkaChrome) { Start-Sleep -Milliseconds 1200 }
+} catch {
+  Write-Host 'No pude limpiar una instancia previa de Chrome Wonka; continuaré con el arranque.' -ForegroundColor Yellow
+}
+
 # Chrome 136+ requiere un user-data-dir no predeterminado para remote debugging.
 Start-Process -FilePath $Chrome -ArgumentList @(
   "--remote-debugging-port=$Port",
@@ -44,14 +58,17 @@ Start-Process -FilePath $Chrome -ArgumentList @(
 )
 
 $Ready = $false
-for ($i = 0; $i -lt 30; $i++) {
+for ($i = 0; $i -lt 40; $i++) {
   try {
-    $null = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/json/version" -TimeoutSec 2
-    $Ready = $true
-    break
-  } catch { Start-Sleep -Milliseconds 500 }
+    $Version = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/json/version" -TimeoutSec 2
+    if ($Version.webSocketDebuggerUrl) {
+      $Ready = $true
+      break
+    }
+  } catch {}
+  Start-Sleep -Milliseconds 500
 }
-if (-not $Ready) { throw 'Chrome Wonka no abrió el puerto local 9222.' }
+if (-not $Ready) { throw 'Chrome Wonka no abrió correctamente el puerto local 9222.' }
 
 $env:SYNTHETIQ_API_URL = 'https://lamanitodelvegano.vercel.app'
 $env:SYNTHETIQ_WORKER_TOKEN = $Token
