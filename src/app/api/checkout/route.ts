@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const calculo = await calcularPedido(body);
+  const supabase = createSupabaseServiceClient();
+  const business = await new BusinessRepository(supabase).requireDefault();
+  const calculo = await calcularPedido(body, business.id);
   if (!calculo.ok) {
     return NextResponse.json({ error: calculo.error }, { status: 400 });
   }
@@ -53,7 +55,6 @@ export async function POST(req: NextRequest) {
     const { consultarPuntosCliente } = await import('@/lib/pricing/fidelidad');
     const puntos = await consultarPuntosCliente(body.cliente.email, body.cliente.telefono);
     if (puntos.ok && puntos.puntosDisponibles > 0) {
-      const supabase = createSupabaseServiceClient();
       const { data: ajustesRow } = await supabase.from('ajustes').select('data').eq('id', 'global').maybeSingle();
       const valorPunto = ajustesRow?.data?.valorPunto || 100;
       puntosCanjeados = puntos.puntosDisponibles;
@@ -66,8 +67,6 @@ export async function POST(req: NextRequest) {
     (calculo.subtotal || 0) + (calculo.costoEnvio || 0) - (calculo.descuentoCupon || 0) - descuentoFidelidad
   );
 
-  const supabase = createSupabaseServiceClient();
-  const business = await new BusinessRepository(supabase).requireDefault();
   const customerRepository = new CustomerRepository(supabase, capabilities);
   const customer = await customerRepository.upsertCheckoutContact(business.id, {
     email: body.cliente.email,
@@ -109,9 +108,6 @@ export async function POST(req: NextRequest) {
     attribution: body.attribution || {},
   });
 
-  // Email de confirmación — best-effort: si falla, el pedido ya está
-  // creado y no debe perderse por un problema de Resend. Se registra el
-  // error en logs, nunca se le devuelve un 500 al cliente por esto.
   if (body.cliente.email) {
     enviarEmail({
       to: body.cliente.email,
@@ -122,9 +118,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Si este cliente tenía un carrito marcado como abandonado, se limpia:
-  // ya completó la compra, no debe recibir un recordatorio de algo que
-  // ya pagó.
   const identificadorCarrito = body.cliente.email || body.cliente.telefono;
   if (identificadorCarrito) {
     await supabase
