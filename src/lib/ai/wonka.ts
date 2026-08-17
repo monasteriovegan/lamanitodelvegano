@@ -3,9 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { WONKA_TOOLS, runWonkaTool } from '@/lib/wonka/tools';
 import { WONKA_COMPUTER_TOOLS, getComputerToolDefinition, isComputerTool, runComputerTool } from '@/lib/wonka/computer-tools';
 import { WONKA_GOOGLE_TOOLS, getGoogleToolDefinition, isGoogleTool, runGoogleTool } from '@/lib/wonka/google-tools';
-import { recordGeminiUsage } from '@/lib/observability/usage';
+import { recordLlmUsage } from '@/lib/observability/usage';
 import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { compactJsonForModel, compactText, getAgentContextBudget, type AgentContextBudget } from '@/lib/ai/context-budget';
+import { callAiProvider, type ProviderMessage, type ProviderToolCall } from '@/lib/ai/providers';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS, ...WONKA_GOOGLE_TOOLS];
@@ -27,24 +28,6 @@ const SYSTEM_PROMPT = `Eres Wonka, director personal y operativo de Synthetiq pa
 type ChatMessage = { role: 'user' | 'model'; text: string };
 type PendingToolCall = { name: string; args: Record<string, unknown> };
 type ToolDefinition = (typeof ALL_TOOLS)[number];
-
-function sanitizeGeminiSchema(schema: any): any {
-  if (!schema || typeof schema !== 'object') return schema;
-  const allowed = new Set(['type', 'description', 'properties', 'required', 'enum', 'items']);
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (!allowed.has(key)) continue;
-    if (key === 'properties' && value && typeof value === 'object') clean.properties = Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([name, child]) => [name, sanitizeGeminiSchema(child)]));
-    else if (key === 'items') clean.items = sanitizeGeminiSchema(value);
-    else clean[key] = value;
-  }
-  return clean;
-}
-
-function toGeminiTools(toolDefinitions: ToolDefinition[]) {
-  if (!toolDefinitions.length) return [];
-  return [{ functionDeclarations: toolDefinitions.map((tool) => ({ name: tool.name, description: tool.description, parameters: sanitizeGeminiSchema(tool.inputSchema) })) }];
-}
 
 function latestUserText(messages: ChatMessage[]) { return [...messages].reverse().find((m) => m.role === 'user')?.text || ''; }
 
@@ -75,7 +58,7 @@ function selectTools(messages: ChatMessage[]): ToolDefinition[] {
   return ALL_TOOLS.filter((tool) => names.has(tool.name));
 }
 
-function compactContents(messages: ChatMessage[], budget: AgentContextBudget) {
+function compactContents(messages: ChatMessage[], budget: AgentContextBudget): ProviderMessage[] {
   const selected: ChatMessage[] = [];
   let chars = 0;
   for (let i = messages.length - 1; i >= 0 && selected.length < budget.maxHistoryMessages; i -= 1) {
@@ -85,33 +68,9 @@ function compactContents(messages: ChatMessage[], budget: AgentContextBudget) {
     selected.push({ role: messages[i].role, text });
     chars += text.length;
   }
-  return selected.reverse().map((message) => ({ role: message.role, parts: [{ text: message.text }] }));
+  return selected.reverse().map((message) => ({ role: message.role === 'model' ? 'assistant' : 'user', content: message.text }));
 }
 
-async function callGemini(apiKey: string, model: string, contents: any[], maxOutputTokens: number, toolDefinitions: ToolDefinition[] = []) {
-  const started = Date.now();
-  const payload: Record<string, unknown> = {
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents,
-    generationConfig: { temperature: 0.2, maxOutputTokens },
-  };
-  const tools = toGeminiTools(toolDefinitions);
-  if (tools.length) payload.tools = tools;
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.error('wonka_gemini_provider_error', { status: response.status, detail: String(body?.error?.message || '').slice(0, 500) });
-    throw new Error(`gemini_generate_failed:${response.status}`);
-  }
-  return { body, latencyMs: Date.now() - started };
-}
-
-function candidateParts(body: any) { return Array.isArray(body?.candidates?.[0]?.content?.parts) ? body.candidates[0].content.parts : []; }
-function extractText(parts: any[]) { return parts.map((part) => typeof part?.text === 'string' ? part.text : '').join('').trim(); }
 function isDirectCommand(text: string) {
   return /\b(haz|crea|genera|usa|abre|rellena|completa|sube|descarga|ejecuta|inicia|prepara|cancela|manda|env[ií]a|responde|resp[oó]ndele|agenda|programa)\b/i.test(text);
 }
@@ -119,10 +78,15 @@ function hasSensitiveIrreversibleIntent(text: string) {
   return /\b(paga|pagar|compra|comprar|publica|publicar|borra|borrar|elimina|eliminar|contrase[nñ]a|transferencia|transferir|retira|retirar|activa\s+(?:la\s+)?campa[nñ]a|enviar\s+(?:el\s+)?formulario\s+final)\b/i.test(text);
 }
 
-async function runReadTool(db: SupabaseClient, call: { name: string; args: Record<string, unknown> }, ownerId: string) {
+async function runReadTool(
+  db: SupabaseClient,
+  call: { name: string; args: Record<string, unknown> },
+  ownerId: string,
+  businessUnitId?: string | null,
+) {
   if (isComputerTool(call.name)) return runComputerTool(db, call.name, call.args, { actorId: ownerId, allowWrite: false });
   if (isGoogleTool(call.name)) return runGoogleTool(db, call.name, call.args, { allowWrite: false });
-  return runWonkaTool(db, call.name, call.args, { actorType: 'wonka', actorId: ownerId, allowWrite: false });
+  return runWonkaTool(db, call.name, call.args, { actorType: 'wonka', actorId: ownerId, allowWrite: false, businessUnitId });
 }
 
 function shortDirectReceipt(name: string, result: any) {
@@ -133,11 +97,15 @@ function shortDirectReceipt(name: string, result: any) {
   return '✓ Listo.';
 }
 
+function pendingTool(call: ProviderToolCall): PendingToolCall {
+  return { name: call.name, args: call.args };
+}
+
 export async function runWonkaChat(
   db: SupabaseClient,
   input: { ownerId: string; messages: ChatMessage[]; threadId?: string | null; businessUnitId?: string | null },
 ): Promise<{ text: string; pendingTool?: PendingToolCall; toolResults?: Array<{ name: string; result: unknown }> }> {
-  const { data: config } = await db.from('integraciones_secretas').select('gemini_api_key,ai_provider,ai_model').eq('id', 'global').maybeSingle();
+  const { data: config } = await db.from('integraciones_secretas').select('ai_provider,ai_model').eq('id', 'global').maybeSingle();
   const runtime = await getAgentRuntimeConfig(db, 'wonka', {
     provider: config?.ai_provider || 'gemini',
     model: config?.ai_model || DEFAULT_MODEL,
@@ -145,10 +113,8 @@ export async function runWonkaChat(
   });
   if (!runtime.enabled) throw new Error('wonka_runtime_disabled');
   if (runtime.executionMode !== 'api') throw new Error(`wonka_execution_mode_not_supported:${runtime.executionMode}`);
-  if (runtime.provider !== 'gemini') throw new Error(`wonka_provider_not_supported:${runtime.provider}`);
-  const apiKey = String(config?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
-  if (!apiKey) throw new Error('missing_gemini_key');
-  const model = String(runtime.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  if (!['gemini', 'groq'].includes(runtime.provider)) throw new Error(`wonka_provider_not_supported:${runtime.provider}`);
+  const model = String(runtime.model || (runtime.provider === 'groq' ? 'openai/gpt-oss-20b' : DEFAULT_MODEL)).trim();
   const budget = getAgentContextBudget('wonka', runtime.metadata);
 
   let businessUnitId = input.businessUnitId || null;
@@ -156,14 +122,24 @@ export async function runWonkaChat(
     const { data: unit } = await db.from('business_units').select('id').order('created_at', { ascending: true }).limit(1).maybeSingle();
     businessUnitId = unit?.id || null;
   }
-  const usageContext = { businessUnitId, wonkaThreadId: input.threadId || null, agent: 'wonka', model };
+  const usageContext = { businessUnitId, wonkaThreadId: input.threadId || null, agent: 'wonka' };
   const contents = compactContents(input.messages, budget);
   const selectedTools = selectTools(input.messages);
 
-  const firstCall = await callGemini(apiKey, model, contents, budget.maxOutputTokens, selectedTools);
-  await recordGeminiUsage(db, {
+  const firstCall = await callAiProvider(db, {
+    provider: runtime.provider,
+    model,
+    systemPrompt: SYSTEM_PROMPT,
+    messages: contents,
+    tools: selectedTools,
+    maxOutputTokens: budget.maxOutputTokens,
+    temperature: 0.2,
+  });
+  await recordLlmUsage(db, {
     ...usageContext,
-    usage: firstCall.body?.usageMetadata,
+    provider: runtime.provider,
+    model,
+    usage: firstCall.usage,
     latencyMs: firstCall.latencyMs,
     metadata: {
       stage: 'initial', runtime_mode: runtime.executionMode,
@@ -171,12 +147,11 @@ export async function runWonkaChat(
       token_budget: budget,
     },
   });
-  const first = firstCall.body;
-  const parts = candidateParts(first);
-  const functionCalls = parts.filter((part: any) => part?.functionCall?.name).map((part: any) => ({ name: String(part.functionCall.name), args: (part.functionCall.args && typeof part.functionCall.args === 'object') ? part.functionCall.args : {} }));
-  if (functionCalls.length === 0) return { text: extractText(parts) || 'No pude generar una respuesta útil.' };
 
-  const writeCall = functionCalls.find((call: any) => ALL_TOOLS.find((tool) => tool.name === call.name)?.write);
+  const functionCalls = firstCall.toolCalls;
+  if (functionCalls.length === 0) return { text: firstCall.text || 'No pude generar una respuesta útil.' };
+
+  const writeCall = functionCalls.find((call) => ALL_TOOLS.find((tool) => tool.name === call.name)?.write);
   if (writeCall) {
     const userText = latestUserText(input.messages);
     const computerDefinition = isComputerTool(writeCall.name) ? getComputerToolDefinition(writeCall.name) : null;
@@ -197,29 +172,39 @@ export async function runWonkaChat(
     else if (writeCall.name === 'approve_wonka_job') human = 'aprobar y poner en cola ese trabajo';
     else if (writeCall.name === 'send_email') human = 'enviar ese correo';
     else human = `ejecutar ${writeCall.name}`;
-    return { text: `Necesito tu confirmación para ${human}.`, pendingTool: writeCall };
+    return { text: `Necesito tu confirmación para ${human}.`, pendingTool: pendingTool(writeCall) };
   }
 
-  const results: Array<{ name: string; result: unknown }> = [];
-  for (const call of functionCalls.slice(0, 4)) results.push({ name: call.name, result: await runReadTool(db, call, input.ownerId) });
-  const modelContent = first?.candidates?.[0]?.content || { role: 'model', parts };
-  const functionResponseParts = results.map((item) => ({
-    functionResponse: {
-      name: item.name,
-      response: { result: compactJsonForModel(item.result, budget.maxToolResultChars) },
-    },
+  const executed: Array<{ call: ProviderToolCall; result: unknown }> = [];
+  for (const call of functionCalls.slice(0, 4)) {
+    executed.push({ call, result: await runReadTool(db, call, input.ownerId, businessUnitId) });
+  }
+  const toolResults = executed.map((item) => ({ name: item.call.name, result: item.result }));
+  const toolMessages: ProviderMessage[] = executed.map((item) => ({
+    role: 'tool',
+    toolCallId: item.call.id,
+    name: item.call.name,
+    content: JSON.stringify(compactJsonForModel(item.result, budget.maxToolResultChars)),
   }));
 
-  // La segunda llamada solo redacta el resultado: no reenvía schemas y recibe resultados compactados.
-  const secondCall = await callGemini(apiKey, model, [...contents, modelContent, { role: 'user', parts: functionResponseParts }], Math.min(budget.maxOutputTokens, 220), []);
-  await recordGeminiUsage(db, {
+  const secondCall = await callAiProvider(db, {
+    provider: runtime.provider,
+    model,
+    systemPrompt: SYSTEM_PROMPT,
+    messages: [...contents, firstCall.assistantMessage, ...toolMessages],
+    maxOutputTokens: Math.min(budget.maxOutputTokens, 180),
+    temperature: 0.2,
+  });
+  await recordLlmUsage(db, {
     ...usageContext,
-    usage: secondCall.body?.usageMetadata,
+    provider: runtime.provider,
+    model,
+    usage: secondCall.usage,
     latencyMs: secondCall.latencyMs,
     metadata: {
-      stage: 'tool_followup', tools: results.map((item) => item.name), runtime_mode: runtime.executionMode,
+      stage: 'tool_followup', tools: toolResults.map((item) => item.name), runtime_mode: runtime.executionMode,
       tool_schemas_resent: false, tool_results_compacted: true, token_budget: budget,
     },
   });
-  return { text: extractText(candidateParts(secondCall.body)) || 'Consulté los datos.', toolResults: results };
+  return { text: secondCall.text || 'Consulté los datos.', toolResults };
 }

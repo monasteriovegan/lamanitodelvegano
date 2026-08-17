@@ -17,6 +17,15 @@ export type GeminiUsage = {
   totalTokenCount?: number;
 };
 
+export type NormalizedLlmUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  thinkingTokens?: number;
+  cachedInputTokens?: number;
+  toolTokens?: number;
+  totalTokens?: number;
+};
+
 async function activePricing(db: SupabaseClient, provider: string, model: string) {
   const { data } = await db
     .from('provider_pricing')
@@ -30,19 +39,27 @@ async function activePricing(db: SupabaseClient, provider: string, model: string
   return data;
 }
 
-export async function recordGeminiUsage(
+export async function recordLlmUsage(
   db: SupabaseClient,
-  input: UsageContext & { model: string; usage?: GeminiUsage | null; latencyMs?: number; status?: string; errorCode?: string; metadata?: Record<string, unknown> },
+  input: UsageContext & {
+    provider: string;
+    model: string;
+    usage?: NormalizedLlmUsage | null;
+    latencyMs?: number;
+    status?: string;
+    errorCode?: string;
+    metadata?: Record<string, unknown>;
+  },
 ) {
   try {
     const usage = input.usage || {};
-    const pricing = await activePricing(db, 'gemini', input.model);
-    const inputTokens = Number(usage.promptTokenCount || 0);
-    const outputTokens = Number(usage.candidatesTokenCount || 0);
-    const thinkingTokens = Number(usage.thoughtsTokenCount || 0);
-    const cachedTokens = Number(usage.cachedContentTokenCount || 0);
-    const toolTokens = Number(usage.toolUsePromptTokenCount || 0);
-    const totalTokens = Number(usage.totalTokenCount || inputTokens + outputTokens + thinkingTokens);
+    const pricing = await activePricing(db, input.provider, input.model);
+    const inputTokens = Number(usage.inputTokens || 0);
+    const outputTokens = Number(usage.outputTokens || 0);
+    const thinkingTokens = Number(usage.thinkingTokens || 0);
+    const cachedTokens = Number(usage.cachedInputTokens || 0);
+    const toolTokens = Number(usage.toolTokens || 0);
+    const totalTokens = Number(usage.totalTokens || inputTokens + outputTokens + thinkingTokens);
     const inputRate = Number(pricing?.input_usd_per_million || 0);
     const outputRate = Number(pricing?.output_usd_per_million || 0);
     const cachedRate = Number(pricing?.cached_input_usd_per_million || 0);
@@ -58,7 +75,7 @@ export async function recordGeminiUsage(
       wonka_thread_id: input.wonkaThreadId || null,
       agent: input.agent,
       service: 'llm',
-      provider: 'gemini',
+      provider: input.provider,
       model: input.model,
       operation: 'generate_content',
       input_tokens: inputTokens,
@@ -82,6 +99,25 @@ export async function recordGeminiUsage(
   } catch (error) {
     console.error('usage_event_record_failed', { service: 'llm', detail: error instanceof Error ? error.message : 'unknown' });
   }
+}
+
+export async function recordGeminiUsage(
+  db: SupabaseClient,
+  input: UsageContext & { model: string; usage?: GeminiUsage | null; latencyMs?: number; status?: string; errorCode?: string; metadata?: Record<string, unknown> },
+) {
+  const raw = input.usage || {};
+  return recordLlmUsage(db, {
+    ...input,
+    provider: 'gemini',
+    usage: {
+      inputTokens: Number(raw.promptTokenCount || 0),
+      outputTokens: Number(raw.candidatesTokenCount || 0),
+      thinkingTokens: Number(raw.thoughtsTokenCount || 0),
+      cachedInputTokens: Number(raw.cachedContentTokenCount || 0),
+      toolTokens: Number(raw.toolUsePromptTokenCount || 0),
+      totalTokens: Number(raw.totalTokenCount || 0),
+    },
+  });
 }
 
 export async function recordWhatsAppUsage(
