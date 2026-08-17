@@ -22,7 +22,7 @@ async function patchedWaitForFlowReady(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => undefined);
   const deadline = Date.now() + 50000;
   while (Date.now() < deadline) {
-    const state = await page.evaluate(() => {
+    const ready = await page.evaluate(() => {
       const visible = (el) => {
         if (!(el instanceof HTMLElement)) return false;
         const rect = el.getBoundingClientRect();
@@ -30,20 +30,19 @@ async function patchedWaitForFlowReady(page) {
         return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
       };
       const body = String(document.body?.innerText || '');
-      const editors = Array.from(document.querySelectorAll('textarea,input,[contenteditable="true"]')).filter(visible);
+      const editors = Array.from(document.querySelectorAll('textarea,input,[contenteditable="true"],[role="textbox"]')).filter(visible);
       const composer = editors.some((el) => {
         const aria = String(el.getAttribute('aria-label') || '');
         const placeholder = String(el.getAttribute('placeholder') || '');
         const type = String(el.getAttribute('type') || '').toLowerCase();
-        return type !== 'file' && (el.getAttribute('contenteditable') === 'true' || el.tagName === 'TEXTAREA' || /texto editable|editable text|prompt|describe|describ/i.test(`${aria} ${placeholder}`));
+        return type !== 'file' && (el.getAttribute('contenteditable') === 'true' || el.getAttribute('role') === 'textbox' || el.tagName === 'TEXTAREA' || /texto editable|editable text|prompt|describe|describ/i.test(`${aria} ${placeholder}`));
       });
-      const promptSignal = /qué quieres crear|que quieres crear|what do you want to create/i.test(body);
-      const controlSignal = /nano banana|vídeo|video|fotogramas|frames|crear|create|generate/i.test(body);
-      return { ready: promptSignal || (composer && controlSignal), promptSignal, composer, controlSignal };
-    }).catch(() => ({ ready: false }));
-    if (state?.ready) {
-      await sleep(700);
-      return state;
+      return /qué quieres crear|que quieres crear|what do you want to create/i.test(body)
+        || (composer && /vídeo|video|fotogramas|frames|crear|create|generate|agente|agent/i.test(body));
+    }).catch(() => false);
+    if (ready) {
+      await sleep(600);
+      return;
     }
     await sleep(500);
   }
@@ -68,15 +67,13 @@ async function patchedEnsureFlowProject(page) {
       return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
     };
     const body = String(document.body?.innerText || '');
-    const editors = Array.from(document.querySelectorAll('textarea,input,[contenteditable="true"]')).filter(visible);
+    const editors = Array.from(document.querySelectorAll('textarea,input,[contenteditable="true"],[role="textbox"]')).filter(visible);
     const composer = editors.some((el) => {
-      const aria = String(el.getAttribute('aria-label') || '');
-      const placeholder = String(el.getAttribute('placeholder') || '');
       const type = String(el.getAttribute('type') || '').toLowerCase();
-      return type !== 'file' && (el.getAttribute('contenteditable') === 'true' || el.tagName === 'TEXTAREA' || /texto editable|editable text|prompt|describe|describ/i.test(`${aria} ${placeholder}`));
+      return type !== 'file' && (el.getAttribute('contenteditable') === 'true' || el.getAttribute('role') === 'textbox' || el.tagName === 'TEXTAREA');
     });
     return /qué quieres crear|que quieres crear|what do you want to create/i.test(body)
-      || (composer && /nano banana|vídeo|video|fotogramas|frames|crear|create|generate/i.test(body));
+      || (composer && /vídeo|video|fotogramas|frames|crear|create|generate|agente|agent/i.test(body));
   }).catch(() => false);
 
   const activate = async (candidate) => {
@@ -86,118 +83,60 @@ async function patchedEnsureFlowProject(page) {
     return candidate;
   };
 
-  const pickExistingWorkspace = async () => {
-    const pages = context.pages().filter((p) => !p.isClosed());
-    const projectPages = pages.filter((p) => /labs\.google/.test(p.url()) && /\/project(?:\/|$|\?)/.test(p.url()));
-    const otherFlowPages = pages.filter((p) => /labs\.google/.test(p.url()) && !projectPages.includes(p));
-    for (const candidate of [...projectPages, ...otherFlowPages]) {
-      if (/\/project(?:\/|$|\?)/.test(candidate.url()) || await workspaceReady(candidate)) return activate(candidate);
-    }
-    return null;
-  };
-
-  if (/labs\.google/.test(page.url()) && (/\/project(?:\/|$|\?)/.test(page.url()) || await workspaceReady(page))) return activate(page);
-
-  const existing = await pickExistingWorkspace();
-  if (existing) return existing;
+  const pages = context.pages().filter((p) => !p.isClosed());
+  const ordered = [
+    ...pages.filter((p) => /labs\.google/.test(p.url()) && /\/project(?:\/|$|\?)/.test(p.url())),
+    ...pages.filter((p) => /labs\.google/.test(p.url()) && !/\/project(?:\/|$|\?)/.test(p.url())),
+  ];
+  for (const candidate of ordered) {
+    if (/\/project(?:\/|$|\?)/.test(candidate.url()) || await workspaceReady(candidate)) return activate(candidate);
+  }
 
   if (!/labs\.google/.test(page.url())) {
     await page.goto(providerUrls.google_flow, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  } else {
-    await page.bringToFront().catch(() => undefined);
   }
   await sleep(1200);
   if (await workspaceReady(page)) return activate(page);
 
-  const tryExistingProjectLink = async () => {
-    const links = page.locator('a[href*="/project/"],a[href$="/project"],a[href*="/project?"]');
-    const count = await links.count().catch(() => 0);
-    for (let i = 0; i < Math.min(count, 12); i += 1) {
-      const link = links.nth(i);
-      if (!await link.isVisible().catch(() => false)) continue;
-      await link.click({ timeout: 10000 }).catch(() => undefined);
+  const before = new Set(context.pages());
+  let acted = false;
+  const projectLink = page.locator('a[href*="/project/"]').filter({ visible: true }).first();
+  if (await projectLink.count().catch(() => 0)) {
+    await projectLink.click({ timeout: 10000 }).catch(() => undefined);
+    acted = true;
+  }
+  if (!acted) {
+    acted = await page.evaluate(() => {
+      const visible = (el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+      const rx = /new project|nuevo proyecto|create project|crear proyecto|start creating|comenzar a crear|create with flow|crear con flow|try flow|probar flow|new creation|nueva creaci[oó]n/i;
+      const nodes = Array.from(document.querySelectorAll('button,a,[role="button"],[role="link"],[tabindex]')).filter(visible);
+      const target = nodes.find((el) => rx.test(`${String(el.textContent || '')} ${String(el.getAttribute('aria-label') || '')} ${String(el.getAttribute('title') || '')}`));
+      if (!(target instanceof HTMLElement)) return false;
+      target.scrollIntoView({ block: 'center', inline: 'center' });
+      target.click();
       return true;
-    }
-    return false;
-  };
+    }).catch(() => false);
+  }
 
-  const tryProjectCta = async () => page.evaluate(() => {
-    const visible = (el) => {
-      if (!(el instanceof HTMLElement)) return false;
-      const rect = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
-      return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-    };
-    const patterns = [
-      /^(new project|nuevo proyecto)$/i,
-      /create (a )?project|crear (un )?proyecto/i,
-      /start creating|comenzar a crear|empieza a crear/i,
-      /create with flow|crear con flow/i,
-      /try flow|probar flow/i,
-      /open flow|abrir flow|launch flow|iniciar flow/i,
-      /new creation|nueva creación|nueva creacion/i,
-    ];
-    const nodes = Array.from(document.querySelectorAll('button,a,[role="button"],[role="link"],[tabindex]')).filter(visible);
-    const candidates = nodes.map((el) => {
-      const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-      const aria = String(el.getAttribute('aria-label') || '').trim();
-      const title = String(el.getAttribute('title') || '').trim();
-      const href = String(el.getAttribute('href') || '');
-      const haystack = [text, aria, title].filter(Boolean).join(' | ');
-      let score = 999;
-      patterns.forEach((pattern, index) => { if (pattern.test(haystack)) score = Math.min(score, index); });
-      if (/\/project(?:\/|$|\?)/i.test(href)) score = Math.min(score, 0);
-      return { el, score, len: haystack.length || 999 };
-    }).filter((item) => item.score < 999).sort((a, b) => a.score - b.score || a.len - b.len);
-    const target = candidates[0]?.el;
-    if (!(target instanceof HTMLElement)) return false;
-    target.scrollIntoView({ block: 'center', inline: 'center' });
-    try { target.focus(); } catch {}
-    try { target.click(); } catch {}
-    return true;
-  }).catch(() => false);
-
-  const waitAfterAction = async (knownPages) => {
+  if (acted) {
     const deadline = Date.now() + 45000;
     while (Date.now() < deadline) {
-      const pages = context.pages().filter((p) => !p.isClosed());
-      const candidates = [page, ...pages.filter((p) => !knownPages.has(p)), ...pages].filter((p, i, all) => all.indexOf(p) === i);
+      const currentPages = context.pages().filter((p) => !p.isClosed());
+      const candidates = [...currentPages.filter((p) => !before.has(p)), ...currentPages];
       for (const candidate of candidates) {
         if (!/labs\.google/.test(candidate.url())) continue;
         if (/\/project(?:\/|$|\?)/.test(candidate.url()) || await workspaceReady(candidate)) return activate(candidate);
       }
       await sleep(500);
     }
-    return null;
-  };
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const before = new Set(context.pages());
-    let acted = await tryExistingProjectLink();
-    if (!acted) acted = await tryProjectCta();
-    if (acted) {
-      const opened = await waitAfterAction(before);
-      if (opened) return opened;
-    }
-
-    const afterExisting = await pickExistingWorkspace();
-    if (afterExisting) return afterExisting;
-
-    if (attempt === 0) {
-      await page.goto(providerUrls.google_flow, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => undefined);
-      await sleep(1500);
-      if (await workspaceReady(page)) return activate(page);
-    }
   }
 
   const observation = await observe(page);
-  console.error('flow_project_entry_observation', {
-    url: observation.url,
-    title: observation.title,
-    buttons: observation.buttons?.slice(0, 30),
-    links: observation.links?.slice(0, 30),
-    text: observation.text?.slice(0, 1800),
-  });
   throw new Error('flow_project_entry_unavailable:' + JSON.stringify({
     url: observation.url,
     title: observation.title,
@@ -232,173 +171,247 @@ async function patchedAttachFlowStartFrame(page, file) {
   await addButton.click({ timeout: 8000 });
   await sleep(500);
 
-  let doneSeen = false;
   let doneClosed = false;
   const doneDeadline = Date.now() + 20000;
   while (Date.now() < doneDeadline && !doneClosed) {
-    const state = await page.evaluate(() => {
+    const clicked = await page.evaluate(() => {
       const visible = (el) => {
         if (!(el instanceof HTMLElement)) return false;
         const rect = el.getBoundingClientRect();
         const style = getComputedStyle(el);
-        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
       };
       const nodes = Array.from(document.querySelectorAll('button,[role="button"],[tabindex],span,div')).filter(visible);
-      const candidates = nodes.map((el) => {
-        const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-        const aria = String(el.getAttribute('aria-label') || '').trim();
-        const title = String(el.getAttribute('title') || '').trim();
-        const exact = /^(hecho|done)$/i.test(text) || /^(hecho|done)$/i.test(aria) || /^(hecho|done)$/i.test(title);
-        const clickable = el.matches('button,[role="button"],[tabindex]') || getComputedStyle(el).cursor === 'pointer';
-        return { el, exact, clickable, len: text.length };
-      }).filter((item) => item.exact).sort((a, b) => Number(b.clickable) - Number(a.clickable) || a.len - b.len);
-      const target = candidates[0]?.el;
+      const exact = nodes.filter((el) => {
+        const values = [el.textContent, el.getAttribute('aria-label'), el.getAttribute('title')].map((v) => String(v || '').replace(/\s+/g, ' ').trim());
+        return values.some((v) => /^(hecho|done)$/i.test(v));
+      });
+      const target = exact.find((el) => el.matches('button,[role="button"],[tabindex]')) || exact[0];
       if (!(target instanceof HTMLElement)) return false;
       let clickable = target;
       let current = target;
-      for (let i = 0; i < 7 && current instanceof HTMLElement; i += 1) {
-        if (current.tagName === 'BUTTON' || current.getAttribute('role') === 'button' || current.getAttribute('tabindex') !== null || getComputedStyle(current).cursor === 'pointer') {
-          clickable = current;
-          break;
-        }
+      for (let i = 0; i < 6 && current instanceof HTMLElement; i += 1) {
+        if (current.matches('button,[role="button"],[tabindex]') || getComputedStyle(current).cursor === 'pointer') { clickable = current; break; }
         current = current.parentElement;
       }
       clickable.scrollIntoView({ block: 'center', inline: 'center' });
-      try { clickable.focus(); } catch {}
-      try { clickable.click(); } catch {}
+      clickable.click();
       return true;
     }).catch(() => false);
 
-    if (state) {
-      doneSeen = true;
-      await sleep(700);
-      const stillVisible = await page.evaluate(() => {
-        const visible = (el) => {
-          if (!(el instanceof HTMLElement)) return false;
-          const rect = el.getBoundingClientRect();
-          const style = getComputedStyle(el);
-          return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-        };
-        return Array.from(document.querySelectorAll('*')).some((el) => {
-          if (!visible(el)) return false;
-          const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-          const aria = String(el.getAttribute?.('aria-label') || '').trim();
-          const title = String(el.getAttribute?.('title') || '').trim();
-          return /^(hecho|done)$/i.test(text) || /^(hecho|done)$/i.test(aria) || /^(hecho|done)$/i.test(title);
-        });
-      }).catch(() => false);
-      if (!stillVisible) doneClosed = true;
-    } else {
-      const editorGone = await page.evaluate(() => {
-        const body = String(document.body?.innerText || '');
-        return !/Añadir a la petición|Add to prompt/i.test(body) && !/Subir archivos multimedia|Upload media/i.test(body);
-      }).catch(() => false);
-      if (editorGone) doneClosed = true;
-      else await sleep(350);
-    }
+    if (clicked) await sleep(700);
+    const editorGone = await page.evaluate(() => {
+      const body = String(document.body?.innerText || '');
+      return !/Añadir a la petición|Add to prompt/i.test(body) && !/Subir archivos multimedia|Upload media/i.test(body);
+    }).catch(() => false);
+    if (editorGone) doneClosed = true;
+    else await sleep(350);
   }
 
   if (!doneClosed) {
     const observation = await observe(page);
-    throw new Error('flow_start_frame_done_not_closed:' + JSON.stringify({
-      done_seen: doneSeen,
-      buttons: observation.buttons?.slice(0, 25),
-      text: observation.text?.slice(0, 1400),
-    }));
+    throw new Error('flow_start_frame_done_not_closed:' + JSON.stringify({ buttons: observation.buttons?.slice(0, 25), text: observation.text?.slice(0, 1400) }));
   }
   await sleep(900);
 }
 
 async function patchedFillFlowPrompt(page, prompt) {
-  const candidates = page.locator([
-    'input[aria-label="Texto editable"]',
-    'textarea[aria-label="Texto editable"]',
-    'input[aria-label="Editable text"]',
-    'textarea[aria-label="Editable text"]',
-    '[contenteditable="true"][aria-label="Texto editable"]',
-    '[contenteditable="true"][aria-label="Editable text"]',
-    'textarea',
-    '[contenteditable="true"]',
-    'input:not([type="file"])',
-  ].join(','));
+  await waitForFlowReady(page);
+  const expected = String(prompt || '').trim();
+  if (!expected) throw new Error('flow_prompt_required');
+  const probe = expected.toLowerCase().replace(/\s+/g, ' ').slice(0, Math.min(80, expected.length));
 
-  const count = await candidates.count().catch(() => 0);
-  let target = null;
-  let fallback = null;
-  for (let i = 0; i < count; i += 1) {
-    const candidate = candidates.nth(i);
-    if (!await candidate.isVisible().catch(() => false)) continue;
-    const meta = await candidate.evaluate((el) => ({
-      aria: String(el.getAttribute('aria-label') || ''),
-      placeholder: String(el.getAttribute('placeholder') || ''),
-      type: String(el.getAttribute('type') || '').toLowerCase(),
-      tag: el.tagName,
-      editable: el.getAttribute('contenteditable') === 'true',
-    })).catch(() => null);
-    if (!meta || meta.type === 'file') continue;
-    if (!fallback && (meta.tag === 'TEXTAREA' || meta.editable)) fallback = candidate;
-    if (/texto editable|editable text|prompt|describe|describ/i.test(`${meta.aria} ${meta.placeholder}`)) {
-      target = candidate;
-      break;
-    }
-  }
-  target ||= fallback;
-  if (!target) {
-    const observation = await observe(page);
-    throw new Error('flow_prompt_input_not_found:' + JSON.stringify({ inputs: observation.inputs, text: observation.text?.slice(-1200) }));
-  }
-
-  try {
-    await target.fill(prompt, { timeout: 10000 });
-  } catch {
-    await target.click({ timeout: 8000 });
-    await page.keyboard.press('Control+A').catch(() => undefined);
-    await page.keyboard.press('Backspace').catch(() => undefined);
-    await page.keyboard.type(prompt, { delay: 5 });
-  }
-}
-
-async function patchedClickFlowCreate(page) {
-  const roleButtons = page.getByRole('button', { name: /crear|create|generate/i });
-  const count = await roleButtons.count().catch(() => 0);
-  for (let i = count - 1; i >= 0; i -= 1) {
-    const candidate = roleButtons.nth(i);
-    if (await candidate.isVisible().catch(() => false) && await candidate.isEnabled().catch(() => false)) {
-      await candidate.click({ timeout: 10000 });
-      return;
-    }
-  }
-
-  const clicked = await page.evaluate(() => {
+  const markComposer = async () => page.evaluate(() => {
+    const attr = 'data-synthetiq-flow-composer';
+    document.querySelectorAll(`[${attr}]`).forEach((el) => el.removeAttribute(attr));
     const visible = (el) => {
       if (!(el instanceof HTMLElement)) return false;
       const rect = el.getBoundingClientRect();
       const style = getComputedStyle(el);
       return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
     };
-    const nodes = Array.from(document.querySelectorAll('button,[role="button"],[tabindex]')).filter(visible);
-    const candidates = nodes.map((el) => {
-      const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-      const aria = String(el.getAttribute('aria-label') || '').trim();
-      const title = String(el.getAttribute('title') || '').trim();
-      const haystack = `${text} ${aria} ${title}`;
-      const disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
-      return { el, match: /(crear|create|generate)/i.test(haystack), disabled, len: haystack.length };
-    }).filter((item) => item.match && !item.disabled).sort((a, b) => a.len - b.len);
-    const target = candidates[0]?.el;
-    if (!(target instanceof HTMLElement)) return false;
-    target.scrollIntoView({ block: 'center', inline: 'center' });
-    try { target.click(); } catch { return false; }
-    return true;
-  }).catch(() => false);
+    const placeholderRx = /qué quieres crear|que quieres crear|what do you want to create/i;
+    const placeholderNodes = Array.from(document.querySelectorAll('div,span,p,label')).filter((el) => visible(el) && placeholderRx.test(String(el.textContent || '').trim()));
+    const editors = Array.from(document.querySelectorAll('textarea,input:not([type="file"]),[contenteditable="true"],[role="textbox"]')).filter(visible);
+    const scored = editors.map((el) => {
+      const rect = el.getBoundingClientRect();
+      const aria = String(el.getAttribute('aria-label') || '');
+      const placeholder = String(el.getAttribute('placeholder') || '');
+      const role = String(el.getAttribute('role') || '');
+      const type = String(el.getAttribute('type') || '').toLowerCase();
+      const ownText = String(el.textContent || '').trim();
+      let score = 0;
+      if (placeholderRx.test(`${aria} ${placeholder} ${ownText}`)) score += 140;
+      if (el.getAttribute('contenteditable') === 'true') score += 45;
+      if (role === 'textbox') score += 40;
+      if (el.tagName === 'TEXTAREA') score += 35;
+      if (rect.width >= 280) score += 25;
+      if (rect.top >= window.innerHeight * 0.50) score += 35;
+      if (rect.left >= 180) score += 15;
+      if (/search|buscar|filtro|filter/i.test(`${aria} ${placeholder}`) || type === 'search') score -= 180;
+      for (const node of placeholderNodes) {
+        const pRect = node.getBoundingClientRect();
+        if (el.contains(node) || node.contains(el)) score += 160;
+        const dx = Math.max(0, Math.max(rect.left - pRect.right, pRect.left - rect.right));
+        const dy = Math.max(0, Math.max(rect.top - pRect.bottom, pRect.top - rect.bottom));
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 220) score += Math.max(0, 90 - distance / 3);
+      }
+      return { el, score, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, aria, placeholder, tag: el.tagName, role, type };
+    }).sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (!best || best.score < 20 || !(best.el instanceof HTMLElement)) return { found: false, candidates: scored.slice(0, 6).map(({ score, rect, aria, placeholder, tag, role, type }) => ({ score, rect, aria, placeholder, tag, role, type })) };
+    best.el.setAttribute(attr, '1');
+    return { found: true, score: best.score, rect: best.rect, aria: best.aria, placeholder: best.placeholder, tag: best.tag, role: best.role, type: best.type };
+  }).catch(() => ({ found: false }));
 
-  if (!clicked) {
-    const observation = await observe(page);
-    throw new Error('flow_create_disabled:' + JSON.stringify({
-      buttons: observation.buttons?.slice(-18),
-      text: observation.text?.slice(-1200),
-    }));
+  const composerState = async () => page.evaluate(() => {
+    const target = document.querySelector('[data-synthetiq-flow-composer="1"]');
+    if (!(target instanceof HTMLElement)) return { exists: false, text: '', active: '' };
+    const text = 'value' in target ? String(target.value || '') : String(target.innerText || target.textContent || '');
+    const active = document.activeElement instanceof HTMLElement ? `${document.activeElement.tagName}:${document.activeElement.getAttribute('role') || ''}:${document.activeElement.getAttribute('contenteditable') || ''}` : '';
+    return { exists: true, text, active };
+  }).catch(() => ({ exists: false, text: '', active: '' }));
+
+  const promptRegistered = async () => {
+    const state = await composerState();
+    const normalized = String(state.text || '').toLowerCase().replace(/\s+/g, ' ');
+    if (probe && normalized.includes(probe)) return true;
+    return page.evaluate((needle) => {
+      const visible = (el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+      return Array.from(document.querySelectorAll('textarea,input:not([type="file"]),[contenteditable="true"],[role="textbox"]')).filter(visible).some((el) => {
+        const value = 'value' in el ? String(el.value || '') : String(el.innerText || el.textContent || '');
+        return value.toLowerCase().replace(/\s+/g, ' ').includes(needle);
+      });
+    }, probe).catch(() => false);
+  };
+
+  const writeMarked = async () => {
+    const target = page.locator('[data-synthetiq-flow-composer="1"]').first();
+    if (!await target.count().catch(() => 0) || !await target.isVisible().catch(() => false)) return false;
+    const meta = await target.evaluate((el) => ({ tag: el.tagName, editable: el.getAttribute('contenteditable') === 'true', role: el.getAttribute('role') || '' })).catch(() => null);
+    if (!meta) return false;
+    if (meta.tag === 'INPUT' || meta.tag === 'TEXTAREA') {
+      await target.fill(expected, { timeout: 10000 }).catch(() => undefined);
+    } else {
+      await target.click({ timeout: 8000 }).catch(() => undefined);
+      await page.keyboard.press('Control+A').catch(() => undefined);
+      await page.keyboard.press('Backspace').catch(() => undefined);
+      await page.keyboard.insertText(expected).catch(() => undefined);
+    }
+    await sleep(700);
+    return promptRegistered();
+  };
+
+  let marked = await markComposer();
+  let registered = marked?.found ? await writeMarked() : false;
+
+  if (!registered) {
+    const placeholder = page.getByText(/¿?Qué quieres crear\??|What do you want to create\??/i).filter({ visible: true }).last();
+    if (await placeholder.count().catch(() => 0)) {
+      await placeholder.click({ timeout: 8000 }).catch(() => undefined);
+      await page.keyboard.insertText(expected).catch(() => undefined);
+      await sleep(800);
+      registered = await promptRegistered();
+    }
   }
+
+  if (!registered) {
+    marked = await markComposer();
+    const injected = await page.evaluate((value) => {
+      const target = document.querySelector('[data-synthetiq-flow-composer="1"]');
+      if (!(target instanceof HTMLElement)) return false;
+      try { target.focus(); } catch {}
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        const proto = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (setter) setter.call(target, value); else target.value = value;
+      } else {
+        target.textContent = value;
+      }
+      try { target.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: value })); } catch {}
+      try { target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value })); } catch { target.dispatchEvent(new Event('input', { bubbles: true })); }
+      try { target.dispatchEvent(new Event('change', { bubbles: true })); } catch {}
+      return true;
+    }, expected).catch(() => false);
+    if (injected) {
+      await sleep(900);
+      registered = await promptRegistered();
+    }
+  }
+
+  if (!registered) {
+    const observation = await observe(page);
+    const state = await composerState();
+    throw new Error('flow_prompt_not_registered:' + JSON.stringify({ marked, composer: state, inputs: observation.inputs, text: observation.text?.slice(-1600) }));
+  }
+
+  const enableDeadline = Date.now() + 15000;
+  while (Date.now() < enableDeadline) {
+    const enabled = await page.evaluate(() => {
+      const visible = (el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+      return Array.from(document.querySelectorAll('button,[role="button"]')).filter(visible).some((el) => {
+        const haystack = `${String(el.textContent || '')} ${String(el.getAttribute('aria-label') || '')} ${String(el.getAttribute('title') || '')}`;
+        const disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
+        return /(crear|create|generate)/i.test(haystack) && !disabled;
+      });
+    }).catch(() => false);
+    if (enabled) return;
+    await sleep(400);
+  }
+
+  const observation = await observe(page);
+  const state = await composerState();
+  throw new Error('flow_composer_not_ready:' + JSON.stringify({ composer: state, buttons: observation.buttons?.slice(-20), text: observation.text?.slice(-1600) }));
+}
+
+async function patchedClickFlowCreate(page) {
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline) {
+    const roleButtons = page.getByRole('button', { name: /crear|create|generate/i });
+    const count = await roleButtons.count().catch(() => 0);
+    for (let i = count - 1; i >= 0; i -= 1) {
+      const candidate = roleButtons.nth(i);
+      if (await candidate.isVisible().catch(() => false) && await candidate.isEnabled().catch(() => false)) {
+        await candidate.click({ timeout: 10000 });
+        return;
+      }
+    }
+
+    const clicked = await page.evaluate(() => {
+      const visible = (el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      };
+      const nodes = Array.from(document.querySelectorAll('button,[role="button"]')).filter(visible);
+      const target = nodes.find((el) => {
+        const haystack = `${String(el.textContent || '')} ${String(el.getAttribute('aria-label') || '')} ${String(el.getAttribute('title') || '')}`;
+        const disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
+        return /(crear|create|generate)/i.test(haystack) && !disabled;
+      });
+      if (!(target instanceof HTMLElement)) return false;
+      target.scrollIntoView({ block: 'center', inline: 'center' });
+      target.click();
+      return true;
+    }).catch(() => false);
+    if (clicked) return;
+    await sleep(350);
+  }
+
+  const observation = await observe(page);
+  throw new Error('flow_create_disabled:' + JSON.stringify({ buttons: observation.buttons?.slice(-20), text: observation.text?.slice(-1600) }));
 }
 
 async function patchedRunFlowMediaJob(page, job, input) {
@@ -418,13 +431,13 @@ async function patchedRunFlowMediaJob(page, job, input) {
   }
 
   await fillFlowPrompt(page, prompt);
-  await sleep(500);
+  await sleep(450);
 
   const before = await page.evaluate(() => ({
     videos: Array.from(document.querySelectorAll('video')).map((video) => String(video.currentSrc || video.src || '')).filter(Boolean),
     videoCount: document.querySelectorAll('video').length,
     downloadCount: Array.from(document.querySelectorAll('button,a,[role="button"],[role="link"]')).filter((el) => /descargar|download/i.test(`${String(el.textContent || '')} ${String(el.getAttribute?.('aria-label') || '')}`)).length,
-    promptText: Array.from(document.querySelectorAll('[contenteditable="true"],textarea,input')).map((el) => String(el.value ?? el.textContent ?? '')).join('\n'),
+    promptText: Array.from(document.querySelectorAll('[contenteditable="true"],[role="textbox"],textarea,input')).map((el) => String(el.value ?? el.textContent ?? '')).join('\n'),
   })).catch(() => ({ videos: [], videoCount: 0, downloadCount: 0, promptText: '' }));
   const videoSourcesBefore = new Set(before.videos || []);
 
@@ -446,7 +459,7 @@ async function patchedRunFlowMediaJob(page, job, input) {
         return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
       };
       const body = String(document.body?.innerText || '');
-      const promptText = Array.from(document.querySelectorAll('[contenteditable="true"],textarea,input')).map((el) => String(el.value ?? el.textContent ?? '')).join('\n');
+      const promptText = Array.from(document.querySelectorAll('[contenteditable="true"],[role="textbox"],textarea,input')).map((el) => String(el.value ?? el.textContent ?? '')).join('\n');
       const createReady = Array.from(document.querySelectorAll('button,[role="button"]')).some((el) => {
         if (!visible(el)) return false;
         const haystack = `${String(el.textContent || '')} ${String(el.getAttribute('aria-label') || '')}`;
@@ -491,10 +504,7 @@ async function patchedRunFlowMediaJob(page, job, input) {
   const observation = await observe(page);
   const screenshot = await snapshot(page, job.id);
   if (!submissionAccepted) {
-    throw new Error('flow_create_not_accepted:' + JSON.stringify({
-      buttons: observation.buttons?.slice(-20),
-      text: observation.text?.slice(-1500),
-    }));
+    throw new Error('flow_create_not_accepted:' + JSON.stringify({ buttons: observation.buttons?.slice(-20), text: observation.text?.slice(-1600) }));
   }
 
   return {
