@@ -12,6 +12,14 @@ function submittedSecret(formData: FormData, name: string) {
   return String(formData.get(name) || '').trim();
 }
 
+async function validateGroqKey(apiKey: string) {
+  const response = await fetch(`${GROQ_BASE_URL}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`groq_key_invalid:${response.status}`);
+}
+
 async function tryExchangeMetaToken(token: string | null) {
   if (!token || !process.env.META_APP_SECRET) return token;
 
@@ -44,6 +52,9 @@ export async function guardarIntegraciones(formData: FormData) {
     supabase.from('ai_provider_credentials').select('provider,api_key,base_url,enabled').eq('provider', 'groq').maybeSingle(),
   ]);
 
+  const newGroqKey = submittedSecret(formData, 'groq_api_key');
+  if (newGroqKey) await validateGroqKey(newGroqKey);
+
   const newMetaToken = submittedSecret(formData, 'wa_access_token');
   const durableMetaToken = newMetaToken
     ? await tryExchangeMetaToken(newMetaToken)
@@ -70,7 +81,6 @@ export async function guardarIntegraciones(formData: FormData) {
   const { error } = await supabase.from('integraciones_secretas').upsert(payload);
   if (error) throw new Error(error.message);
 
-  const newGroqKey = submittedSecret(formData, 'groq_api_key');
   const groqKey = newGroqKey || currentGroq?.api_key || '';
   if (groqKey) {
     const { error: groqError } = await supabase.from('ai_provider_credentials').upsert({
