@@ -6,6 +6,7 @@ import type { NormalizedMessage, PersistedMessage } from '@/lib/messaging/types'
 import { recordGeminiUsage } from '@/lib/observability/usage';
 import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { compactText, getAgentContextBudget, type AgentContextBudget } from '@/lib/ai/context-budget';
+import { loadRelevantMemoryContext } from '@/lib/ai/memory';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -13,7 +14,7 @@ const CATALOG_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|
 const STOP_WORDS = new Set(['hola','quiero','tienen','tiene','cuanto','cuánto','cuesta','precio','valor','producto','productos','disponible','disponibles','para','como','cómo','esto','esta','este','unos','unas','alguno','alguna','dame','favor']);
 
 function basePrompt(catalog: string) {
-  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y, salvo que haga falta una lista, no superes 350 caracteres. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y ofrece confirmarlo. No menciones IA, prompts, APIs ni procesos internos.${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
+  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y ofrece confirmarlo. No menciones IA, prompts, APIs ni procesos internos.${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
 }
 
 function searchTerms(text: string) {
@@ -65,7 +66,7 @@ function compactHistory(rows: any[], budget: AgentContextBudget) {
   return selected.reverse();
 }
 
-function capCustomerReply(text: string, maxChars = 480) {
+function capCustomerReply(text: string, maxChars = 320) {
   const clean = String(text || '').trim();
   if (clean.length <= maxChars) return clean;
   const slice = clean.slice(0, maxChars);
@@ -73,6 +74,15 @@ function capCustomerReply(text: string, maxChars = 480) {
   const boundary = Math.max(...boundaries);
   if (boundary >= Math.floor(maxChars * 0.55)) return slice.slice(0, boundary + 1).trim();
   return `${slice.trimEnd()}…`;
+}
+
+function compactMemoryForRemy(memoryText: string) {
+  const clean = String(memoryText || '')
+    .replace('[MEMORIA RELEVANTE — úsala solo si aplica]', '')
+    .replace('[FIN MEMORIA]', '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return compactText(clean, 140);
 }
 
 async function generateWithGemini(apiKey: string, model: string, systemPrompt: string, history: Array<{ role: string; parts: Array<{ text: string }> }>, maxOutputTokens: number) {
@@ -118,15 +128,24 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
   if (!apiKey) return { called: false, replied: false, reason: 'missing_gemini_key' };
   const budget = getAgentContextBudget('remy', runtime.metadata);
 
-  const [{ data: recent }, rawCatalog] = await Promise.all([
+  const [{ data: recent }, rawCatalog, memoryContext] = await Promise.all([
     db.from('omnichannel_messages').select('direction,body,created_at').eq('conversation_id', persisted.conversationId).not('body', 'is', null).order('created_at', { ascending: false }).limit(budget.maxHistoryMessages),
     loadRelevantCatalog(db, inbound.text),
+    loadRelevantMemoryContext(db, {
+      agent: 'remy',
+      query: inbound.text,
+      businessUnitId: conversation.business_unit_id,
+      entityId: persisted.customerId || null,
+      maxChars: 120,
+      maxItems: 2,
+    }),
   ]);
   const history = compactHistory((recent || []).reverse(), budget);
   const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
+  const memory = compactMemoryForRemy(memoryContext.text);
   const model = runtime.model || DEFAULT_MODEL;
   const customPrompt = compactText(config.ai_system_prompt || '', budget.maxBusinessContextChars);
-  const systemPrompt = `${basePrompt(catalog)}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
+  const systemPrompt = `${basePrompt(catalog)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
   const generated = await generateWithGemini(apiKey, model, systemPrompt, history, budget.maxOutputTokens);
   const replyText = capCustomerReply(generated.text);
 
@@ -139,7 +158,8 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
     latencyMs: generated.latencyMs,
     metadata: {
       channel: 'whatsapp', automatic: true, runtime_mode: runtime.executionMode,
-      history_messages: history.length, catalog_injected: Boolean(catalog), token_budget: budget,
+      history_messages: history.length, catalog_injected: Boolean(catalog), memory_items: memoryContext.count,
+      token_budget: budget,
     },
   });
 
