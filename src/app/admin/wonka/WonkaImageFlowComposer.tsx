@@ -35,6 +35,7 @@ export default function WonkaImageFlowComposer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: prompt.trim(),
+          intent: 'flow_image_to_video',
           attachments: [{ path: uploaded.path, name: uploaded.name, mime: uploaded.mime }],
         }),
       });
@@ -104,7 +105,7 @@ export default function WonkaImageFlowComposer() {
               onClick={() => void send()}
               className="mt-3 w-full rounded-xl bg-neon px-4 py-3 text-sm font-black text-black disabled:opacity-40"
             >
-              {sending ? 'Enviando…' : 'Enviar a Wonka'}
+              {sending ? 'Generando…' : 'Generar en Flow'}
             </button>
           </div>
         </div>
