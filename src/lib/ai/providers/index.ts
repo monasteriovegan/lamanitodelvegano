@@ -107,9 +107,12 @@ function normalizeGeminiUsage(raw: any): ProviderUsage {
 
 function normalizeOpenAiUsage(raw: any): ProviderUsage {
   const inputTokens = Number(raw?.prompt_tokens || raw?.input_tokens || 0);
-  const outputTokens = Number(raw?.completion_tokens || raw?.output_tokens || 0);
-  const totalTokens = Number(raw?.total_tokens || inputTokens + outputTokens);
-  return { inputTokens, outputTokens, thinkingTokens: 0, cachedInputTokens: 0, toolTokens: 0, totalTokens };
+  const completionTotal = Number(raw?.completion_tokens || raw?.output_tokens || 0);
+  const thinkingTokens = Number(raw?.completion_tokens_details?.reasoning_tokens || raw?.output_tokens_details?.reasoning_tokens || 0);
+  const outputTokens = Math.max(0, completionTotal - thinkingTokens);
+  const cachedInputTokens = Number(raw?.prompt_tokens_details?.cached_tokens || raw?.input_tokens_details?.cached_tokens || 0);
+  const totalTokens = Number(raw?.total_tokens || inputTokens + completionTotal);
+  return { inputTokens, outputTokens, thinkingTokens, cachedInputTokens, toolTokens: 0, totalTokens };
 }
 
 function parseJsonArgs(value: unknown): Record<string, unknown> {
@@ -143,10 +146,10 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
       continue;
     }
     if (message.role === 'tool') {
-      contents.push({
-        role: 'user',
-        parts: [{ functionResponse: { name: message.name || 'tool', response: { result: parseToolContent(message.content) } } }],
-      });
+      const part = { functionResponse: { name: message.name || 'tool', response: { result: parseToolContent(message.content) } } };
+      const last = contents[contents.length - 1];
+      if (last?.role === 'user' && Array.isArray(last.parts) && last.parts.every((item: any) => item?.functionResponse)) last.parts.push(part);
+      else contents.push({ role: 'user', parts: [part] });
     }
   }
 
@@ -227,18 +230,26 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
     }
   }
 
+  const isQwen = input.model.startsWith('qwen/');
+  const isGptOss = input.model.startsWith('openai/gpt-oss-');
   const payload: Record<string, unknown> = {
     model: input.model,
     messages,
     temperature: input.temperature ?? 0.2,
     max_completion_tokens: input.maxOutputTokens,
   };
+  if (isQwen) payload.reasoning_effort = 'none';
+  if (isGptOss) {
+    payload.reasoning_effort = 'low';
+    payload.reasoning_format = 'hidden';
+  }
   if (input.tools?.length) {
     payload.tools = input.tools.map((tool) => ({
       type: 'function',
       function: { name: tool.name, description: tool.description, parameters: sanitizeSchema(tool.inputSchema) },
     }));
     payload.tool_choice = 'auto';
+    payload.parallel_tool_calls = !isGptOss;
   }
 
   const started = Date.now();
@@ -291,4 +302,19 @@ export async function getProviderConnectionStatus(db: SupabaseClient) {
     gemini: Boolean(legacy?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     groq: Boolean(map.groq || process.env.GROQ_API_KEY),
   };
+}
+
+export async function validateProviderModel(db: SupabaseClient, provider: string, model: string) {
+  if (provider === 'gemini') return /^gemini-[a-zA-Z0-9._-]+$/.test(model);
+  if (provider !== 'groq') return false;
+
+  const credential = await resolveCredential(db, provider);
+  if (!credential.baseUrl) return false;
+  const response = await fetch(`${credential.baseUrl}/models`, {
+    headers: { Authorization: `Bearer ${credential.apiKey}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) return false;
+  const body = await response.json().catch(() => ({}));
+  return Array.isArray(body?.data) && body.data.some((item: any) => String(item?.id || '') === model);
 }
