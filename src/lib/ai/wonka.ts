@@ -5,13 +5,15 @@ import { WONKA_COMPUTER_TOOLS, getComputerToolDefinition, isComputerTool, runCom
 import { WONKA_GOOGLE_TOOLS, getGoogleToolDefinition, isGoogleTool, runGoogleTool } from '@/lib/wonka/google-tools';
 import { recordGeminiUsage } from '@/lib/observability/usage';
 import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
+import { compactJsonForModel, compactText, getAgentContextBudget, type AgentContextBudget } from '@/lib/ai/context-budget';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS, ...WONKA_GOOGLE_TOOLS];
 
 const SYSTEM_PROMPT = `Eres Wonka, director personal y operativo de Synthetiq para Esteban.
-- Responde en español de Chile, claro, ejecutivo y corto. Actúa más y habla menos.
-- Usa herramientas para datos actuales y órdenes ejecutables. No inventes métricas, estados, correos, agenda, stock ni cuotas.
+- Responde en español de Chile, claro y ejecutivo. Normalmente 1-4 líneas; amplía solo si Esteban lo pide.
+- Actúa más y habla menos. No repitas contexto ni expliques pasos obvios.
+- Usa herramientas solo cuando hagan falta para datos actuales u órdenes ejecutables. No inventes métricas, estados, correos, agenda, stock ni cuotas.
 - Tu LLM es el configurado por Esteban. ChatGPT web, Gemini web y Claude web son herramientas y solo se usan si Esteban los nombra o hay una regla explícita.
 - Una orden inequívoca como haz/crea/genera/usa/abre/sube/descarga/cancela/envía autoriza tareas reversibles concretas. No pidas confirmación extra.
 - Pagos/compras, publicación pública, borrado destructivo, seguridad/contraseñas y transferencias requieren confirmación antes del paso irreversible.
@@ -48,18 +50,17 @@ function latestUserText(messages: ChatMessage[]) { return [...messages].reverse(
 
 function selectTools(messages: ChatMessage[]): ToolDefinition[] {
   const text = latestUserText(messages).toLowerCase();
-  const names = new Set<string>(['business_overview', 'recent_wonka_jobs']);
+  const names = new Set<string>();
   const add = (...items: string[]) => items.forEach((item) => names.add(item));
 
   if (/\b(todo|todas? las herramientas|capacidades|qué puedes hacer|que puedes hacer)\b/i.test(text)) return ALL_TOOLS;
 
+  if (/resumen|negocio|operativo|estado general|panorama/i.test(text)) add('business_overview');
   if (/pedido|orden|venta|ventas|factur|ingreso|compr[aó]|checkout/i.test(text)) add('recent_orders');
   if (/conversaci|mensaje|chat|whatsapp|instagram|sin leer|unread/i.test(text)) add('recent_conversations');
   if (/cliente|crm|contacto|tel[eé]fono|email de cliente/i.test(text)) add('customer_search');
   if (/producto|cat[aá]logo|stock|precio|disponib/i.test(text)) add('catalog_search');
-
   if (/remy/i.test(text)) add('recent_conversations', 'set_remy_global', 'set_conversation_ai');
-
   if (/calendario|calendar|agenda|reuni[oó]n|evento|cita/i.test(text)) add('calendar_events', 'create_calendar_event');
   if (/correo|gmail|e-?mail|mail|bandeja|inbox|remitente|asunto/i.test(text)) add('recent_emails', 'email_search', 'read_email', 'send_email');
 
@@ -67,32 +68,32 @@ function selectTools(messages: ChatMessage[]): ToolDefinition[] {
   const browserIntent = /navegador|browser|p[aá]gina web|sitio web|chatgpt web|claude web|gemini web|abre |abrir |rellena|sube|descarga/i.test(text);
   if (mediaIntent) add('synthetiq_resources', 'prepare_media_job', 'recent_wonka_jobs', 'cancel_wonka_job');
   if (browserIntent) add('synthetiq_resources', 'prepare_browser_job', 'recent_wonka_jobs', 'cancel_wonka_job');
+  if (/job|trabajo|cola|pendiente|ejecuci[oó]n|resultado generado/i.test(text)) add('recent_wonka_jobs');
   if (/aprueba|aprobar|confirmar trabajo|confirmo el trabajo/i.test(text)) add('approve_wonka_job');
   if (/cancela|cancelar|det[eé]n|detener trabajo/i.test(text)) add('cancel_wonka_job');
 
   return ALL_TOOLS.filter((tool) => names.has(tool.name));
 }
 
-function compactContents(messages: ChatMessage[]) {
+function compactContents(messages: ChatMessage[], budget: AgentContextBudget) {
   const selected: ChatMessage[] = [];
   let chars = 0;
-  for (let i = messages.length - 1; i >= 0 && selected.length < 8; i -= 1) {
-    const original = String(messages[i]?.text || '');
-    const maxForMessage = selected.length === 0 ? 3200 : 1800;
-    const text = original.length > maxForMessage ? `${original.slice(0, maxForMessage)}\n[contexto recortado]` : original;
-    if (selected.length > 0 && chars + text.length > 5200) break;
+  for (let i = messages.length - 1; i >= 0 && selected.length < budget.maxHistoryMessages; i -= 1) {
+    const text = compactText(messages[i]?.text || '', budget.maxMessageChars);
+    if (!text) continue;
+    if (selected.length > 0 && chars + text.length > budget.maxHistoryChars) break;
     selected.push({ role: messages[i].role, text });
     chars += text.length;
   }
   return selected.reverse().map((message) => ({ role: message.role, parts: [{ text: message.text }] }));
 }
 
-async function callGemini(apiKey: string, model: string, contents: any[], toolDefinitions: ToolDefinition[] = []) {
+async function callGemini(apiKey: string, model: string, contents: any[], maxOutputTokens: number, toolDefinitions: ToolDefinition[] = []) {
   const started = Date.now();
   const payload: Record<string, unknown> = {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
-    generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+    generationConfig: { temperature: 0.2, maxOutputTokens },
   };
   const tools = toGeminiTools(toolDefinitions);
   if (tools.length) payload.tools = tools;
@@ -148,6 +149,7 @@ export async function runWonkaChat(
   const apiKey = String(config?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
   if (!apiKey) throw new Error('missing_gemini_key');
   const model = String(runtime.model || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  const budget = getAgentContextBudget('wonka', runtime.metadata);
 
   let businessUnitId = input.businessUnitId || null;
   if (!businessUnitId) {
@@ -155,15 +157,19 @@ export async function runWonkaChat(
     businessUnitId = unit?.id || null;
   }
   const usageContext = { businessUnitId, wonkaThreadId: input.threadId || null, agent: 'wonka', model };
-  const contents = compactContents(input.messages);
+  const contents = compactContents(input.messages, budget);
   const selectedTools = selectTools(input.messages);
 
-  const firstCall = await callGemini(apiKey, model, contents, selectedTools);
+  const firstCall = await callGemini(apiKey, model, contents, budget.maxOutputTokens, selectedTools);
   await recordGeminiUsage(db, {
     ...usageContext,
     usage: firstCall.body?.usageMetadata,
     latencyMs: firstCall.latencyMs,
-    metadata: { stage: 'initial', runtime_mode: runtime.executionMode, selected_tools: selectedTools.map((tool) => tool.name), history_messages: contents.length },
+    metadata: {
+      stage: 'initial', runtime_mode: runtime.executionMode,
+      selected_tools: selectedTools.map((tool) => tool.name), history_messages: contents.length,
+      token_budget: budget,
+    },
   });
   const first = firstCall.body;
   const parts = candidateParts(first);
@@ -197,15 +203,23 @@ export async function runWonkaChat(
   const results: Array<{ name: string; result: unknown }> = [];
   for (const call of functionCalls.slice(0, 4)) results.push({ name: call.name, result: await runReadTool(db, call, input.ownerId) });
   const modelContent = first?.candidates?.[0]?.content || { role: 'model', parts };
-  const functionResponseParts = results.map((item) => ({ functionResponse: { name: item.name, response: { result: item.result } } }));
+  const functionResponseParts = results.map((item) => ({
+    functionResponse: {
+      name: item.name,
+      response: { result: compactJsonForModel(item.result, budget.maxToolResultChars) },
+    },
+  }));
 
-  // La segunda llamada solo redacta el resultado: no necesita volver a recibir esquemas de herramientas.
-  const secondCall = await callGemini(apiKey, model, [...contents, modelContent, { role: 'user', parts: functionResponseParts }], []);
+  // La segunda llamada solo redacta el resultado: no reenvía schemas y recibe resultados compactados.
+  const secondCall = await callGemini(apiKey, model, [...contents, modelContent, { role: 'user', parts: functionResponseParts }], Math.min(budget.maxOutputTokens, 220), []);
   await recordGeminiUsage(db, {
     ...usageContext,
     usage: secondCall.body?.usageMetadata,
     latencyMs: secondCall.latencyMs,
-    metadata: { stage: 'tool_followup', tools: results.map((item) => item.name), runtime_mode: runtime.executionMode, tool_schemas_resent: false },
+    metadata: {
+      stage: 'tool_followup', tools: results.map((item) => item.name), runtime_mode: runtime.executionMode,
+      tool_schemas_resent: false, tool_results_compacted: true, token_budget: budget,
+    },
   });
   return { text: extractText(candidateParts(secondCall.body)) || 'Consulté los datos.', toolResults: results };
 }
