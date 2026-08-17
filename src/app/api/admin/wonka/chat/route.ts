@@ -1,10 +1,12 @@
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { runWonkaChat } from '@/lib/ai/wonka';
+import { runComputerTool } from '@/lib/wonka/computer-tools';
 
 const ATTACHMENT_BUCKET = 'wonka-attachments';
 type AttachmentInput = { path?: string; name?: string; mime?: string };
 type ResolvedAttachment = { path: string; name: string; mime: string };
+type TrustedIntent = 'flow_image_to_video';
 
 export async function GET() {
   const admin = await getCurrentAdminUser();
@@ -18,7 +20,21 @@ export async function GET() {
   }
   const { data: messages, error } = await db.from('wonka_messages').select('id,role,content,metadata,created_at').eq('thread_id', thread.id).order('created_at', { ascending: true }).limit(120);
   if (error) return Response.json({ error: error.message }, { status: 400 });
-  return Response.json({ thread, messages: messages || [] });
+
+  // Una aprobación solo puede seguir vigente si pertenece al último mensaje del asistente.
+  // Esto evita que el cliente "resucite" pending_tool históricos al recargar el Hub.
+  let latestAssistantSeen = false;
+  const visibleMessages = [...(messages || [])].reverse().map((message: any) => {
+    if (message.role !== 'assistant') return message;
+    if (!latestAssistantSeen) {
+      latestAssistantSeen = true;
+      return message;
+    }
+    if (!message?.metadata?.pending_tool) return message;
+    return { ...message, metadata: { ...message.metadata, pending_tool: null } };
+  }).reverse();
+
+  return Response.json({ thread, messages: visibleMessages });
 }
 
 async function resolveAttachment(
@@ -48,11 +64,13 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null) as {
     text?: string;
+    intent?: TrustedIntent;
     attachments?: AttachmentInput[];
     pageContext?: { path?: string; title?: string; visibleText?: string };
   } | null;
   const text = String(body?.text || '').trim();
   if (!text || text.length > 8000) return Response.json({ error: 'invalid_payload' }, { status: 400 });
+  const trustedIntent: TrustedIntent | null = body?.intent === 'flow_image_to_video' ? 'flow_image_to_video' : null;
 
   const db = createSupabaseServiceClient();
 
@@ -64,6 +82,10 @@ export async function POST(request: Request) {
   }
 
   const directAttachmentInputs = Array.isArray(body?.attachments) ? body!.attachments!.slice(0, 1) : [];
+  if (trustedIntent === 'flow_image_to_video' && directAttachmentInputs.length !== 1) {
+    return Response.json({ error: 'flow_image_required' }, { status: 400 });
+  }
+
   let activeAttachmentInputs = directAttachmentInputs;
   let attachmentOrigin: 'current' | 'remembered' | null = directAttachmentInputs.length ? 'current' : null;
 
@@ -123,10 +145,47 @@ export async function POST(request: Request) {
       })),
       active_attachment_from_history: attachmentOrigin === 'remembered',
       visible_context_injected: needsVisibleContext,
+      trusted_intent: trustedIntent,
     },
   }).select('id,role,content,metadata,created_at').single();
   if (inserted.error) return Response.json({ error: inserted.error.message }, { status: 400 });
   await db.from('wonka_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id);
+
+  if (trustedIntent === 'flow_image_to_video') {
+    try {
+      const job = await runComputerTool(db, 'prepare_media_job', {
+        title: `Video en Flow · ${attachments[0].name}`,
+        prompt: text,
+        media_type: 'video',
+        provider: 'google_flow',
+        duration_seconds: 8,
+        reference_paths: [attachments[0].path],
+      }, {
+        actorId: admin.id,
+        allowWrite: true,
+        directlyAuthorized: true,
+      });
+
+      const saved = await db.from('wonka_messages').insert({
+        thread_id: thread.id,
+        role: 'assistant',
+        content: '✓ Generación en Flow en cola.',
+        metadata: {
+          pending_tool: null,
+          tool_results: [{ name: 'prepare_media_job', result: job }],
+          model: 'deterministic_ui',
+          trusted_intent: trustedIntent,
+        },
+      }).select('id,role,content,metadata,created_at').single();
+      if (saved.error) throw saved.error;
+      await db.from('wonka_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id);
+      return Response.json({ ok: true, userMessage: inserted.data, assistantMessage: saved.data, pendingTool: null, job });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'flow_job_failed';
+      console.error('wonka_flow_direct_failed', { detail });
+      return Response.json({ error: detail }, { status: 502 });
+    }
+  }
 
   const { data: history } = await db.from('wonka_messages').select('role,content').eq('thread_id', thread.id).in('role', ['user', 'assistant']).order('created_at', { ascending: false }).limit(12);
   const messages = (history || []).reverse().map((message: any) => ({ role: message.role === 'assistant' ? 'model' as const : 'user' as const, text: String(message.content || '') }));
