@@ -12,6 +12,64 @@ async function authorize(request: Request, db: ReturnType<typeof createSupabaseS
   return data;
 }
 
+function providerLabel(provider: string | null | undefined) {
+  if (provider === 'google_flow') return 'Google Flow';
+  if (provider === 'chatgpt_web') return 'ChatGPT web';
+  if (provider === 'gemini_web') return 'Gemini web';
+  if (provider === 'claude_web') return 'Claude web';
+  if (provider === 'higgsfield') return 'Higgsfield';
+  return provider ? provider.replace(/_/g, ' ') : 'el proveedor web';
+}
+
+async function notifyWonkaThread(
+  db: ReturnType<typeof createSupabaseServiceClient>,
+  job: { id: string; owner_user_id: string | null; title: string | null; provider: string | null; job_type: string | null },
+  status: string,
+  detail?: string | null,
+) {
+  if (!job.owner_user_id || !['completed', 'failed', 'waiting_user'].includes(status)) return;
+
+  const { data: thread } = await db.from('wonka_threads')
+    .select('id')
+    .eq('owner_user_id', job.owner_user_id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!thread?.id) return;
+
+  const provider = providerLabel(job.provider);
+  const title = String(job.title || 'Trabajo de Wonka').trim();
+  let content = '';
+  if (status === 'completed') {
+    content = job.job_type === 'media'
+      ? `✓ Video listo en ${provider}. ${title}`
+      : `✓ Trabajo completado en ${provider}. ${title}`;
+  } else if (status === 'waiting_user') {
+    content = `⚠ ${title} necesita revisión manual en ${provider}.`;
+  } else {
+    const suffix = detail ? `\n${String(detail).slice(0, 500)}` : '';
+    content = `⚠ ${title} falló en ${provider}.${suffix}`;
+  }
+
+  const inserted = await db.from('wonka_messages').insert({
+    thread_id: thread.id,
+    role: 'assistant',
+    content,
+    metadata: {
+      model: 'worker_event',
+      pending_tool: null,
+      job_notification: {
+        job_id: job.id,
+        status,
+        provider: job.provider,
+        title,
+      },
+    },
+  });
+  if (inserted.error) throw inserted.error;
+  await db.from('wonka_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id);
+}
+
 export async function POST(request: Request) {
   const db = createSupabaseServiceClient();
   const workerToken = await authorize(request, db);
@@ -58,6 +116,14 @@ export async function POST(request: Request) {
     const jobId = String(body?.job_id || '');
     const status = String(body?.status || '');
     if (!jobId || !['running','waiting_user','completed','failed','cancelled'].includes(status)) return Response.json({ error: 'invalid_payload' }, { status: 400 });
+
+    const current = await db.from('wonka_jobs')
+      .select('id,owner_user_id,title,provider,job_type,status')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (current.error) return Response.json({ error: current.error.message }, { status: 400 });
+    if (!current.data) return Response.json({ error: 'job_not_found' }, { status: 404 });
+
     const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
     if (body?.output !== undefined) patch.output = body.output;
     if (body?.error !== undefined) patch.error = String(body.error).slice(0, 4000);
@@ -67,6 +133,19 @@ export async function POST(request: Request) {
     if (error) return Response.json({ error: error.message }, { status: 400 });
     if (!data) return Response.json({ error: 'job_not_found' }, { status: 404 });
     await db.from('wonka_job_events').insert({ job_id: jobId, event_type: 'worker_update', status, message: body?.error ? String(body.error).slice(0, 1000) : null, screenshot_url: body?.screenshot_url || null, payload: { output: body?.output ?? null, token_id: workerToken.id } });
+
+    if (String(current.data.status) !== status && ['completed', 'failed', 'waiting_user'].includes(status)) {
+      try {
+        await notifyWonkaThread(db, current.data, status, body?.error ? String(body.error) : null);
+      } catch (notificationError) {
+        console.error('wonka_job_chat_notification_failed', {
+          job_id: jobId,
+          status,
+          detail: notificationError instanceof Error ? notificationError.message : String(notificationError),
+        });
+      }
+    }
+
     return Response.json({ ok: true, job: data });
   }
 
