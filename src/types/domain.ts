@@ -25,6 +25,7 @@ export interface FormatoProducto {
 
 export interface Producto {
   id: string; // uuid en BD real
+  business_unit_id?: string | null; // fase 1 multinegocio; será obligatorio tras validar todos los writers
   slug: string; // URL propia del producto, para /productos/[slug]
   nombre: string;
   descripcion: string | null; // columna real es 'descripcion', no descripcion_corta/larga
@@ -278,4 +279,3 @@ export interface Order {
   order_items?: OrderItem[];
   history?: OrderStatusHistoryItem[];
 }
-

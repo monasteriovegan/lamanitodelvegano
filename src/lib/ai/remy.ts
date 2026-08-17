@@ -26,7 +26,7 @@ function searchTerms(text: string) {
     .slice(0, 3);
 }
 
-async function loadRelevantCatalog(db: SupabaseClient, userText: string) {
+async function loadRelevantCatalog(db: SupabaseClient, userText: string, businessUnitId: string) {
   if (!CATALOG_INTENT.test(userText)) return '';
   const select = 'nombre,precio,disponibilidad,maneja_stock,stock,categoria';
   const terms = searchTerms(userText);
@@ -37,12 +37,23 @@ async function loadRelevantCatalog(db: SupabaseClient, userText: string) {
       const safe = term.replace(/[,%_()]/g, '');
       return [`nombre.ilike.%${safe}%`, `categoria.ilike.%${safe}%`];
     });
-    const { data } = await db.from('productos').select(select).eq('activo', true).or(clauses.join(',')).order('nombre').limit(8);
+    const { data } = await db.from('productos')
+      .select(select)
+      .eq('business_unit_id', businessUnitId)
+      .eq('activo', true)
+      .or(clauses.join(','))
+      .order('nombre')
+      .limit(8);
     rows = data || [];
   }
 
   if (!rows.length) {
-    const { data } = await db.from('productos').select(select).eq('activo', true).order('nombre').limit(8);
+    const { data } = await db.from('productos')
+      .select(select)
+      .eq('business_unit_id', businessUnitId)
+      .eq('activo', true)
+      .order('nombre')
+      .limit(8);
     rows = data || [];
   }
 
@@ -111,6 +122,7 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
   if (!conversation?.ai_enabled) return { called: false, replied: false, reason: 'conversation_off' };
   if (conversation.human_takeover) return { called: false, replied: false, reason: 'human_takeover' };
   if (conversation.metadata?.personal || conversation.labels?.includes?.('personal')) return { called: false, replied: false, reason: 'personal_contact' };
+  if (!conversation.business_unit_id) return { called: false, replied: false, reason: 'missing_business_unit' };
 
   const inboundAt = new Date(inbound.sent_at).getTime();
   if (!Number.isFinite(inboundAt) || Date.now() - inboundAt > SERVICE_WINDOW_MS) return { called: false, replied: false, reason: 'service_window_closed' };
@@ -130,7 +142,7 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
 
   const [{ data: recent }, rawCatalog, memoryContext] = await Promise.all([
     db.from('omnichannel_messages').select('direction,body,created_at').eq('conversation_id', persisted.conversationId).not('body', 'is', null).order('created_at', { ascending: false }).limit(budget.maxHistoryMessages),
-    loadRelevantCatalog(db, inbound.text),
+    loadRelevantCatalog(db, inbound.text, conversation.business_unit_id),
     loadRelevantMemoryContext(db, {
       agent: 'remy',
       query: inbound.text,

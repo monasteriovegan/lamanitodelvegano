@@ -1,5 +1,6 @@
 import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { parseFormatos } from './formatos';
 import type { CheckoutRequest, ItemCarrito } from '@/types/domain';
 
@@ -19,22 +20,23 @@ export interface ResultadoCalculo {
 /**
  * Recalcula TODO el pedido desde cero usando los precios y reglas reales
  * de la base de datos. El frontend solo manda IDs y cantidades — nunca precios.
- * Esto es lo que cierra la vulnerabilidad de manipulación de precios del sitio viejo.
  *
- * Nota: usa la estructura REAL de la BD compartida con el sitio viejo
- * (id de producto es uuid; cupones.minMonto permanece en camelCase).
+ * El catálogo se filtra por business_unit_id. Mientras la tienda pública siga
+ * siendo La Manito, businessUnitId puede omitirse y se resuelve la unidad canónica.
  */
-export async function calcularPedido(req: CheckoutRequest): Promise<ResultadoCalculo> {
+export async function calcularPedido(req: CheckoutRequest, businessUnitId?: string | null): Promise<ResultadoCalculo> {
   const supabase = createSupabaseServiceClient();
 
   if (!req.items || req.items.length === 0) {
     return { ok: false, error: 'El carrito está vacío.' };
   }
 
+  const businessId = businessUnitId || (await new BusinessRepository(supabase).requireDefault()).id;
   const productIds = req.items.map((i) => i.productoId);
   const { data: productos, error: prodErr } = await supabase
     .from('productos')
     .select('*')
+    .eq('business_unit_id', businessId)
     .in('id', productIds)
     .eq('activo', true);
 

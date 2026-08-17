@@ -3,11 +3,17 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
 import { requireRole } from '@/lib/supabase/require-role';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { slugify } from '@/lib/slugify';
 
-// Genera un slug único agregando -2, -3... si ya existe otro producto con
-// el mismo (excluyendo el propio producto cuando se está editando).
-async function slugUnico(supabase: Awaited<ReturnType<typeof createSupabaseServerAuthClient>>, base: string, idActual: string | null) {
+// La BD todavía tiene UNIQUE(slug) global. Se conserva ese contrato durante la
+// fase compatible; pasará a unicidad por negocio cuando el routing por tenant
+// esté activo y todos los lectores de slug estén aislados.
+async function slugUnico(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerAuthClient>>,
+  base: string,
+  idActual: string | null,
+) {
   let intento = base;
   let sufijo = 2;
   for (;;) {
@@ -22,6 +28,7 @@ async function slugUnico(supabase: Awaited<ReturnType<typeof createSupabaseServe
 export async function guardarProducto(formData: FormData) {
   await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
+  const business = await new BusinessRepository(supabase).requireDefault();
 
   const id = formData.get('id') as string | null;
   const nombre = formData.get('nombre') as string;
@@ -30,6 +37,7 @@ export async function guardarProducto(formData: FormData) {
   const slug = await slugUnico(supabase, slugBase, id);
 
   const payload = {
+    business_unit_id: business.id,
     nombre,
     slug,
     descripcion: formData.get('descripcion') as string,
@@ -70,7 +78,10 @@ export async function guardarProducto(formData: FormData) {
   };
 
   if (id) {
-    const { error } = await supabase.from('productos').update(payload).eq('id', id);
+    const { error } = await supabase.from('productos')
+      .update(payload)
+      .eq('id', id)
+      .eq('business_unit_id', business.id);
     if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase.from('productos').insert(payload);
@@ -84,7 +95,11 @@ export async function guardarProducto(formData: FormData) {
 export async function toggleDestacado(id: string, valorActual: boolean) {
   await requireRole(['admin']);
   const supabase = await createSupabaseServerAuthClient();
-  const { error } = await supabase.from('productos').update({ destacado: !valorActual }).eq('id', id);
+  const business = await new BusinessRepository(supabase).requireDefault();
+  const { error } = await supabase.from('productos')
+    .update({ destacado: !valorActual })
+    .eq('id', id)
+    .eq('business_unit_id', business.id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/productos');
   revalidatePath('/');
@@ -93,7 +108,11 @@ export async function toggleDestacado(id: string, valorActual: boolean) {
 export async function eliminarProducto(id: string) {
   await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
-  const { error } = await supabase.from('productos').delete().eq('id', id);
+  const business = await new BusinessRepository(supabase).requireDefault();
+  const { error } = await supabase.from('productos')
+    .delete()
+    .eq('id', id)
+    .eq('business_unit_id', business.id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/productos');
   revalidatePath('/');

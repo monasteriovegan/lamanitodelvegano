@@ -1,17 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { VistaProducto } from './VistaProducto';
-import type { Producto } from '@/types/domain';
+import { getProductoBySlug } from '@/lib/data/catalogo';
 
 export const dynamic = 'force-dynamic';
-
-async function getProducto(slug: string): Promise<Producto | null> {
-  const supabase = createSupabaseServiceClient();
-  const { data } = await supabase.from('productos').select('*').eq('slug', slug).eq('activo', true).maybeSingle();
-  return (data as Producto) || null;
-}
 
 /**
  * Metadata real (título, descripción, imagen Open Graph) por producto —
@@ -21,7 +14,7 @@ async function getProducto(slug: string): Promise<Producto | null> {
  */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const producto = await getProducto(slug);
+  const producto = await getProductoBySlug(slug);
   if (!producto) return { title: 'Producto no encontrado' };
 
   const titulo = `${producto.nombre} — La Manito Del Vegano`;
@@ -47,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductoPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const producto = await getProducto(slug);
+  const producto = await getProductoBySlug(slug);
   if (!producto) notFound();
 
   return (

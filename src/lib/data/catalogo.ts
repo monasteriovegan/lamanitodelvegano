@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
 import type { Producto, Categoria, Zona, AjustesPublicos } from '@/types/domain';
 
 /**
@@ -6,13 +7,24 @@ import type { Producto, Categoria, Zona, AjustesPublicos } from '@/types/domain'
  * - productos.categoria es texto libre, no FK a categorias.id
  * - productos.descripcion es una sola columna, no corta/larga
  * - ajustes guarda todo en una columna `data` jsonb
+ *
+ * El storefront actual corresponde a la unidad canónica La Manito. Cuando exista
+ * routing por businessSlug, estas funciones podrán recibir el businessUnitId activo.
  */
 
-export async function getProductosActivos(): Promise<Producto[]> {
+async function resolveBusinessUnitId(explicit?: string | null) {
+  if (explicit) return explicit;
   const supabase = createSupabaseServiceClient();
+  return (await new BusinessRepository(supabase).requireDefault()).id;
+}
+
+export async function getProductosActivos(businessUnitId?: string | null): Promise<Producto[]> {
+  const supabase = createSupabaseServiceClient();
+  const businessId = await resolveBusinessUnitId(businessUnitId);
   const { data, error } = await supabase
     .from('productos')
     .select('*')
+    .eq('business_unit_id', businessId)
     .eq('activo', true)
     .order('destacado', { ascending: false });
 
@@ -54,9 +66,31 @@ export async function getAjustesPublicos(): Promise<AjustesPublicos | null> {
   return data as AjustesPublicos | null;
 }
 
-export async function getProductoById(id: string): Promise<Producto | null> {
+export async function getProductoById(id: string, businessUnitId?: string | null): Promise<Producto | null> {
   const supabase = createSupabaseServiceClient();
-  const { data, error } = await supabase.from('productos').select('*').eq('id', id).eq('activo', true).maybeSingle();
+  const businessId = await resolveBusinessUnitId(businessUnitId);
+  const { data, error } = await supabase
+    .from('productos')
+    .select('*')
+    .eq('id', id)
+    .eq('business_unit_id', businessId)
+    .eq('activo', true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as Producto;
+}
+
+export async function getProductoBySlug(slug: string, businessUnitId?: string | null): Promise<Producto | null> {
+  const supabase = createSupabaseServiceClient();
+  const businessId = await resolveBusinessUnitId(businessUnitId);
+  const { data, error } = await supabase
+    .from('productos')
+    .select('*')
+    .eq('slug', slug)
+    .eq('business_unit_id', businessId)
+    .eq('activo', true)
+    .maybeSingle();
 
   if (error || !data) return null;
   return data as Producto;
