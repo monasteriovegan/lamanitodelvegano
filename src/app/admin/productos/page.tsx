@@ -1,15 +1,18 @@
 import Link from 'next/link';
 import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { toggleDestacado, eliminarProducto } from './actions';
 
 export default async function AdminProductosPage() {
   const admin = await requireRole(['admin', 'bodega']);
   const puedeDestacar = admin.rol === 'admin';
   const supabase = createSupabaseServiceClient();
+  const business = await new BusinessRepository(supabase).requireDefault();
   const { data: productos } = await supabase
     .from('productos')
     .select('*')
+    .eq('business_unit_id', business.id)
     .order('id', { ascending: false });
 
   return (
