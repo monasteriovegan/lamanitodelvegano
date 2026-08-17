@@ -154,6 +154,12 @@ function scoreMemory(row: MemoryRow, terms: string[], entityId?: string | null) 
   return { score, matches };
 }
 
+function entityScopeAllowed(row: MemoryRow, entityId?: string | null) {
+  if (!row.entity_id) return true;
+  if (!['customer', 'conversation', 'project'].includes(row.scope)) return true;
+  return Boolean(entityId) && row.entity_id === entityId;
+}
+
 export async function loadRelevantMemoryContext(
   db: SupabaseClient,
   input: {
@@ -196,6 +202,7 @@ export async function loadRelevantMemoryContext(
   const terms = memoryTerms(input.query, 10);
   const ranked = ((data || []) as MemoryRow[])
     .filter((row) => !row.expires_at || new Date(row.expires_at).getTime() > now)
+    .filter((row) => entityScopeAllowed(row, input.entityId))
     .map((row) => ({ row, ...scoreMemory(row, terms, input.entityId) }))
     .filter((item) => item.row.pinned || item.matches > 0)
     .sort((a, b) => b.score - a.score)
