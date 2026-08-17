@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { getProviderConnectionStatus } from '@/lib/ai/providers';
 
 const ALLOWED_ROLES = ['admin', 'owner', 'supervisor'];
+const ALLOWED_PROVIDERS = new Set(['gemini', 'groq']);
 
 async function authorize(request?: Request) {
   const admin = await getCurrentAdminUser();
@@ -17,18 +19,17 @@ async function authorize(request?: Request) {
 export async function GET() {
   if (!await authorize()) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const db = createSupabaseServiceClient();
-  const { data, error } = await db
-    .from('integraciones_secretas')
-    .select('ai_enabled,ai_provider,ai_model,gemini_api_key')
-    .eq('id', 'global')
-    .maybeSingle();
+  const [{ data, error }, providers] = await Promise.all([
+    db.from('integraciones_secretas').select('ai_enabled,ai_provider,ai_model').eq('id', 'global').maybeSingle(),
+    getProviderConnectionStatus(db),
+  ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   return NextResponse.json({
     enabled: Boolean(data?.ai_enabled),
     provider: String(data?.ai_provider || 'gemini'),
     model: String(data?.ai_model || 'gemini-2.5-flash'),
-    hasGeminiKey: Boolean(data?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    providers,
   });
 }
 
@@ -39,29 +40,28 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
   }
 
+  const db = createSupabaseServiceClient();
+  const providers = await getProviderConnectionStatus(db);
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.enabled !== undefined) patch.ai_enabled = Boolean(body.enabled);
   if (body.provider !== undefined) {
-    if (body.provider !== 'gemini') return NextResponse.json({ error: 'unsupported_provider' }, { status: 400 });
+    if (!ALLOWED_PROVIDERS.has(body.provider)) return NextResponse.json({ error: 'unsupported_provider' }, { status: 400 });
+    if (!providers[body.provider as keyof typeof providers]) return NextResponse.json({ error: `provider_not_connected:${body.provider}` }, { status: 409 });
     patch.ai_provider = body.provider;
   }
   if (body.model !== undefined) {
     const model = body.model.trim();
-    if (!model || model.length > 100 || !/^[a-zA-Z0-9._-]+$/.test(model)) {
+    if (!model || model.length > 120 || !/^[a-zA-Z0-9._\/-]+$/.test(model)) {
       return NextResponse.json({ error: 'invalid_model' }, { status: 400 });
     }
     patch.ai_model = model;
   }
 
-  const db = createSupabaseServiceClient();
   if (patch.ai_enabled === true) {
-    const { data: current } = await db
-      .from('integraciones_secretas')
-      .select('gemini_api_key')
-      .eq('id', 'global')
-      .maybeSingle();
-    const hasKey = Boolean(current?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
-    if (!hasKey) return NextResponse.json({ error: 'missing_gemini_key' }, { status: 409 });
+    const selectedProvider = String(body.provider || (await db.from('integraciones_secretas').select('ai_provider').eq('id', 'global').maybeSingle()).data?.ai_provider || 'gemini');
+    if (!providers[selectedProvider as keyof typeof providers]) {
+      return NextResponse.json({ error: `provider_not_connected:${selectedProvider}` }, { status: 409 });
+    }
   }
 
   const { error } = await db.from('integraciones_secretas').update(patch).eq('id', 'global');
