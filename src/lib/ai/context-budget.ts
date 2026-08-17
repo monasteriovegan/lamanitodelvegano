@@ -11,28 +11,28 @@ export type AgentContextBudget = {
 
 const DEFAULT_BUDGETS: Record<string, AgentContextBudget> = {
   wonka: {
-    maxOutputTokens: 260,
-    maxHistoryMessages: 6,
-    maxHistoryChars: 3200,
-    maxMessageChars: 1400,
-    maxToolResultChars: 1600,
-    maxBusinessContextChars: 1000,
+    maxOutputTokens: 180,
+    maxHistoryMessages: 4,
+    maxHistoryChars: 1400,
+    maxMessageChars: 700,
+    maxToolResultChars: 900,
+    maxBusinessContextChars: 600,
   },
   remy: {
-    maxOutputTokens: 140,
-    maxHistoryMessages: 6,
-    maxHistoryChars: 1800,
-    maxMessageChars: 600,
+    maxOutputTokens: 90,
+    maxHistoryMessages: 4,
+    maxHistoryChars: 800,
+    maxMessageChars: 320,
     maxToolResultChars: 0,
-    maxBusinessContextChars: 900,
+    maxBusinessContextChars: 450,
   },
   default: {
-    maxOutputTokens: 220,
-    maxHistoryMessages: 6,
-    maxHistoryChars: 2600,
-    maxMessageChars: 1000,
-    maxToolResultChars: 1200,
-    maxBusinessContextChars: 800,
+    maxOutputTokens: 160,
+    maxHistoryMessages: 4,
+    maxHistoryChars: 1200,
+    maxMessageChars: 600,
+    maxToolResultChars: 800,
+    maxBusinessContextChars: 500,
   },
 };
 
@@ -49,12 +49,12 @@ export function getAgentContextBudget(agent: string, metadata: Record<string, un
     : {};
 
   return {
-    maxOutputTokens: boundedInteger(raw.max_output_tokens ?? raw.maxOutputTokens, defaults.maxOutputTokens, 64, 800),
+    maxOutputTokens: boundedInteger(raw.max_output_tokens ?? raw.maxOutputTokens, defaults.maxOutputTokens, 48, 800),
     maxHistoryMessages: boundedInteger(raw.max_history_messages ?? raw.maxHistoryMessages, defaults.maxHistoryMessages, 2, 12),
-    maxHistoryChars: boundedInteger(raw.max_history_chars ?? raw.maxHistoryChars, defaults.maxHistoryChars, 600, 8000),
-    maxMessageChars: boundedInteger(raw.max_message_chars ?? raw.maxMessageChars, defaults.maxMessageChars, 200, 4000),
+    maxHistoryChars: boundedInteger(raw.max_history_chars ?? raw.maxHistoryChars, defaults.maxHistoryChars, 400, 8000),
+    maxMessageChars: boundedInteger(raw.max_message_chars ?? raw.maxMessageChars, defaults.maxMessageChars, 160, 4000),
     maxToolResultChars: boundedInteger(raw.max_tool_result_chars ?? raw.maxToolResultChars, defaults.maxToolResultChars, 0, 5000),
-    maxBusinessContextChars: boundedInteger(raw.max_business_context_chars ?? raw.maxBusinessContextChars, defaults.maxBusinessContextChars, 200, 4000),
+    maxBusinessContextChars: boundedInteger(raw.max_business_context_chars ?? raw.maxBusinessContextChars, defaults.maxBusinessContextChars, 160, 4000),
   };
 }
 
@@ -78,7 +78,7 @@ export function compactJsonForModel(value: unknown, maxChars: number): unknown {
     const kept: unknown[] = [];
     for (const item of value) {
       const candidate = [...kept, item];
-      if (JSON.stringify(candidate).length > Math.max(200, maxChars - 120)) break;
+      if (JSON.stringify(candidate).length > Math.max(160, maxChars - 100)) break;
       kept.push(item);
     }
     return { items: kept, truncated: true, total_items: value.length };
