@@ -6,20 +6,18 @@ import { requireRole } from '@/lib/supabase/require-role';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { slugify } from '@/lib/slugify';
 
+// La BD todavía tiene UNIQUE(slug) global. Se conserva ese contrato durante la
+// fase compatible; pasará a unicidad por negocio cuando el routing por tenant
+// esté activo y todos los lectores de slug estén aislados.
 async function slugUnico(
   supabase: Awaited<ReturnType<typeof createSupabaseServerAuthClient>>,
-  businessUnitId: string,
   base: string,
   idActual: string | null,
 ) {
   let intento = base;
   let sufijo = 2;
   for (;;) {
-    const query = supabase.from('productos')
-      .select('id')
-      .eq('business_unit_id', businessUnitId)
-      .eq('slug', intento)
-      .limit(1);
+    const query = supabase.from('productos').select('id').eq('slug', intento).limit(1);
     const { data } = idActual ? await query.neq('id', idActual) : await query;
     if (!data || data.length === 0) return intento;
     intento = `${base}-${sufijo}`;
@@ -36,7 +34,7 @@ export async function guardarProducto(formData: FormData) {
   const nombre = formData.get('nombre') as string;
   const slugInput = (formData.get('slug') as string)?.trim();
   const slugBase = slugify(slugInput || nombre);
-  const slug = await slugUnico(supabase, business.id, slugBase, id);
+  const slug = await slugUnico(supabase, slugBase, id);
 
   const payload = {
     business_unit_id: business.id,
