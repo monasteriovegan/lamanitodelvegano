@@ -3,10 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import type { NormalizedMessage, PersistedMessage } from '@/lib/messaging/types';
-import { recordGeminiUsage } from '@/lib/observability/usage';
+import { recordLlmUsage } from '@/lib/observability/usage';
 import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { compactText, getAgentContextBudget, type AgentContextBudget } from '@/lib/ai/context-budget';
 import { loadRelevantMemoryContext } from '@/lib/ai/memory';
+import { callAiProvider, type ProviderMessage } from '@/lib/ai/providers';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -69,15 +70,15 @@ async function loadRelevantCatalog(db: SupabaseClient, userText: string, busines
   }).join('\n');
 }
 
-function compactHistory(rows: RemyHistoryRow[], budget: AgentContextBudget) {
-  const selected: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+function compactHistory(rows: RemyHistoryRow[], budget: AgentContextBudget): ProviderMessage[] {
+  const selected: ProviderMessage[] = [];
   let chars = 0;
   for (let i = rows.length - 1; i >= 0 && selected.length < budget.maxHistoryMessages; i -= 1) {
     const message = rows[i];
     const text = compactText(message.body || '', budget.maxMessageChars);
     if (!text) continue;
     if (selected.length > 0 && chars + text.length > budget.maxHistoryChars) break;
-    selected.push({ role: message.direction === 'outbound' ? 'model' : 'user', parts: [{ text }] });
+    selected.push({ role: message.direction === 'outbound' ? 'assistant' : 'user', content: text });
     chars += text.length;
   }
   return selected.reverse();
@@ -102,21 +103,6 @@ function compactMemoryForRemy(memoryText: string) {
   return compactText(clean, 140);
 }
 
-async function generateWithGemini(apiKey: string, model: string, systemPrompt: string, history: Array<{ role: string; parts: Array<{ text: string }> }>, maxOutputTokens: number) {
-  const started = Date.now();
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: systemPrompt }] }, contents: history, generationConfig: { temperature: 0.35, maxOutputTokens } }),
-    cache: 'no-store',
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`gemini_generate_failed:${response.status}`);
-  const text = (body?.candidates?.[0]?.content?.parts || []).map((part: any) => typeof part?.text === 'string' ? part.text : '').join('').trim();
-  if (!text) throw new Error('gemini_empty_response');
-  return { text, raw: body, latencyMs: Date.now() - started };
-}
-
 export async function generateRemyReply(
   db: SupabaseClient,
   input: {
@@ -129,7 +115,7 @@ export async function generateRemyReply(
   },
 ) {
   const { data: config } = await db.from('integraciones_secretas')
-    .select('ai_enabled,ai_provider,ai_model,ai_system_prompt,gemini_api_key')
+    .select('ai_enabled,ai_provider,ai_model,ai_system_prompt')
     .eq('id', 'global')
     .maybeSingle();
   if (!config?.ai_enabled) throw new Error('remy_global_off');
@@ -141,10 +127,7 @@ export async function generateRemyReply(
   });
   if (!runtime.enabled) throw new Error('remy_runtime_disabled');
   if (runtime.executionMode !== 'api') throw new Error(`remy_execution_mode_not_supported:${runtime.executionMode}`);
-  if (runtime.provider !== 'gemini') throw new Error(`remy_provider_not_supported:${runtime.provider}`);
-
-  const apiKey = String(config.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
-  if (!apiKey) throw new Error('missing_gemini_key');
+  if (!['gemini', 'groq'].includes(runtime.provider)) throw new Error(`remy_provider_not_supported:${runtime.provider}`);
 
   const budget = getAgentContextBudget('remy', runtime.metadata);
   const [rawCatalog, memoryContext] = await Promise.all([
@@ -165,15 +148,25 @@ export async function generateRemyReply(
   const customPrompt = compactText(config.ai_system_prompt || '', budget.maxBusinessContextChars);
   const model = runtime.model || DEFAULT_MODEL;
   const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
-  const generated = await generateWithGemini(apiKey, model, systemPrompt, history, budget.maxOutputTokens);
-  const replyText = capCustomerReply(generated.text);
 
-  await recordGeminiUsage(db, {
+  const generated = await callAiProvider(db, {
+    provider: runtime.provider,
+    model,
+    systemPrompt,
+    messages: history,
+    maxOutputTokens: budget.maxOutputTokens,
+    temperature: 0.35,
+  });
+  const replyText = capCustomerReply(generated.text);
+  if (!replyText) throw new Error('remy_empty_response');
+
+  await recordLlmUsage(db, {
     businessUnitId: input.businessUnitId,
     conversationId: input.conversationId || null,
     agent: 'remy',
+    provider: runtime.provider,
     model,
-    usage: generated.raw?.usageMetadata,
+    usage: generated.usage,
     latencyMs: generated.latencyMs,
     metadata: {
       channel: input.channel,
