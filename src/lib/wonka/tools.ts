@@ -1,11 +1,13 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCalendarEvent, listCalendarEvents } from '@/lib/wonka/google-calendar';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
 
 export type WonkaToolContext = {
   actorType: 'wonka' | 'mcp' | 'admin';
   actorId?: string | null;
   allowWrite?: boolean;
+  businessUnitId?: string | null;
 };
 
 export type WonkaTool = {
@@ -55,11 +57,11 @@ export const WONKA_TOOLS: WonkaTool[] = [
   },
   {
     name: 'catalog_search',
-    description: 'Busca productos activos del catálogo y devuelve precio, disponibilidad y stock.',
+    description: 'Busca productos activos del catálogo del negocio actual y devuelve precio, disponibilidad y stock.',
     write: false,
     inputSchema: {
       type: 'object',
-      properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 40 } },
+      properties: { query: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 20 } },
       additionalProperties: false,
     },
   },
@@ -108,7 +110,7 @@ export const WONKA_TOOLS: WonkaTool[] = [
   },
   {
     name: 'set_conversation_ai',
-    description: 'Activa o pausa Remy en una conversación concreta. Es una acción de escritura y requiere permiso explícito.',
+    description: 'Activa o pausa Remy en una conversación concreta del negocio actual. Es una acción de escritura y requiere permiso explícito.',
     write: true,
     inputSchema: {
       type: 'object',
@@ -135,16 +137,17 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
   if (!definition) throw new Error('unknown_tool');
   if (definition.write && !ctx.allowWrite) throw new Error('write_confirmation_required');
 
+  const businessUnitId = ctx.businessUnitId || (await new BusinessRepository(db).requireDefault()).id;
   let result: any;
   try {
     if (toolName === 'business_overview') {
       const now = new Date();
       const today = now.toISOString().slice(0, 10);
       const [orders, conversations, customers, reservations] = await Promise.all([
-        db.from('pedidos').select('id,total,estado,payment_status,source_channel,created_at').order('created_at', { ascending: false }).limit(20),
-        db.from('conversations').select('id,channel,status,unread_count,human_takeover,ai_enabled,last_message_at').order('last_message_at', { ascending: false }).limit(50),
-        db.from('omnichannel_contacts').select('id,crm_status,total_spent,total_orders,last_order_at').limit(500),
-        db.from('store_reservations').select('id,status,reservation_date,reservation_time,party_size').gte('reservation_date', today).order('reservation_date', { ascending: true }).limit(20),
+        db.from('pedidos').select('id,total,estado,payment_status,source_channel,created_at').eq('business_unit_id', businessUnitId).order('created_at', { ascending: false }).limit(20),
+        db.from('conversations').select('id,channel,status,unread_count,human_takeover,ai_enabled,last_message_at').eq('business_unit_id', businessUnitId).order('last_message_at', { ascending: false }).limit(50),
+        db.from('omnichannel_contacts').select('id,crm_status,total_spent,total_orders,last_order_at').eq('business_unit_id', businessUnitId).limit(500),
+        db.from('store_reservations').select('id,status,reservation_date,reservation_time,party_size').eq('business_unit_id', businessUnitId).gte('reservation_date', today).order('reservation_date', { ascending: true }).limit(20),
       ]);
       const orderRows = orders.data || [];
       const conversationRows = conversations.data || [];
@@ -163,6 +166,7 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const limit = Math.max(1, Math.min(30, Number(args?.limit || 10)));
       const { data, error } = await db.from('pedidos')
         .select('id,nombre_cliente,telefono,total,estado,payment_status,source_channel,fecha_entrega,created_at')
+        .eq('business_unit_id', businessUnitId)
         .order('created_at', { ascending: false }).limit(limit);
       if (error) throw error;
       result = data || [];
@@ -170,6 +174,7 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const limit = Math.max(1, Math.min(30, Number(args?.limit || 10)));
       let query = db.from('conversations')
         .select('id,channel,external_conversation_id,status,unread_count,human_takeover,ai_enabled,last_message_at,customer_id')
+        .eq('business_unit_id', businessUnitId)
         .order('last_message_at', { ascending: false }).limit(limit);
       if (args?.channel) query = query.eq('channel', String(args.channel));
       const { data, error } = await query;
@@ -181,15 +186,17 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const pattern = `%${q.replace(/[%_]/g, '')}%`;
       const { data, error } = await db.from('omnichannel_contacts')
         .select('id,nombre,display_name,phone,email,external_id,crm_status,total_spent,total_orders,last_order_at,channel')
+        .eq('business_unit_id', businessUnitId)
         .or(`nombre.ilike.${pattern},display_name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern},external_id.ilike.${pattern}`)
         .limit(20);
       if (error) throw error;
       result = data || [];
     } else if (toolName === 'catalog_search') {
-      const limit = Math.max(1, Math.min(40, Number(args?.limit || 20)));
+      const limit = Math.max(1, Math.min(20, Number(args?.limit || 8)));
       const q = String(args?.query || '').trim();
       let query = db.from('productos')
         .select('id,nombre,precio,disponibilidad,maneja_stock,stock,categoria,slug')
+        .eq('business_unit_id', businessUnitId)
         .eq('activo', true).order('nombre').limit(limit);
       if (q) query = query.ilike('nombre', `%${q.replace(/[%_]/g, '')}%`);
       const { data, error } = await query;
@@ -219,7 +226,12 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const id = String(args?.conversation_id || '');
       if (!id) throw new Error('conversation_id_required');
       const enabled = Boolean(args?.enabled);
-      const { data, error } = await db.from('conversations').update({ ai_enabled: enabled, updated_at: new Date().toISOString() }).eq('id', id).select('id,ai_enabled').maybeSingle();
+      const { data, error } = await db.from('conversations')
+        .update({ ai_enabled: enabled, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('business_unit_id', businessUnitId)
+        .select('id,ai_enabled')
+        .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('conversation_not_found');
       result = data;
