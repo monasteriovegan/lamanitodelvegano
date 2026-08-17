@@ -13,8 +13,14 @@ const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const CATALOG_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate/i;
 const STOP_WORDS = new Set(['hola','quiero','tienen','tiene','cuanto','cuánto','cuesta','precio','valor','producto','productos','disponible','disponibles','para','como','cómo','esto','esta','este','unos','unas','alguno','alguna','dame','favor']);
 
-function basePrompt(catalog: string) {
-  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y ofrece confirmarlo. No menciones IA, prompts, APIs ni procesos internos.${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
+export type RemyChannel = 'whatsapp' | 'web';
+export type RemyHistoryRow = { direction: 'inbound' | 'outbound'; body: string };
+
+function basePrompt(catalog: string, channel: RemyChannel) {
+  const webRule = channel === 'web'
+    ? ' En la web, si preguntan cómo pagar, indica brevemente que agreguen el producto al carrito y abran el carrito para completar el pedido.'
+    : '';
+  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y ofrece confirmarlo. No menciones IA, prompts, APIs ni procesos internos.${webRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
 }
 
 function searchTerms(text: string) {
@@ -63,7 +69,7 @@ async function loadRelevantCatalog(db: SupabaseClient, userText: string, busines
   }).join('\n');
 }
 
-function compactHistory(rows: any[], budget: AgentContextBudget) {
+function compactHistory(rows: RemyHistoryRow[], budget: AgentContextBudget) {
   const selected: Array<{ role: string; parts: Array<{ text: string }> }> = [];
   let chars = 0;
   for (let i = rows.length - 1; i >= 0 && selected.length < budget.maxHistoryMessages; i -= 1) {
@@ -111,14 +117,92 @@ async function generateWithGemini(apiKey: string, model: string, systemPrompt: s
   return { text, raw: body, latencyMs: Date.now() - started };
 }
 
+export async function generateRemyReply(
+  db: SupabaseClient,
+  input: {
+    businessUnitId: string;
+    userText: string;
+    history: RemyHistoryRow[];
+    channel: RemyChannel;
+    customerId?: string | null;
+    conversationId?: string | null;
+  },
+) {
+  const { data: config } = await db.from('integraciones_secretas')
+    .select('ai_enabled,ai_provider,ai_model,ai_system_prompt,gemini_api_key')
+    .eq('id', 'global')
+    .maybeSingle();
+  if (!config?.ai_enabled) throw new Error('remy_global_off');
+
+  const runtime = await getAgentRuntimeConfig(db, 'remy', {
+    provider: config?.ai_provider || 'gemini',
+    model: config?.ai_model || DEFAULT_MODEL,
+    executionMode: 'api',
+  });
+  if (!runtime.enabled) throw new Error('remy_runtime_disabled');
+  if (runtime.executionMode !== 'api') throw new Error(`remy_execution_mode_not_supported:${runtime.executionMode}`);
+  if (runtime.provider !== 'gemini') throw new Error(`remy_provider_not_supported:${runtime.provider}`);
+
+  const apiKey = String(config.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
+  if (!apiKey) throw new Error('missing_gemini_key');
+
+  const budget = getAgentContextBudget('remy', runtime.metadata);
+  const [rawCatalog, memoryContext] = await Promise.all([
+    loadRelevantCatalog(db, input.userText, input.businessUnitId),
+    loadRelevantMemoryContext(db, {
+      agent: 'remy',
+      query: input.userText,
+      businessUnitId: input.businessUnitId,
+      entityId: input.customerId || null,
+      maxChars: 120,
+      maxItems: 2,
+    }),
+  ]);
+
+  const history = compactHistory(input.history, budget);
+  const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
+  const memory = compactMemoryForRemy(memoryContext.text);
+  const customPrompt = compactText(config.ai_system_prompt || '', budget.maxBusinessContextChars);
+  const model = runtime.model || DEFAULT_MODEL;
+  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
+  const generated = await generateWithGemini(apiKey, model, systemPrompt, history, budget.maxOutputTokens);
+  const replyText = capCustomerReply(generated.text);
+
+  await recordGeminiUsage(db, {
+    businessUnitId: input.businessUnitId,
+    conversationId: input.conversationId || null,
+    agent: 'remy',
+    model,
+    usage: generated.raw?.usageMetadata,
+    latencyMs: generated.latencyMs,
+    metadata: {
+      channel: input.channel,
+      automatic: input.channel === 'whatsapp',
+      runtime_mode: runtime.executionMode,
+      history_messages: history.length,
+      catalog_injected: Boolean(catalog),
+      memory_items: memoryContext.count,
+      token_budget: budget,
+    },
+  });
+
+  return {
+    text: replyText,
+    model,
+    provider: runtime.provider,
+    historyMessages: history.length,
+    catalogInjected: Boolean(catalog),
+    memoryItems: memoryContext.count,
+  };
+}
+
 export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMessage, inbound: NormalizedMessage): Promise<{ called: boolean; replied: boolean; reason?: string }> {
   if (persisted.duplicate || inbound.channel !== 'whatsapp' || inbound.direction !== 'inbound' || inbound.message_type !== 'text' || !inbound.text?.trim()) return { called: false, replied: false, reason: 'not_eligible' };
 
-  const [{ data: config }, { data: conversation }] = await Promise.all([
-    db.from('integraciones_secretas').select('ai_enabled,ai_provider,ai_model,ai_system_prompt,gemini_api_key').eq('id', 'global').maybeSingle(),
-    db.from('conversations').select('id,business_unit_id,ai_enabled,human_takeover,metadata,labels').eq('id', persisted.conversationId).maybeSingle(),
-  ]);
-  if (!config?.ai_enabled) return { called: false, replied: false, reason: 'global_off' };
+  const { data: conversation } = await db.from('conversations')
+    .select('id,business_unit_id,ai_enabled,human_takeover,metadata,labels')
+    .eq('id', persisted.conversationId)
+    .maybeSingle();
   if (!conversation?.ai_enabled) return { called: false, replied: false, reason: 'conversation_off' };
   if (conversation.human_takeover) return { called: false, replied: false, reason: 'human_takeover' };
   if (conversation.metadata?.personal || conversation.labels?.includes?.('personal')) return { called: false, replied: false, reason: 'personal_contact' };
@@ -127,61 +211,39 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
   const inboundAt = new Date(inbound.sent_at).getTime();
   if (!Number.isFinite(inboundAt) || Date.now() - inboundAt > SERVICE_WINDOW_MS) return { called: false, replied: false, reason: 'service_window_closed' };
 
-  const runtime = await getAgentRuntimeConfig(db, 'remy', {
-    provider: config?.ai_provider || 'gemini',
-    model: config?.ai_model || DEFAULT_MODEL,
-    executionMode: 'api',
-  });
-  if (!runtime.enabled) return { called: false, replied: false, reason: 'agent_runtime_off' };
-  if (runtime.executionMode !== 'api') return { called: false, replied: false, reason: 'unsupported_execution_mode' };
-  const provider = runtime.provider;
-  if (provider !== 'gemini') return { called: false, replied: false, reason: 'unsupported_provider' };
-  const apiKey = String(config.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
-  if (!apiKey) return { called: false, replied: false, reason: 'missing_gemini_key' };
-  const budget = getAgentContextBudget('remy', runtime.metadata);
+  const { data: recent } = await db.from('omnichannel_messages')
+    .select('direction,body,created_at')
+    .eq('conversation_id', persisted.conversationId)
+    .not('body', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(4);
+  const history: RemyHistoryRow[] = (recent || []).reverse().map((message: any) => ({
+    direction: message.direction === 'outbound' ? 'outbound' : 'inbound',
+    body: String(message.body || ''),
+  }));
 
-  const [{ data: recent }, rawCatalog, memoryContext] = await Promise.all([
-    db.from('omnichannel_messages').select('direction,body,created_at').eq('conversation_id', persisted.conversationId).not('body', 'is', null).order('created_at', { ascending: false }).limit(budget.maxHistoryMessages),
-    loadRelevantCatalog(db, inbound.text, conversation.business_unit_id),
-    loadRelevantMemoryContext(db, {
-      agent: 'remy',
-      query: inbound.text,
+  let generated: Awaited<ReturnType<typeof generateRemyReply>>;
+  try {
+    generated = await generateRemyReply(db, {
       businessUnitId: conversation.business_unit_id,
-      entityId: persisted.customerId || null,
-      maxChars: 120,
-      maxItems: 2,
-    }),
-  ]);
-  const history = compactHistory((recent || []).reverse(), budget);
-  const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
-  const memory = compactMemoryForRemy(memoryContext.text);
-  const model = runtime.model || DEFAULT_MODEL;
-  const customPrompt = compactText(config.ai_system_prompt || '', budget.maxBusinessContextChars);
-  const systemPrompt = `${basePrompt(catalog)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
-  const generated = await generateWithGemini(apiKey, model, systemPrompt, history, budget.maxOutputTokens);
-  const replyText = capCustomerReply(generated.text);
+      userText: inbound.text,
+      history,
+      channel: 'whatsapp',
+      customerId: persisted.customerId || null,
+      conversationId: persisted.conversationId,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'remy_generate_failed';
+    return { called: false, replied: false, reason };
+  }
 
-  await recordGeminiUsage(db, {
-    businessUnitId: conversation.business_unit_id,
-    conversationId: persisted.conversationId,
-    agent: 'remy',
-    model,
-    usage: generated.raw?.usageMetadata,
-    latencyMs: generated.latencyMs,
-    metadata: {
-      channel: 'whatsapp', automatic: true, runtime_mode: runtime.executionMode,
-      history_messages: history.length, catalog_injected: Boolean(catalog), memory_items: memoryContext.count,
-      token_budget: budget,
-    },
-  });
-
-  const sendResult = await sendMessage({ channel: 'whatsapp', conversationId: persisted.conversationId, customerId: persisted.customerId || undefined, to: inbound.external_thread_id, text: replyText, mode: 'automatic', automationAuthorized: true, agent: 'remy' });
+  const sendResult = await sendMessage({ channel: 'whatsapp', conversationId: persisted.conversationId, customerId: persisted.customerId || undefined, to: inbound.external_thread_id, text: generated.text, mode: 'automatic', automationAuthorized: true, agent: 'remy' });
 
   await persistMessage(db, {
     channel: 'whatsapp', provider: 'meta', transport: 'cloud_api', provider_message_id: sendResult.providerMessageId,
-    external_thread_id: inbound.external_thread_id, external_user_id: inbound.external_user_id, direction: 'outbound', sender_type: 'remy', text: replyText,
+    external_thread_id: inbound.external_thread_id, external_user_id: inbound.external_user_id, direction: 'outbound', sender_type: 'remy', text: generated.text,
     message_type: 'text', sent_at: new Date().toISOString(),
-    raw_payload: { source: 'remy_ai', ai_provider: provider, ai_model: model, provider_response: sendResult.raw },
+    raw_payload: { source: 'remy_ai', ai_provider: generated.provider, ai_model: generated.model, provider_response: sendResult.raw },
   });
   return { called: true, replied: true };
 }
