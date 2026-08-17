@@ -51,11 +51,10 @@ export default async function AgentesPage() {
                 <option value="gemini-2.5-flash" />
                 <option value="gemini-2.5-flash-lite" />
                 <option value="openai/gpt-oss-20b" />
-                <option value="llama-3.1-8b-instant" />
-                <option value="llama-3.3-70b-versatile" />
+                <option value="openai/gpt-oss-120b" />
                 <option value="qwen/qwen3.6-27b" />
               </datalist>
-              <p className="mt-1 text-[10px] leading-4 text-white/30">Los modelos Groq solo funcionan si el provider seleccionado es Groq. Qwen vía Groq es nube; el Qwen local será un modo de ejecución separado.</p>
+              <p className="mt-1 text-[10px] leading-4 text-white/30">Los modelos Groq solo funcionan si el provider seleccionado es Groq. Qwen vía Groq usa reasoning desactivado para ahorrar tokens; el Qwen local será un modo de ejecución separado.</p>
             </div>
             <input type="hidden" name="execution_mode" value="api" />
             <label className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
