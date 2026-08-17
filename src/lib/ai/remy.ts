@@ -54,14 +54,15 @@ async function loadRelevantCatalog(db: SupabaseClient, userText: string) {
 function compactHistory(rows: any[], budget: AgentContextBudget) {
   const selected: Array<{ role: string; parts: Array<{ text: string }> }> = [];
   let chars = 0;
-  for (const message of rows) {
+  for (let i = rows.length - 1; i >= 0 && selected.length < budget.maxHistoryMessages; i -= 1) {
+    const message = rows[i];
     const text = compactText(message.body || '', budget.maxMessageChars);
     if (!text) continue;
     if (selected.length > 0 && chars + text.length > budget.maxHistoryChars) break;
     selected.push({ role: message.direction === 'outbound' ? 'model' : 'user', parts: [{ text }] });
     chars += text.length;
   }
-  return selected;
+  return selected.reverse();
 }
 
 function capCustomerReply(text: string, maxChars = 480) {
