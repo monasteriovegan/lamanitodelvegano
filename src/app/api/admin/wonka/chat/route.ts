@@ -2,6 +2,7 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { runWonkaChat } from '@/lib/ai/wonka';
 import { runComputerTool } from '@/lib/wonka/computer-tools';
+import { loadRelevantMemoryContext, parseExplicitMemoryRequest, saveAgentMemory } from '@/lib/ai/memory';
 
 const ATTACHMENT_BUCKET = 'wonka-attachments';
 type AttachmentInput = { path?: string; name?: string; mime?: string };
@@ -81,6 +82,16 @@ export async function POST(request: Request) {
     thread = created.data;
   }
 
+  // Hoy existe una sola unidad de negocio. Cuando el selector multinegocio esté activo,
+  // este lookup se reemplaza por la unidad elegida por el dueño.
+  const { data: businessUnit } = await db
+    .from('business_units')
+    .select('id,name,slug')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const businessUnitId = businessUnit?.id || null;
+
   const directAttachmentInputs = Array.isArray(body?.attachments) ? body!.attachments!.slice(0, 1) : [];
   if (trustedIntent === 'flow_image_to_video' && directAttachmentInputs.length !== 1) {
     return Response.json({ error: 'flow_image_required' }, { status: 400 });
@@ -130,7 +141,6 @@ export async function POST(request: Request) {
     : (contextPath || contextTitle)
       ? `\n\n[INTERFAZ ACTUAL]\nRuta: ${contextPath || 'desconocida'}\nTítulo: ${contextTitle || 'desconocido'}\n[FIN INTERFAZ]`
       : '';
-  const contextualizedText = `${text}${attachmentContext}${visualContext}`;
 
   const inserted = await db.from('wonka_messages').insert({
     thread_id: thread.id,
@@ -187,17 +197,68 @@ export async function POST(request: Request) {
     }
   }
 
+  // Guardar una memoria explícita no requiere consultar al LLM: cero tokens de modelo.
+  const explicitMemory = attachments.length === 0 ? parseExplicitMemoryRequest(text) : null;
+  if (explicitMemory) {
+    try {
+      const memory = await saveAgentMemory(db, {
+        ownerUserId: admin.id,
+        businessUnitId,
+        agent: explicitMemory.targetAgent,
+        scope: explicitMemory.scope,
+        value: explicitMemory.value,
+        pinned: explicitMemory.pinned,
+        priority: explicitMemory.priority,
+        source: 'explicit_chat',
+      });
+      const saved = await db.from('wonka_messages').insert({
+        thread_id: thread.id,
+        role: 'assistant',
+        content: '✓ Lo recordaré.',
+        metadata: {
+          pending_tool: null,
+          tool_results: [],
+          model: 'deterministic_memory',
+          memory: { id: memory.id, scope: explicitMemory.scope, target_agent: explicitMemory.targetAgent },
+        },
+      }).select('id,role,content,metadata,created_at').single();
+      if (saved.error) throw saved.error;
+      await db.from('wonka_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id);
+      return Response.json({ ok: true, userMessage: inserted.data, assistantMessage: saved.data, pendingTool: null, memorySaved: true });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'memory_save_failed';
+      console.error('wonka_memory_save_failed', { detail });
+      return Response.json({ error: detail }, { status: 502 });
+    }
+  }
+
+  const memoryContext = await loadRelevantMemoryContext(db, {
+    agent: 'wonka',
+    query: text,
+    ownerUserId: admin.id,
+    businessUnitId,
+    maxChars: 240,
+    maxItems: 3,
+  });
+  const memorySuffix = memoryContext.text ? `\n\n${memoryContext.text}` : '';
+  const contextualizedText = `${text}${memorySuffix}${attachmentContext}${visualContext}`;
+
   const { data: history } = await db.from('wonka_messages').select('role,content').eq('thread_id', thread.id).in('role', ['user', 'assistant']).order('created_at', { ascending: false }).limit(12);
   const messages = (history || []).reverse().map((message: any) => ({ role: message.role === 'assistant' ? 'model' as const : 'user' as const, text: String(message.content || '') }));
   if (messages.length > 0 && messages[messages.length - 1].role === 'user') messages[messages.length - 1].text = contextualizedText;
 
   try {
-    const result = await runWonkaChat(db, { ownerId: admin.id, messages, threadId: thread.id });
+    const result = await runWonkaChat(db, { ownerId: admin.id, messages, threadId: thread.id, businessUnitId });
     const saved = await db.from('wonka_messages').insert({
       thread_id: thread.id,
       role: 'assistant',
       content: result.text,
-      metadata: { pending_tool: result.pendingTool || null, tool_results: result.toolResults || [], model: 'gemini' },
+      metadata: {
+        pending_tool: result.pendingTool || null,
+        tool_results: result.toolResults || [],
+        model: 'gemini',
+        memory_context: memoryContext.count ? { count: memoryContext.count, ids: memoryContext.ids } : null,
+      },
     }).select('id,role,content,metadata,created_at').single();
     if (saved.error) throw saved.error;
     await db.from('wonka_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id);
