@@ -73,7 +73,7 @@ export function parseExplicitMemoryRequest(text: string): ExplicitMemoryRequest 
 
   return {
     value,
-    scope: businessScoped ? 'business' : 'owner',
+    scope: businessScoped || remyTarget ? 'business' : 'owner',
     targetAgent: globalAgents ? '*' : remyTarget ? 'remy' : 'wonka',
     pinned,
     priority: pinned ? 95 : 75,
