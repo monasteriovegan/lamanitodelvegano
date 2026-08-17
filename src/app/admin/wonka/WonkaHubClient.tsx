@@ -60,6 +60,21 @@ export default function WonkaHubClient() {
   }, [load, loadCalendar]);
 
   useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      void load().catch(() => undefined);
+    };
+    const interval = window.setInterval(refresh, 4000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
+
+  useEffect(() => {
     const node = chatRef.current;
     if (!node) return;
     node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
