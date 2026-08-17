@@ -29,9 +29,8 @@ grant all on public.ai_provider_credentials to service_role;
 
 insert into public.provider_pricing(provider, model, input_usd_per_million, output_usd_per_million, cached_input_usd_per_million, effective_from, source_url, metadata)
 values
-  ('groq','llama-3.1-8b-instant',0.05,0.08,0,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb),
-  ('groq','openai/gpt-oss-20b',0.075,0.30,0,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb),
-  ('groq','llama-3.3-70b-versatile',0.59,0.79,0,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb),
+  ('groq','openai/gpt-oss-20b',0.075,0.30,0.037,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb),
+  ('groq','openai/gpt-oss-120b',0.15,0.60,0.075,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb),
   ('groq','qwen/qwen3.6-27b',0.60,3.00,0,now(),'https://console.groq.com/docs/models','{"source":"Groq supported models page","captured":"2026-08-17"}'::jsonb)
 on conflict do nothing;
 
