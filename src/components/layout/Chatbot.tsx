@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface Message {
   role: 'user' | 'model';
@@ -19,42 +18,18 @@ export function Chatbot() {
   ]);
   const [inputVal, setInputVal] = useState('');
   const [loading, setLoading] = useState(false);
-  const [productos, setProductos] = useState<any[]>([]);
-  
   const chatBodyRef = useRef<HTMLDivElement>(null);
 
-  // Cargar productos del catálogo para proveerle contexto a la IA
   useEffect(() => {
-    async function loadCatalog() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase
-          .from('productos')
-          .select('nombre, descripcion, precio, categoria, variedades, gramaje')
-          .eq('activo', true);
-
-        if (!error && data) {
-          setProductos(data);
-        }
-      } catch (err) {
-        console.error('Error cargando catálogo en el chatbot:', err);
-      }
-    }
-    loadCatalog();
-
-    // Mostrar el tooltip después de 5 segundos
     const timer = setTimeout(() => {
-      // Solo mostrar si el chat está cerrado
       setIsOpen(prev => {
         if (!prev) setShowTooltip(true);
         return prev;
       });
     }, 5000);
-
     return () => clearTimeout(timer);
   }, []);
 
-  // Scroll automático al fondo al agregar mensajes
   useEffect(() => {
     if (chatBodyRef.current) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
@@ -73,11 +48,7 @@ export function Chatbot() {
     if (!forceMsg) setInputVal('');
     setLoading(true);
 
-    const userMessage: Message = {
-      role: 'user',
-      parts: [{ text }]
-    };
-
+    const userMessage: Message = { role: 'user', parts: [{ text }] };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
@@ -85,33 +56,23 @@ export function Chatbot() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          history: newMessages,
-          productos: productos
-        })
+        // El backend selecciona catálogo, memoria y contexto. El navegador solo
+        // envía una ventana pequeña; el presupuesto final se aplica en Remy.
+        body: JSON.stringify({ history: newMessages.slice(-6) })
       });
 
-      if (!response.ok) {
-        throw new Error('Error de conexión con el servidor.');
-      }
-
       const data = await response.json();
-      
+      if (!response.ok && !data?.respuesta) throw new Error('chat_unavailable');
+
       setMessages(prev => [
         ...prev,
-        {
-          role: 'model',
-          parts: [{ text: data.respuesta }]
-        }
+        { role: 'model', parts: [{ text: data.respuesta || 'Ahora mismo no pude responder.' }] }
       ]);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setMessages(prev => [
         ...prev,
-        {
-          role: 'model',
-          parts: [{ text: '❌ Error de red. Por favor, asegúrate de que la API Key de Gemini esté configurada.' }]
-        }
+        { role: 'model', parts: [{ text: 'Ahora mismo no pude responder. Escríbenos por WhatsApp y te ayudamos enseguida.' }] }
       ]);
     } finally {
       setLoading(false);
@@ -134,7 +95,6 @@ export function Chatbot() {
         </svg>
       </a>
 
-      {/* Tooltip de saludo */}
       {showTooltip && (
         <div
           onClick={toggleChat}
@@ -153,13 +113,10 @@ export function Chatbot() {
         </div>
       )}
 
-      {/* Botón flotante del Chatbot */}
       <button
         onClick={toggleChat}
         className="fixed bottom-6 right-6 w-12 h-12 md:w-[60px] md:h-[60px] bg-v3 hover:bg-v2 text-white rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(64,145,108,0.3)] cursor-pointer z-[900] border-2 border-neon overflow-hidden p-0 transition-transform hover:scale-110 active:scale-95"
-        style={{
-          boxShadow: '0 0 15px rgba(0, 255, 179, 0.25)'
-        }}
+        style={{ boxShadow: '0 0 15px rgba(0, 255, 179, 0.25)' }}
       >
         <img
           src="/remy.jpg"
@@ -172,15 +129,11 @@ export function Chatbot() {
         />
       </button>
 
-      {/* Ventana de Chat */}
       {isOpen && (
         <div
           className="fixed bottom-24 right-6 w-[340px] h-[480px] bg-[#030907]/95 border border-[rgba(0,255,179,0.25)] rounded-2xl shadow-[0_12px_40px_rgba(0,255,179,0.15)] z-[900] flex flex-col overflow-hidden backdrop-blur-md"
-          style={{
-            animation: 'fadeInScale 0.25s cubic-bezier(0.165, 0.84, 0.44, 1)'
-          }}
+          style={{ animation: 'fadeInScale 0.25s cubic-bezier(0.165, 0.84, 0.44, 1)' }}
         >
-          {/* Header */}
           <div className="bg-[#0d1e16]/90 border-b border-[rgba(0,255,179,0.2)] p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[rgba(0,255,179,0.1)] border border-[rgba(0,255,179,0.3)] flex items-center justify-center overflow-hidden">
               <img src="/remy.jpg" alt="Chef Remy" className="w-full h-full object-cover" />
@@ -191,30 +144,15 @@ export function Chatbot() {
                 <span className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full animate-pulse"></span> En línea
               </div>
             </div>
-            <button
-              onClick={toggleChat}
-              className="ml-auto text-white opacity-85 hover:opacity-100 text-2xl"
-            >
-              ×
-            </button>
+            <button onClick={toggleChat} className="ml-auto text-white opacity-85 hover:opacity-100 text-2xl">×</button>
           </div>
 
-          {/* Cuerpo del chat */}
-          <div
-            ref={chatBodyRef}
-            className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-[#030907]"
-          >
+          <div ref={chatBodyRef} className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-[#030907]">
             {messages.map((m, idx) => (
               <div
                 key={idx}
-                className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                  m.role === 'model'
-                    ? 'bg-[rgba(0,255,179,0.08)] text-texto border border-[rgba(0,255,179,0.15)] rounded-bl-sm align-self-start'
-                    : 'bg-neon text-[#020705] font-semibold rounded-br-sm align-self-end'
-                }`}
-                style={{
-                  alignSelf: m.role === 'model' ? 'flex-start' : 'flex-end'
-                }}
+                className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${m.role === 'model' ? 'bg-[rgba(0,255,179,0.08)] text-texto border border-[rgba(0,255,179,0.15)] rounded-bl-sm align-self-start' : 'bg-neon text-[#020705] font-semibold rounded-br-sm align-self-end'}`}
+                style={{ alignSelf: m.role === 'model' ? 'flex-start' : 'flex-end' }}
               >
                 {m.parts[0].text}
               </div>
@@ -228,7 +166,6 @@ export function Chatbot() {
             )}
           </div>
 
-          {/* Footer del chat */}
           <div className="p-4 bg-[#0d1e16]/90 border-t border-[rgba(0,255,179,0.2)] flex gap-2 items-center">
             <input
               type="text"
