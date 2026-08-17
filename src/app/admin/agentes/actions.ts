@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
-import { getProviderConnectionStatus } from '@/lib/ai/providers';
+import { getProviderConnectionStatus, validateProviderModel } from '@/lib/ai/providers';
 
 const ALLOWED_AGENTS = new Set(['wonka', 'remy']);
 const ALLOWED_PROVIDERS = new Set(['gemini', 'groq']);
@@ -26,6 +26,7 @@ export async function saveAgentRuntime(formData: FormData) {
   const db = createSupabaseServiceClient();
   const connected = await getProviderConnectionStatus(db);
   if (!connected[provider as keyof typeof connected]) throw new Error(`provider_not_connected:${provider}`);
+  if (!await validateProviderModel(db, provider, model)) throw new Error(`model_not_available:${provider}:${model}`);
 
   const { error } = await db.from('agent_runtime_configs').upsert({
     agent,
