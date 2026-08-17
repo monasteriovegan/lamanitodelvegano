@@ -66,15 +66,15 @@ export function parseExplicitMemoryRequest(text: string): ExplicitMemoryRequest 
   if (!match) return null;
 
   const value = match[1].trim();
-  const normalized = normalize(raw);
   const businessScoped = /\b(?:la manito|este negocio|negocio actual|para el negocio|para la marca)\b/i.test(raw);
   const globalAgents = /\b(?:todos los agentes|todos mis agentes|regla global|para todos los agentes)\b/i.test(raw);
+  const remyTarget = /\bremy\b/i.test(raw);
   const pinned = /\b(?:siempre|nunca|regla|desde ahora|de aqui en adelante|de aquí en adelante)\b/i.test(raw);
 
   return {
     value,
     scope: businessScoped ? 'business' : 'owner',
-    targetAgent: globalAgents ? '*' : 'wonka',
+    targetAgent: globalAgents ? '*' : remyTarget ? 'remy' : 'wonka',
     pinned,
     priority: pinned ? 95 : 75,
   };
