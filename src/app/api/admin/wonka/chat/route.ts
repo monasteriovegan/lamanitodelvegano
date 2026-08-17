@@ -20,7 +20,21 @@ export async function GET() {
   }
   const { data: messages, error } = await db.from('wonka_messages').select('id,role,content,metadata,created_at').eq('thread_id', thread.id).order('created_at', { ascending: true }).limit(120);
   if (error) return Response.json({ error: error.message }, { status: 400 });
-  return Response.json({ thread, messages: messages || [] });
+
+  // Una aprobación solo puede seguir vigente si pertenece al último mensaje del asistente.
+  // Esto evita que el cliente "resucite" pending_tool históricos al recargar el Hub.
+  let latestAssistantSeen = false;
+  const visibleMessages = [...(messages || [])].reverse().map((message: any) => {
+    if (message.role !== 'assistant') return message;
+    if (!latestAssistantSeen) {
+      latestAssistantSeen = true;
+      return message;
+    }
+    if (!message?.metadata?.pending_tool) return message;
+    return { ...message, metadata: { ...message.metadata, pending_tool: null } };
+  }).reverse();
+
+  return Response.json({ thread, messages: visibleMessages });
 }
 
 async function resolveAttachment(
