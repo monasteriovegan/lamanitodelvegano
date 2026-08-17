@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node --check workers/browser/src/index.js && node --check workers/browser/src/local-runner.js",
+    "check:worker": "node --check workers/browser/src/index.js && node --check workers/browser/src/local-runner.js",
+    "prebuild": "npm run check:worker",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
