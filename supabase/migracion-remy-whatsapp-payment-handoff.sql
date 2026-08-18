@@ -31,7 +31,7 @@ begin
             'needs_human_attention_at', now_ts,
             'payment_coordination_order_id', new.order_id
           ),
-          crm_status = case when crm_status = 'customer' then crm_status else 'needs_attention' end,
+          crm_status = case when crm_status = 'customer' then crm_status else 'follow_up' end,
           updated_at = now_ts
       where id = new.customer_id;
     end if;
