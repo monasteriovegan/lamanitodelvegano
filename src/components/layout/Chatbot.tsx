@@ -8,6 +8,11 @@ interface Message {
   parts: { text: string }[];
 }
 
+const WELCOME_MESSAGE: Message = {
+  role: 'model',
+  parts: [{ text: '¡Hola! Soy el Chef Remy 🦍🌱. ¿Te puedo ayudar a elegir algo rico de nuestro taller hoy o tienes alguna duda?' }],
+};
+
 function getOrCreateWebSession() {
   const key = 'remy_web_session';
   const current = window.localStorage.getItem(key);
@@ -17,31 +22,59 @@ function getOrCreateWebSession() {
   return created;
 }
 
+function validRestoredMessages(value: unknown): Message[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-40).flatMap((raw: any) => {
+    const role = raw?.role === 'model' ? 'model' : raw?.role === 'user' ? 'user' : null;
+    const text = String(raw?.parts?.[0]?.text || '').trim();
+    return role && text ? [{ role, parts: [{ text }] } as Message] : [];
+  });
+}
+
 export function Chatbot() {
   const { items: cartItems, replaceCart } = useCart();
   const [isOpen, setIsOpen] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'model',
-      parts: [{ text: '¡Hola! Soy el Chef Remy 🦍🌱. ¿Te puedo ayudar a elegir algo rico de nuestro taller hoy o tienes alguna duda?' }]
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputVal, setInputVal] = useState('');
   const [loading, setLoading] = useState(false);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef('');
 
   useEffect(() => {
-    sessionIdRef.current = getOrCreateWebSession();
+    let cancelled = false;
+    const sessionId = getOrCreateWebSession();
+    sessionIdRef.current = sessionId;
+
+    // El backend ya guarda el hilo web en CRM. Al volver a la página recuperamos
+    // ese mismo hilo sin llamar al LLM ni consumir tokens.
+    void (async () => {
+      try {
+        const response = await fetch(`/api/chat?sessionId=${encodeURIComponent(sessionId)}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        const restored = validRestoredMessages(data?.messages);
+        if (restored.length) setMessages([WELCOME_MESSAGE, ...restored]);
+        if (Array.isArray(data?.cartItems)) replaceCart(data.cartItems);
+      } catch (error) {
+        // Si la restauración falla, el chat sigue usable con el saludo inicial.
+        console.error('remy_web_history_restore_failed', error);
+      }
+    })();
+
     const timer = setTimeout(() => {
       setIsOpen(prev => {
         if (!prev) setShowTooltip(true);
         return prev;
       });
     }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [replaceCart]);
 
   useEffect(() => {
     if (chatBodyRef.current) {
