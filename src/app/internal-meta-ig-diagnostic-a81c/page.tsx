@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/supabase/require-role';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ async function graph(url: string, token: string) {
 }
 
 export default async function InstagramDiagnosticPage() {
+  await requireRole(['admin']);
   const db = createSupabaseServiceClient();
   const { data: config } = await db
     .from('integraciones_secretas')
