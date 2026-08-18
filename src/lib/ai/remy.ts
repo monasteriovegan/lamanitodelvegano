@@ -12,6 +12,7 @@ import { executeRemyTool, selectRemyTools, type RemyToolContext } from '@/lib/ai
 import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
+import { loadRemyPaymentContext } from '@/lib/ai/remy-payment';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -29,7 +30,7 @@ function basePrompt(catalog: string, channel: RemyChannel) {
     : channel === 'whatsapp'
       ? ' En WhatsApp puedes consultar productos, modificar el carrito conversacional, cotizar despacho, guardar datos, crear un pedido confirmado y entregar un link de pago usando las herramientas disponibles.'
       : ' En Instagram puedes orientar la venta y usar las herramientas comerciales disponibles cuando correspondan.';
-  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. Si el cliente pide atención humana, reclama, solicita devolución/reembolso o presenta un problema de pago/pedido que requiere intervención, deriva y no improvises una solución irreversible. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
+  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. Solo ofrece métodos de pago marcados como configurados en el contexto; nunca inventes datos bancarios. Si el cliente pide atención humana, reclama, solicita devolución/reembolso o presenta un problema de pago/pedido que requiere intervención, deriva y no improvises una solución irreversible. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
 }
 
 function searchTerms(text: string) {
@@ -181,7 +182,7 @@ export async function generateRemyReply(
     }
   }
 
-  const [rawCatalog, memoryContext, deliveryContext] = await Promise.all([
+  const [rawCatalog, memoryContext, deliveryContext, paymentContext] = await Promise.all([
     loadRelevantCatalog(db, input.userText, input.businessUnitId),
     loadRelevantMemoryContext(db, {
       agent: 'remy',
@@ -197,14 +198,16 @@ export async function generateRemyReply(
       conversationId: input.conversationId || null,
       externalUserId: input.externalUserId || null,
     }),
+    loadRemyPaymentContext(db, input.userText),
   ]);
 
   const history = compactHistory(input.history, budget);
   const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
   const memory = compactMemoryForRemy(memoryContext.text);
   const delivery = compactText(deliveryContext, budget.maxBusinessContextChars);
+  const payment = compactText(paymentContext, budget.maxBusinessContextChars);
   const customPrompt = compactText(config?.ai_system_prompt || '', budget.maxBusinessContextChars);
-  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
+  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${payment ? `\n\nDATOS DE PAGO VERIFICADOS:\n${payment}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
   const tools = selectRemyTools(input.userText);
   const toolContext: RemyToolContext = {
     businessUnitId: input.businessUnitId,
@@ -264,6 +267,7 @@ export async function generateRemyReply(
         history_messages: history.length,
         catalog_injected: Boolean(catalog),
         delivery_injected: Boolean(delivery),
+        payment_context_injected: Boolean(payment),
         memory_items: memoryContext.count,
         token_budget: budget,
         tool_round: round,
