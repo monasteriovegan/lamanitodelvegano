@@ -145,7 +145,7 @@ export async function generateRemyReply(
   const history = compactHistory(input.history, budget);
   const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
   const memory = compactMemoryForRemy(memoryContext.text);
-  const customPrompt = compactText(config.ai_system_prompt || '', budget.maxBusinessContextChars);
+  const customPrompt = compactText(config?.ai_system_prompt || '', budget.maxBusinessContextChars);
   const model = runtime.model || DEFAULT_MODEL;
   const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
 
