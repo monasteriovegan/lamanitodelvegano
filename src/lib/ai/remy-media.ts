@@ -43,9 +43,10 @@ export async function understandWhatsAppMedia(
   if (!media) return null;
 
   const { data: config } = await db.from('integraciones_secretas')
-    .select('wa_access_token,gemini_api_key')
+    .select('ai_enabled,wa_access_token,gemini_api_key')
     .eq('id', 'global')
     .maybeSingle();
+  if (!config?.ai_enabled) return null;
   const waToken = String(config?.wa_access_token || '').trim();
   const geminiKey = String(config?.gemini_api_key || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
   if (!waToken) throw new Error('whatsapp_media_token_missing');
