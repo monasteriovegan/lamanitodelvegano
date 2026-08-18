@@ -10,7 +10,7 @@ begin
      and jsonb_array_length(new.items) > 0 then
     update public.omnichannel_contacts
        set crm_status = case
-             when crm_status in ('customer','needs_attention') then crm_status
+             when crm_status in ('customer','follow_up') then crm_status
              else 'interested'
            end,
            updated_at = now()
