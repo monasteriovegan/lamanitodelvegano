@@ -208,7 +208,13 @@ export async function generateRemyReply(
   const payment = compactText(paymentContext, budget.maxBusinessContextChars);
   const customPrompt = compactText(config?.ai_system_prompt || '', budget.maxBusinessContextChars);
   const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${payment ? `\n\nDATOS DE PAGO VERIFICADOS:\n${payment}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
-  const tools = selectRemyTools(input.userText);
+
+  // La selección de tools usa la misma ventana corta ya cargada, sin aumentar
+  // el prompt. Esto permite continuar correctamente con “sí”, “dale”, una
+  // dirección o una opción de formato después de la pregunta anterior.
+  const previousAssistantText = [...history].reverse().find((message) => message.role === 'assistant')?.content || '';
+  const toolSelectionText = history.map((message) => message.content || '').filter(Boolean).join(' ');
+  const tools = selectRemyTools(toolSelectionText || input.userText);
   const toolContext: RemyToolContext = {
     businessUnitId: input.businessUnitId,
     customerId: input.customerId || null,
@@ -216,6 +222,7 @@ export async function generateRemyReply(
     channel: input.channel,
     externalUserId: input.externalUserId || null,
     userText: input.userText,
+    previousAssistantText,
   };
 
   let provider = runtime.provider;
