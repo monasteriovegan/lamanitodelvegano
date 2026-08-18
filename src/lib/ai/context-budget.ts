@@ -23,7 +23,7 @@ const DEFAULT_BUDGETS: Record<string, AgentContextBudget> = {
     maxHistoryMessages: 4,
     maxHistoryChars: 800,
     maxMessageChars: 320,
-    maxToolResultChars: 0,
+    maxToolResultChars: 650,
     maxBusinessContextChars: 450,
   },
   default: {

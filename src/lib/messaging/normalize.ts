@@ -13,6 +13,12 @@ function messageText(message: any): string | null {
   return message?.text?.body ?? message?.text ?? message?.button?.text ?? message?.postback?.title ?? message?.title ?? null;
 }
 
+function whatsAppMessageText(message: any): string | null {
+  const type = String(message?.type || '');
+  const typedPayload = type && message?.[type] && typeof message[type] === 'object' ? message[type] : null;
+  return message?.text?.body ?? message?.button?.text ?? typedPayload?.caption ?? null;
+}
+
 function messageType(message: any): string {
   if (message?.type) return String(message.type);
   if (message?.attachments?.length) return String(message.attachments[0]?.type || 'attachment');
@@ -41,7 +47,7 @@ export function normalizeMetaWhatsApp(payload: any): NormalizedMessage[] {
           external_user_id: from,
           direction: 'inbound',
           sender_type: 'customer',
-          text: message.text?.body ?? message.button?.text ?? null,
+          text: whatsAppMessageText(message),
           message_type: String(message.type ?? 'unknown'),
           sent_at: new Date(Number(message.timestamp ?? Date.now() / 1000) * 1000).toISOString(),
           raw_payload: { metadata: value.metadata, contacts: value.contacts, message },
@@ -65,7 +71,7 @@ export function normalizeMetaWhatsApp(payload: any): NormalizedMessage[] {
           external_user_id: to,
           direction: 'outbound',
           sender_type: 'human',
-          text: echo.text?.body ?? echo.button?.text ?? null,
+          text: whatsAppMessageText(echo),
           message_type: String(echo.type ?? 'unknown'),
           sent_at: new Date(Number(echo.timestamp ?? Date.now() / 1000) * 1000).toISOString(),
           raw_payload: { metadata: value.metadata, message_echo: echo, source: 'whatsapp_business_app' },

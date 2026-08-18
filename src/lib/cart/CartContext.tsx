@@ -12,6 +12,7 @@ interface CartContextValue {
   changeQty: (key: string, delta: number) => void;
   removeItem: (key: string) => void;
   clearCart: () => void;
+  replaceCart: (items: ItemCarrito[]) => void;
   count: number;
   subtotal: number;
 }
@@ -25,19 +26,14 @@ const noopCartContext: CartContextValue = {
   changeQty: () => {},
   removeItem: () => {},
   clearCart: () => {},
+  replaceCart: () => {},
   count: 0,
   subtotal: 0,
 };
 
-// Valor por defecto seguro (no null) para que cualquier intento de
-// pre-renderizar/SSR un componente que use useCart() sin <CartProvider>
-// no truene el build — simplemente se comporta como un carrito vacío
-// hasta que el cliente hidrate dentro del Provider real.
 const CartContext = createContext<CartContextValue>(noopCartContext);
 const CART_STORAGE_KEY = 'lmv_cart_v1';
 
-// Una "key" identifica un item único en el carrito: mismo producto pero
-// distinto formato/variedad cuenta como línea separada (igual que el original).
 function itemKey(item: Pick<ItemCarrito, 'productoId' | 'formato' | 'variedad'>): string {
   return [item.productoId, item.formato || '', item.variedad || ''].join('::');
 }
@@ -98,6 +94,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems([]);
   }, []);
 
+  const replaceCart = useCallback((nextItems: ItemCarrito[]) => {
+    const safe = Array.isArray(nextItems) ? nextItems.filter((item) => item?.productoId && Number(item.qty) > 0) : [];
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(safe));
+    setItems(safe);
+  }, []);
+
   const count = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
   const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.qty * i.precio, 0), [items]);
 
@@ -110,6 +112,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     changeQty,
     removeItem,
     clearCart,
+    replaceCart,
     count,
     subtotal,
   };
