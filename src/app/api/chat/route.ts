@@ -107,6 +107,60 @@ async function loadConversationCart(
   return data ? (Array.isArray(data.items) ? data.items as ItemCarrito[] : []) : null;
 }
 
+/**
+ * Recupera la conversación web anónima de este navegador sin llamar al LLM.
+ * La sesión es un UUID aleatorio persistido en localStorage; sólo permite leer
+ * el hilo que usa exactamente ese external_conversation_id.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const sessionId = validSessionId(request.nextUrl.searchParams.get('sessionId'));
+    if (!sessionId) return NextResponse.json({ error: 'invalid_session' }, { status: 400 });
+
+    const db = createSupabaseServiceClient();
+    const business = await new BusinessRepository(db).requireDefault();
+    const { data: conversation, error: conversationError } = await db.from('conversations')
+      .select('id')
+      .eq('business_unit_id', business.id)
+      .eq('channel', 'web')
+      .eq('external_conversation_id', sessionId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (conversationError) throw conversationError;
+
+    if (!conversation?.id) {
+      return NextResponse.json({ sessionId, messages: [], cartItems: null });
+    }
+
+    const [{ data: rows, error: messagesError }, cartItems] = await Promise.all([
+      db.from('omnichannel_messages')
+        .select('direction,body,created_at')
+        .eq('conversation_id', conversation.id)
+        .not('body', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(40),
+      loadConversationCart(db, business.id, conversation.id),
+    ]);
+    if (messagesError) throw messagesError;
+
+    const messages = (rows || []).reverse().flatMap((row: any) => {
+      const text = String(row.body || '').trim();
+      if (!text) return [];
+      return [{
+        role: row.direction === 'outbound' ? 'model' : 'user',
+        parts: [{ text }],
+      }];
+    });
+
+    return NextResponse.json({ sessionId, messages, cartItems });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'remy_web_history_failed';
+    console.error('remy_web_history_failed', { detail });
+    return NextResponse.json({ error: 'history_unavailable' }, { status: 503 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => null) as { history?: unknown; sessionId?: unknown; cartItems?: unknown } | null;
