@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { genFechas } from '@/lib/pricing/fechas';
 
-const DATE_INTENT = /fecha|cu[aá]ndo|entrega|despach|env[ií]o|disponibilidad/i;
+const DATE_INTENT = /fecha|cu[aá]ndo|entrega|despach|env[ií]o|disponibilidad|finaliz|checkout|comprar|hacer.{0,12}pedido|crear.{0,12}pedido/i;
+const CHECKOUT_INTENT = /finaliz|checkout|comprar|hacer.{0,12}pedido|crear.{0,12}pedido/i;
 
 function parseAvailability(value: unknown): string[] | null {
   const dates = String(value || '')
@@ -93,6 +94,7 @@ export async function loadRemyDeliveryContext(
 
   const parts = [
     `FECHAS DE DESPACHO DISPONIBLES: ${valid.length ? valid.join(', ') : 'sin fechas calculadas'}.`,
+    CHECKOUT_INTENT.test(input.userText) ? 'CHECKOUT: revisa primero el estado del checkout y pide solo un dato faltante por turno; cuando toque la fecha, ofrece únicamente fechas disponibles.' : '',
     settings?.delivery_message ? `Mensaje del negocio: ${settings.delivery_message}` : '',
     blocked?.length ? `Fechas bloqueadas próximas: ${(blocked || []).slice(0, 6).map((row: any) => row.date).join(', ')}.` : '',
   ].filter(Boolean);
