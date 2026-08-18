@@ -15,7 +15,12 @@ type Message = {
   id: string; direction: 'inbound' | 'outbound'; message_type: string; body: string | null; status: string | null;
   provider: string | null; transport: string | null; source?: string | null; timestamp: string;
 };
-type AiSettings = { enabled: boolean; provider: string; model: string; hasGeminiKey: boolean };
+type AiSettings = {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  providers?: Record<string, boolean>;
+};
 
 function formatDate(value: string | null) {
   if (!value) return '';
@@ -46,12 +51,13 @@ export default function ConversationsClient() {
   const [updating, setUpdating] = useState(false);
   const [filter, setFilter] = useState<'all' | Channel>('all');
   const [error, setError] = useState<string | null>(null);
-  const [ai, setAi] = useState<AiSettings>({ enabled: false, provider: 'gemini', model: 'gemini-2.5-flash', hasGeminiKey: false });
+  const [ai, setAi] = useState<AiSettings>({ enabled: false, provider: 'gemini', model: 'gemini-2.5-flash', providers: {} });
   const [savingAi, setSavingAi] = useState(false);
 
   const visibleConversations = useMemo(() => filter === 'all' ? conversations : conversations.filter((item) => item.channel === filter), [conversations, filter]);
   const selected = useMemo(() => conversations.find((conversation) => conversation.id === selectedId) || null, [conversations, selectedId]);
   const windowState = useMemo(() => remainingWindow(selected?.serviceWindowExpiresAt || null), [selected?.serviceWindowExpiresAt]);
+  const hasConnectedProvider = useMemo(() => Object.values(ai.providers || {}).some(Boolean), [ai.providers]);
 
   const loadConversations = useCallback(async () => {
     const response = await fetch('/api/admin/conversations', { cache: 'no-store' });
@@ -66,7 +72,12 @@ export default function ConversationsClient() {
     if (response.status === 401) return;
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || 'No se pudo cargar la configuración IA');
-    setAi(body);
+    setAi({
+      enabled: Boolean(body.enabled),
+      provider: String(body.provider || 'gemini'),
+      model: String(body.model || 'gemini-2.5-flash'),
+      providers: body.providers && typeof body.providers === 'object' ? body.providers : {},
+    });
   }, []);
   const loadMessages = useCallback(async (conversationId: string) => {
     setLoadingMessages(true);
@@ -94,17 +105,20 @@ export default function ConversationsClient() {
     if (visibleConversations.length && (!selectedId || !visibleConversations.some((item) => item.id === selectedId))) setSelectedId(visibleConversations[0].id);
   }, [visibleConversations, selectedId]);
 
-  const patchAi = async (patch: Partial<Pick<AiSettings, 'enabled' | 'provider' | 'model'>>) => {
+  const toggleGlobalAi = async () => {
     setSavingAi(true); setError(null);
     try {
-      const response = await fetch('/api/admin/ai/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      const response = await fetch('/api/admin/ai/settings', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !ai.enabled }),
+      });
       const body = await response.json();
       if (!response.ok) {
-        if (body.error === 'missing_gemini_key') throw new Error('Falta la API Key de Gemini. Agrégala en Integraciones antes de encender Remy.');
-        throw new Error(body.error || 'No se pudo guardar IA');
+        if (String(body.error || '').startsWith('provider_not_connected:')) throw new Error('El proveedor IA global no está conectado. Revisa Integraciones/Agentes.');
+        throw new Error(body.error || 'No se pudo cambiar la IA automática');
       }
       await loadAi();
-    } finally { setSavingAi(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo cambiar la IA automática'); }
+    finally { setSavingAi(false); }
   };
 
   const patchConversation = async (patch: { personal?: boolean; aiEnabled?: boolean; humanTakeover?: boolean }) => {
@@ -143,18 +157,18 @@ export default function ConversationsClient() {
     <div className="max-w-[1240px] text-crema">
       <PageHeader eyebrow="✦ Omnicanal" title="Conversaciones" action={
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">WhatsApp + Instagram</span>
-          <button onClick={() => void patchAi({ enabled: !ai.enabled })} disabled={savingAi || (!ai.hasGeminiKey && !ai.enabled)} className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
-            {ai.enabled ? '🤖 IA automática ON' : '🤖 IA automática OFF'}
+          <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">WhatsApp + Instagram + Web</span>
+          <button onClick={() => void toggleGlobalAi()} disabled={savingAi || (!hasConnectedProvider && !ai.enabled)} className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
+            {ai.enabled ? '🤖 WhatsApp IA global ON' : '🤖 WhatsApp IA global OFF'}
           </button>
         </div>
       } />
 
-      <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.025] p-3 flex flex-wrap items-end gap-3">
-        <div><label className="block text-[10px] text-white/45 mb-1">Proveedor IA</label><select value={ai.provider} onChange={(e) => void patchAi({ provider: e.target.value })} disabled={savingAi} className="rounded-lg border border-white/10 bg-[#07110d] px-3 py-2 text-xs text-white"><option value="gemini">Gemini</option></select></div>
-        <div className="min-w-[220px]"><label className="block text-[10px] text-white/45 mb-1">Modelo</label><input value={ai.model} onChange={(e) => setAi((current) => ({ ...current, model: e.target.value }))} onBlur={() => void patchAi({ model: ai.model })} className="w-full rounded-lg border border-white/10 bg-[#07110d] px-3 py-2 text-xs text-white" /></div>
-        <div className={`text-[10px] px-2.5 py-2 rounded-lg ${ai.hasGeminiKey ? 'text-neon bg-neon/10' : 'text-amber-200 bg-amber-400/10'}`}>{ai.hasGeminiKey ? 'Gemini configurado' : 'Falta API Key Gemini en Integraciones'}</div>
-        <div className="text-[10px] text-white/35">Interruptor global + permiso por conversación. Contactos personales y conversaciones tomadas por humanos quedan fuera de automatización.</div>
+      <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.025] p-3 flex flex-wrap items-center gap-3">
+        <div className={`text-[10px] px-2.5 py-2 rounded-lg ${hasConnectedProvider ? 'text-neon bg-neon/10' : 'text-amber-200 bg-amber-400/10'}`}>
+          {hasConnectedProvider ? 'Proveedor IA conectado' : 'Falta conectar un proveedor IA'}
+        </div>
+        <div className="text-[10px] text-white/45">El modelo de Remy se administra en <b>Agentes</b>. Este interruptor solo habilita o bloquea la automatización global de WhatsApp.</div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -186,7 +200,7 @@ export default function ConversationsClient() {
                 {selected.channel !== 'web' && <button onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })} disabled={updating || selected.personal || selected.humanTakeover} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
                 <button onClick={() => void patchConversation({ humanTakeover: !selected.humanTakeover })} disabled={updating || selected.personal} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.humanTakeover ? 'border-sky-300/40 bg-sky-300/10 text-sky-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.humanTakeover ? '👤 Liberar a Remy' : '👤 Tomar conversación'}</button>
                 <button onClick={() => void patchConversation({ personal: !selected.personal })} disabled={updating} className={`rounded-lg border px-2.5 py-1.5 text-[10px] ${selected.personal ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.personal ? '👤 Personal / No CRM' : 'Marcar como personal'}</button>
-                <div className="text-right text-[10px] text-white/45"><div>CRM: {selected.personal ? 'excluido' : selected.crmStatus}</div><div>IA: {ai.enabled && selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'activa' : 'inactiva'}{selected.humanTakeover ? ' · humano' : ''}</div></div>
+                <div className="text-right text-[10px] text-white/45"><div>CRM: {selected.personal ? 'excluido' : selected.crmStatus}</div><div>IA: {selected.channel === 'whatsapp' ? (ai.enabled && selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'activa' : 'inactiva') : (selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'preparada' : 'inactiva')}{selected.humanTakeover ? ' · humano' : ''}</div></div>
               </div>
             </div>
 
@@ -201,7 +215,7 @@ export default function ConversationsClient() {
               {selected.humanTakeover && <div className="mb-3 rounded-xl border border-sky-300/20 bg-sky-300/10 p-3 text-xs text-sky-100">👤 Atención humana activa: Remy quedó pausado para esta conversación hasta que pulses “Liberar a Remy”.</div>}
               {!windowState.open && selected.channel === 'whatsapp' && <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">La ventana API de 24 h está cerrada. El CRM bloquea el envío libre.</div>}
               <div className="flex gap-3 items-end"><textarea value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={3} maxLength={4096} disabled={!windowState.open || selected.channel === 'web'} placeholder={windowState.open ? `Responder por ${channelMeta(selected.channel).label}...` : 'Ventana de respuesta cerrada'} className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-neon/50 disabled:opacity-45" /><button onClick={() => void send()} disabled={sending || !text.trim() || !windowState.open || selected.channel === 'web'} className="rounded-xl bg-neon text-black font-bold text-sm px-5 py-3 disabled:opacity-40">{sending ? 'Enviando...' : 'Enviar'}</button></div>
-              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual disponible dentro de la ventana del canal. Remy solo responde si el canal, la conversación y el interruptor global aplicable están habilitados y no hay takeover humano.</div>
+              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual disponible dentro de la ventana del canal. Remy solo responde si el canal, la conversación y el interruptor aplicable están habilitados y no hay takeover humano.</div>
             </div>
           </>}
         </div>
