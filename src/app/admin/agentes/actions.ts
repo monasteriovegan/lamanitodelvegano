@@ -17,6 +17,7 @@ export async function saveAgentRuntime(formData: FormData) {
   const executionMode = String(formData.get('execution_mode') || '').trim();
   const enabled = formData.get('enabled') === 'on';
   const allowExternalWebTools = formData.get('allow_external_web_tools') === 'on';
+  const instagramEnabled = formData.get('instagram_enabled') === 'on';
 
   if (!ALLOWED_AGENTS.has(agent)) throw new Error('invalid_agent');
   if (!ALLOWED_PROVIDERS.has(provider)) throw new Error('provider_not_supported');
@@ -28,6 +29,12 @@ export async function saveAgentRuntime(formData: FormData) {
   if (!connected[provider as keyof typeof connected]) throw new Error(`provider_not_connected:${provider}`);
   if (!await validateProviderModel(db, provider, model)) throw new Error(`model_not_available:${provider}:${model}`);
 
+  const { data: current } = await db.from('agent_runtime_configs').select('metadata').eq('agent', agent).maybeSingle();
+  const currentMetadata = current?.metadata && typeof current.metadata === 'object' ? current.metadata : {};
+  const metadata = agent === 'remy'
+    ? { ...currentMetadata, channels: { ...((currentMetadata as any).channels || {}), instagram: instagramEnabled } }
+    : currentMetadata;
+
   const { error } = await db.from('agent_runtime_configs').upsert({
     agent,
     provider,
@@ -35,6 +42,7 @@ export async function saveAgentRuntime(formData: FormData) {
     execution_mode: executionMode,
     enabled,
     allow_external_web_tools: allowExternalWebTools,
+    metadata,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent' });
   if (error) throw error;
