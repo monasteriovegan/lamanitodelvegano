@@ -68,9 +68,9 @@ async function sendWithFacebookLogin(input: { to: string; text: string }, userAc
 
 export async function sendInstagramMeta(
   input: { to: string; text: string },
-  options: { manual?: boolean } = {},
+  options: { manual?: boolean; automatic?: boolean } = {},
 ) {
-  if (!options.manual && process.env.META_SEND_MODE !== 'live') {
+  if (!options.manual && !options.automatic && process.env.META_SEND_MODE !== 'live') {
     throw new Error('real_sends_disabled');
   }
 
