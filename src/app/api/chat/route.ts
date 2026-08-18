@@ -3,12 +3,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { generateRemyReply, type RemyHistoryRow } from '@/lib/ai/remy';
+import { executeRemyTool, type RemyToolContext } from '@/lib/ai/remy-commerce';
 import { persistMessage } from '@/lib/messaging/messages';
 import type { ItemCarrito } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
 type ClientMessage = { role?: string; parts?: Array<{ text?: string }> };
+
+const SIMPLE_CHECKOUT_START = /(?:quiero|deseo|vamos(?:\s+a)?).{0,20}(?:finalizar|confirmar|completar|hacer|crear).{0,20}(?:pedido|compra)|^(?:finalizar|confirmar).{0,15}(?:pedido|compra)$/i;
 
 function normalizeHistory(value: unknown): RemyHistoryRow[] {
   if (!Array.isArray(value)) return [];
@@ -107,6 +110,53 @@ async function loadConversationCart(
   return data ? (Array.isArray(data.items) ? data.items as ItemCarrito[] : []) : null;
 }
 
+function isSimpleCheckoutStart(text: string) {
+  const clean = String(text || '').trim();
+  return clean.length > 0 && clean.length <= 90 && SIMPLE_CHECKOUT_START.test(clean);
+}
+
+function firstCheckoutQuestion(status: any): string | null {
+  if (status?.cart?.empty) return 'Tu carrito está vacío. ¿Qué producto quieres agregar?';
+  const missing = Array.isArray(status?.missing) ? status.missing.map(String) : [];
+  if (!missing.length) return 'Ya tengo todos los datos necesarios. ¿Confirmas que cree el pedido?';
+
+  switch (missing[0]) {
+    case 'nombre': return 'Perfecto. Partamos por tu nombre: ¿a nombre de quién hacemos el pedido?';
+    case 'direccion': return 'Perfecto. ¿Cuál es la dirección de entrega?';
+    case 'comuna': return '¿En qué comuna es la entrega?';
+    case 'phone': return '¿Qué teléfono dejamos para coordinar el pedido?';
+    case 'deliveryDate': return 'Ya tengo los datos anteriores. ¿Qué fecha de despacho prefieres?';
+    case 'paymentMethod': return 'El medio online disponible es Mercado Pago. ¿Quieres pagar por Mercado Pago?';
+    default: return null;
+  }
+}
+
+async function persistWebReply(
+  db: ReturnType<typeof createSupabaseServiceClient>,
+  input: { sessionId: string; text: string; source: string; provider?: string; model?: string; fallbackFrom?: string | null },
+) {
+  await persistMessage(db, {
+    channel: 'web',
+    provider: 'web',
+    transport: 'web',
+    provider_message_id: `web_out_${randomUUID()}`,
+    external_thread_id: input.sessionId,
+    external_user_id: input.sessionId,
+    direction: 'outbound',
+    sender_type: 'remy',
+    text: input.text,
+    message_type: 'text',
+    sent_at: new Date().toISOString(),
+    raw_payload: {
+      source: input.source,
+      session_id: input.sessionId,
+      ...(input.provider ? { ai_provider: input.provider } : {}),
+      ...(input.model ? { ai_model: input.model } : {}),
+      ...(input.fallbackFrom ? { fallback_from: input.fallbackFrom } : {}),
+    },
+  });
+}
+
 /**
  * Recupera la conversación web anónima de este navegador sin llamar al LLM.
  * La sesión es un UUID aleatorio persistido en localStorage; sólo permite leer
@@ -194,6 +244,32 @@ export async function POST(request: NextRequest) {
       items: browserCart,
     });
 
+    // Este arranque de checkout es determinista: una sola pregunta y cero tokens.
+    // El resto de la conversación sigue usando el mismo Remy/LLM y sus tools.
+    if (isSimpleCheckoutStart(latestUser)) {
+      const toolContext: RemyToolContext = {
+        businessUnitId: business.id,
+        customerId: inbound.customerId,
+        conversationId: inbound.conversationId,
+        channel: 'web',
+        externalUserId: sessionId,
+        userText: latestUser,
+      };
+      const checkoutStatus = await executeRemyTool(db, toolContext, 'checkout_status', {});
+      const deterministicText = firstCheckoutQuestion(checkoutStatus);
+      if (deterministicText) {
+        await persistWebReply(db, {
+          sessionId,
+          text: deterministicText,
+          source: 'remy_web_checkout_rules',
+          provider: 'synthetiq',
+          model: 'checkout-rules',
+        });
+        const cartItems = await loadConversationCart(db, business.id, inbound.conversationId);
+        return NextResponse.json({ respuesta: deterministicText, sessionId, cartItems });
+      }
+    }
+
     const { data: recent } = await db.from('omnichannel_messages')
       .select('direction,body,created_at')
       .eq('conversation_id', inbound.conversationId)
@@ -215,19 +291,13 @@ export async function POST(request: NextRequest) {
       externalUserId: sessionId,
     });
 
-    await persistMessage(db, {
-      channel: 'web',
-      provider: 'web',
-      transport: 'web',
-      provider_message_id: `web_out_${randomUUID()}`,
-      external_thread_id: sessionId,
-      external_user_id: sessionId,
-      direction: 'outbound',
-      sender_type: 'remy',
+    await persistWebReply(db, {
+      sessionId,
       text: generated.text,
-      message_type: 'text',
-      sent_at: new Date().toISOString(),
-      raw_payload: { source: 'remy_web', session_id: sessionId, ai_provider: generated.provider, ai_model: generated.model, fallback_from: generated.fallbackFrom },
+      source: 'remy_web',
+      provider: generated.provider,
+      model: generated.model,
+      fallbackFrom: generated.fallbackFrom,
     });
 
     const cartItems = await loadConversationCart(db, business.id, inbound.conversationId);
