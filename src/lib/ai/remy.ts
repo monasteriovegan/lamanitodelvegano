@@ -11,6 +11,7 @@ import { callAiProvider, type ProviderMessage, type ProviderResponse } from '@/l
 import { executeRemyTool, selectRemyTools, type RemyToolContext } from '@/lib/ai/remy-commerce';
 import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
+import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -28,7 +29,7 @@ function basePrompt(catalog: string, channel: RemyChannel) {
     : channel === 'whatsapp'
       ? ' En WhatsApp puedes consultar productos, modificar el carrito conversacional, cotizar despacho, guardar datos, crear un pedido confirmado y entregar un link de pago usando las herramientas disponibles.'
       : ' En Instagram puedes orientar la venta y usar las herramientas comerciales disponibles cuando correspondan.';
-  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
+  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. Si el cliente pide atención humana, reclama, solicita devolución/reembolso o presenta un problema de pago/pedido que requiere intervención, deriva y no improvises una solución irreversible. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
 }
 
 function searchTerms(text: string) {
@@ -124,6 +125,18 @@ function toolResultMessage(value: unknown, budget: AgentContextBudget) {
   return JSON.stringify(compact);
 }
 
+function deterministicReply(text: string, historyMessages: number) {
+  return {
+    text,
+    model: 'human-handoff',
+    provider: 'synthetiq',
+    historyMessages,
+    catalogInjected: false,
+    memoryItems: 0,
+    fallbackFrom: null,
+  };
+}
+
 export async function generateRemyReply(
   db: SupabaseClient,
   input: {
@@ -153,6 +166,21 @@ export async function generateRemyReply(
   if (!['gemini', 'groq'].includes(runtime.provider)) throw new Error(`remy_provider_not_supported:${runtime.provider}`);
 
   const budget = getAgentContextBudget('remy', runtime.metadata);
+  if (input.conversationId) {
+    const humanTakeover = await getHumanTakeover(db, input.conversationId);
+    if (humanTakeover) {
+      return deterministicReply('Esta conversación ya quedó derivada a atención humana. Una persona del equipo continuará contigo por aquí.', Math.min(input.history.length, budget.maxHistoryMessages));
+    }
+    if (shouldHandoffToHuman(input.userText)) {
+      const text = await activateHumanHandoff(db, {
+        conversationId: input.conversationId,
+        customerId: input.customerId || null,
+        reasonText: input.userText,
+      });
+      return deterministicReply(text, Math.min(input.history.length, budget.maxHistoryMessages));
+    }
+  }
+
   const [rawCatalog, memoryContext, deliveryContext] = await Promise.all([
     loadRelevantCatalog(db, input.userText, input.businessUnitId),
     loadRelevantMemoryContext(db, {
