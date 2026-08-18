@@ -16,11 +16,12 @@ type SendInput = {
 
 export async function sendMessage(input: SendInput) {
   const manual = input.mode === 'manual';
+  const automatic = input.mode === 'automatic' && input.automationAuthorized === true;
   if (input.channel === 'whatsapp') {
     const started = Date.now();
     const result = await sendWhatsAppCloud(
       { to: input.to, text: input.text },
-      { manual, automatic: input.mode === 'automatic' && input.automationAuthorized === true },
+      { manual, automatic },
     );
     const db = createSupabaseServiceClient();
     const { data: conversation } = await db.from('conversations').select('business_unit_id').eq('id', input.conversationId).maybeSingle();
@@ -35,6 +36,6 @@ export async function sendMessage(input: SendInput) {
     });
     return result;
   }
-  if (input.channel === 'instagram') return sendInstagramMeta({ to: input.to, text: input.text }, { manual });
+  if (input.channel === 'instagram') return sendInstagramMeta({ to: input.to, text: input.text }, { manual, automatic });
   throw new Error('unsupported_channel');
 }
