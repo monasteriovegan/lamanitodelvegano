@@ -10,6 +10,7 @@ import { loadRelevantMemoryContext } from '@/lib/ai/memory';
 import { callAiProvider, type ProviderMessage, type ProviderResponse } from '@/lib/ai/providers';
 import { executeRemyTool, selectRemyTools, type RemyToolContext } from '@/lib/ai/remy-commerce';
 import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
+import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -152,7 +153,7 @@ export async function generateRemyReply(
   if (!['gemini', 'groq'].includes(runtime.provider)) throw new Error(`remy_provider_not_supported:${runtime.provider}`);
 
   const budget = getAgentContextBudget('remy', runtime.metadata);
-  const [rawCatalog, memoryContext] = await Promise.all([
+  const [rawCatalog, memoryContext, deliveryContext] = await Promise.all([
     loadRelevantCatalog(db, input.userText, input.businessUnitId),
     loadRelevantMemoryContext(db, {
       agent: 'remy',
@@ -162,13 +163,20 @@ export async function generateRemyReply(
       maxChars: 120,
       maxItems: 2,
     }),
+    loadRemyDeliveryContext(db, {
+      userText: input.userText,
+      businessUnitId: input.businessUnitId,
+      conversationId: input.conversationId || null,
+      externalUserId: input.externalUserId || null,
+    }),
   ]);
 
   const history = compactHistory(input.history, budget);
   const catalog = compactText(rawCatalog, budget.maxBusinessContextChars);
   const memory = compactMemoryForRemy(memoryContext.text);
+  const delivery = compactText(deliveryContext, budget.maxBusinessContextChars);
   const customPrompt = compactText(config?.ai_system_prompt || '', budget.maxBusinessContextChars);
-  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
+  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
   const tools = selectRemyTools(input.userText);
   const toolContext: RemyToolContext = {
     businessUnitId: input.businessUnitId,
@@ -227,6 +235,7 @@ export async function generateRemyReply(
         runtime_mode: runtime.executionMode,
         history_messages: history.length,
         catalog_injected: Boolean(catalog),
+        delivery_injected: Boolean(delivery),
         memory_items: memoryContext.count,
         token_budget: budget,
         tool_round: round,
