@@ -27,5 +27,12 @@ export async function loadRemyPaymentContext(db: SupabaseClient, userText: strin
   if (!ready.length) {
     return 'PAGOS: no hay pasarela de pago online configurada actualmente. Para cerrar un pedido usa paymentMethod="whatsapp" y coordina el pago con una persona. No inventes datos bancarios, enlaces ni métodos no verificados.';
   }
-  return `PAGOS ONLINE CONFIGURADOS: ${ready.join(', ')}. Solo ofrécelos si el cliente los solicita o al cerrar el pedido. Para transferencia bancaria no hay datos verificados en SynthetiQ: deriva a atención humana.`;
+
+  const emailRule = mercadoPagoReady && flowReady
+    ? 'No pidas email para Mercado Pago; Flow sí puede requerir email.'
+    : mercadoPagoReady
+      ? 'Mercado Pago no requiere email como dato obligatorio del checkout; no lo pidas salvo que el cliente quiera entregarlo.'
+      : 'Flow requiere email para completar el checkout.';
+
+  return `PAGOS ONLINE CONFIGURADOS: ${ready.join(', ')}. ${emailRule} Solo ofrécelos si el cliente los solicita o al cerrar el pedido. Para transferencia bancaria no hay datos verificados en SynthetiQ: deriva a atención humana.`;
 }
