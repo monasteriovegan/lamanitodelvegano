@@ -587,7 +587,7 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
   });
 
   await Promise.all([
-    db.from('pedidos').update({ source_channel: context.channel, delivery_date: deliveryDate }).eq('id', order.numeric_id),
+    db.from('pedidos').update({ source_channel: context.channel, fecha_entrega: deliveryDate }).eq('id', order.numeric_id),
     db.from('conversion_events').update({ source_channel: context.channel }).eq('order_id', order.numeric_id),
     db.from('carritos_abandonados').update({ recuperado: true, order_id: order.numeric_id }).eq('id', cart.id),
     context.conversationId ? db.from('conversations').update({ order_id: order.numeric_id, updated_at: new Date().toISOString() }).eq('id', context.conversationId) : Promise.resolve(),
