@@ -1,6 +1,7 @@
 import 'server-only';
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveMercadoPagoAccessToken } from './mercadopago';
 
 export type PaymentProvider = 'mercadopago' | 'flow';
 
@@ -20,15 +21,6 @@ function defaultOrigin() {
   if (configured) return configured;
   const vercel = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
   return vercel ? `https://${vercel}` : 'https://lamanitodelvegano.vercel.app';
-}
-
-function mercadoPagoEnvToken() {
-  return String(
-    process.env.MERCADOPAGO_ACCESS_TOKEN
-    || process.env.MERCADO_PAGO_ACCESS_TOKEN
-    || process.env.MP_ACCESS_TOKEN
-    || '',
-  ).trim();
 }
 
 async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise<PedidoPago> {
@@ -53,8 +45,7 @@ export async function createPaymentLink(
   const items = Array.isArray(pedido.items) ? pedido.items : [];
 
   if (input.provider === 'mercadopago') {
-    const { data: config } = await db.from('integraciones_secretas').select('mp_access_token').eq('id', 'global').maybeSingle();
-    const token = mercadoPagoEnvToken() || String(config?.mp_access_token || '').trim();
+    const token = await resolveMercadoPagoAccessToken(db);
     if (!token) throw new Error('mercadopago_not_configured');
 
     const mpItems = items.map((item) => ({
@@ -87,6 +78,7 @@ export async function createPaymentLink(
           failure: `${origin}/pedido/${pedido.id}?status=failure`,
           pending: `${origin}/pedido/${pedido.id}?status=pending`,
         },
+        notification_url: `${origin}/api/pagos/mercadopago-webhook`,
         auto_return: 'approved',
         external_reference: String(pedido.id),
       }),
