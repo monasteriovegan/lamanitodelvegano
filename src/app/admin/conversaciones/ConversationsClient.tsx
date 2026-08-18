@@ -107,7 +107,7 @@ export default function ConversationsClient() {
     } finally { setSavingAi(false); }
   };
 
-  const patchConversation = async (patch: { personal?: boolean; aiEnabled?: boolean }) => {
+  const patchConversation = async (patch: { personal?: boolean; aiEnabled?: boolean; humanTakeover?: boolean }) => {
     if (!selected || updating) return;
     setUpdating(true); setError(null);
     try {
@@ -154,7 +154,7 @@ export default function ConversationsClient() {
         <div><label className="block text-[10px] text-white/45 mb-1">Proveedor IA</label><select value={ai.provider} onChange={(e) => void patchAi({ provider: e.target.value })} disabled={savingAi} className="rounded-lg border border-white/10 bg-[#07110d] px-3 py-2 text-xs text-white"><option value="gemini">Gemini</option></select></div>
         <div className="min-w-[220px]"><label className="block text-[10px] text-white/45 mb-1">Modelo</label><input value={ai.model} onChange={(e) => setAi((current) => ({ ...current, model: e.target.value }))} onBlur={() => void patchAi({ model: ai.model })} className="w-full rounded-lg border border-white/10 bg-[#07110d] px-3 py-2 text-xs text-white" /></div>
         <div className={`text-[10px] px-2.5 py-2 rounded-lg ${ai.hasGeminiKey ? 'text-neon bg-neon/10' : 'text-amber-200 bg-amber-400/10'}`}>{ai.hasGeminiKey ? 'Gemini configurado' : 'Falta API Key Gemini en Integraciones'}</div>
-        <div className="text-[10px] text-white/35">Interruptor global + permiso por conversación. Contactos personales quedan excluidos siempre.</div>
+        <div className="text-[10px] text-white/35">Interruptor global + permiso por conversación. Contactos personales y conversaciones tomadas por humanos quedan fuera de automatización.</div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -171,7 +171,7 @@ export default function ConversationsClient() {
             {!loading && visibleConversations.length === 0 ? <EmptyState emoji="💬" texto="Aún no hay conversaciones en este canal." /> : visibleConversations.map((conversation) => {
               const active = conversation.id === selectedId; const meta = channelMeta(conversation.channel);
               return <button key={conversation.id} onClick={() => setSelectedId(conversation.id)} className={`w-full text-left px-4 py-4 border-b border-white/5 ${active ? 'bg-neon/10' : 'hover:bg-white/[0.03]'}`}>
-                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-bold text-white truncate">{meta.icon} {conversation.name}</div><div className="text-[10px] text-white/40 mt-0.5 truncate">{conversation.channel === 'whatsapp' && conversation.phone ? `+${conversation.phone.replace(/^\+/, '')}` : meta.label}{conversation.personal ? ' · Personal' : ''}{conversation.aiEnabled ? ' · 🤖 Remy' : ''}</div></div><div className="text-[9px] text-white/35">{formatDate(conversation.lastMessageAt)}</div></div>
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-bold text-white truncate">{meta.icon} {conversation.name}</div><div className="text-[10px] text-white/40 mt-0.5 truncate">{conversation.channel === 'whatsapp' && conversation.phone ? `+${conversation.phone.replace(/^\+/, '')}` : meta.label}{conversation.personal ? ' · Personal' : ''}{conversation.humanTakeover ? ' · 👤 Humano' : conversation.aiEnabled ? ' · 🤖 Remy' : ''}</div></div><div className="text-[9px] text-white/35">{formatDate(conversation.lastMessageAt)}</div></div>
                 <div className="mt-2 text-xs text-white/55 truncate">{conversation.lastDirection === 'outbound' ? 'Tú: ' : ''}{conversation.lastMessage || 'Sin mensajes'}</div>
               </button>;
             })}
@@ -183,9 +183,10 @@ export default function ConversationsClient() {
             <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-start justify-between gap-3">
               <div><div className="font-display font-bold text-white">{channelMeta(selected.channel).icon} {selected.name}</div><div className="text-xs text-muted mt-1">{selected.channel === 'whatsapp' && selected.phone ? `+${selected.phone.replace(/^\+/, '')}` : selected.externalId} · {channelMeta(selected.channel).label}</div><div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${windowState.open ? 'bg-neon/10 text-neon border border-neon/20' : 'bg-amber-400/10 text-amber-200 border border-amber-400/20'}`}>{windowState.open ? '🟢' : '🟠'} {windowState.label}</div></div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {selected.channel === 'whatsapp' && <button onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })} disabled={updating || selected.personal} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
+                {selected.channel !== 'web' && <button onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })} disabled={updating || selected.personal || selected.humanTakeover} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
+                <button onClick={() => void patchConversation({ humanTakeover: !selected.humanTakeover })} disabled={updating || selected.personal} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.humanTakeover ? 'border-sky-300/40 bg-sky-300/10 text-sky-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.humanTakeover ? '👤 Liberar a Remy' : '👤 Tomar conversación'}</button>
                 <button onClick={() => void patchConversation({ personal: !selected.personal })} disabled={updating} className={`rounded-lg border px-2.5 py-1.5 text-[10px] ${selected.personal ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.personal ? '👤 Personal / No CRM' : 'Marcar como personal'}</button>
-                <div className="text-right text-[10px] text-white/45"><div>CRM: {selected.personal ? 'excluido' : selected.crmStatus}</div><div>IA: {ai.enabled && selected.aiEnabled && !selected.personal ? 'activa' : 'inactiva'}</div></div>
+                <div className="text-right text-[10px] text-white/45"><div>CRM: {selected.personal ? 'excluido' : selected.crmStatus}</div><div>IA: {ai.enabled && selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'activa' : 'inactiva'}{selected.humanTakeover ? ' · humano' : ''}</div></div>
               </div>
             </div>
 
@@ -197,9 +198,10 @@ export default function ConversationsClient() {
             </div>
 
             <div className="border-t border-white/10 p-4 bg-[#050e0a]">
+              {selected.humanTakeover && <div className="mb-3 rounded-xl border border-sky-300/20 bg-sky-300/10 p-3 text-xs text-sky-100">👤 Atención humana activa: Remy quedó pausado para esta conversación hasta que pulses “Liberar a Remy”.</div>}
               {!windowState.open && selected.channel === 'whatsapp' && <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">La ventana API de 24 h está cerrada. El CRM bloquea el envío libre.</div>}
               <div className="flex gap-3 items-end"><textarea value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={3} maxLength={4096} disabled={!windowState.open || selected.channel === 'web'} placeholder={windowState.open ? `Responder por ${channelMeta(selected.channel).label}...` : 'Ventana de respuesta cerrada'} className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-neon/50 disabled:opacity-45" /><button onClick={() => void send()} disabled={sending || !text.trim() || !windowState.open || selected.channel === 'web'} className="rounded-xl bg-neon text-black font-bold text-sm px-5 py-3 disabled:opacity-40">{sending ? 'Enviando...' : 'Enviar'}</button></div>
-              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual siempre disponible. Remy solo responde si el interruptor global y el de esta conversación están ON.</div>
+              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual disponible dentro de la ventana del canal. Remy solo responde si el canal, la conversación y el interruptor global aplicable están habilitados y no hay takeover humano.</div>
             </div>
           </>}
         </div>
