@@ -16,6 +16,7 @@ export type RemyToolContext = {
   channel: 'whatsapp' | 'instagram' | 'web';
   externalUserId?: string | null;
   userText: string;
+  previousAssistantText?: string;
 };
 
 type CartRow = {
@@ -30,9 +31,19 @@ type CartRow = {
 
 const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill/i;
 const CART_INTENT = /carrito|agrega|agregar|a[nñ]ade|a[nñ]adir|quita|quitar|saca|sacar|llevo|quiero\s+(?:uno|una|dos|tres|comprar)|dame|ponme/i;
-const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o/i;
+const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o|tel[eé]fono|celular/i;
 const STATUS_INTENT = /estado.*pedido|pedido.*estado|seguimiento|rastrear|d[oó]nde.*pedido|despachado|entregado|cu[aá]ndo.*llega/i;
 const EXPLICIT_ORDER_CONFIRM = /confirmo(?:\s+el)?\s+pedido|confirmar(?:\s+el)?\s+pedido|haz(?:me)?\s+el\s+pedido|hacer\s+el\s+pedido|procesa(?:r)?\s+el\s+pedido|finaliza(?:r)?\s+el\s+pedido|quiero\s+comprar|dale\s+con\s+el\s+pedido|s[ií][,\s]+(?:confirmo|haz|procesa|finaliza)/i;
+const SHORT_CONFIRM = /^(?:s[ií]|dale|ok|okay|ya|por\s*favor|confirmo|hazlo|vamos)$/i;
+const PRIOR_ORDER_CONFIRM = /(?:confirm|finaliz|crear|hacer|procesar).{0,50}pedido|pedido.{0,50}(?:confirm|finaliz|crear|hacer|procesar)/i;
+
+function hasExplicitOrderConfirmation(context: RemyToolContext) {
+  return EXPLICIT_ORDER_CONFIRM.test(context.userText)
+    || (
+      SHORT_CONFIRM.test(context.userText.trim())
+      && PRIOR_ORDER_CONFIRM.test(String(context.previousAssistantText || ''))
+    );
+}
 
 export function selectRemyTools(userText: string): ProviderToolDefinition[] {
   const tools: ProviderToolDefinition[] = [];
@@ -93,12 +104,14 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   cart_remove: {
     name: 'cart_remove',
-    description: 'Quita unidades de un producto del carrito. Si quantity se omite, elimina ese producto.',
+    description: 'Quita unidades de una línea del carrito. Puedes precisar formato o variedad si el mismo producto aparece en varias líneas.',
     inputSchema: {
       type: 'object',
       properties: {
         productId: { type: 'string' },
         quantity: { type: 'integer', minimum: 1, maximum: 20 },
+        format: { type: 'string' },
+        variety: { type: 'string' },
       },
       required: ['productId'],
       additionalProperties: false,
@@ -120,16 +133,17 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   checkout_update: {
     name: 'checkout_update',
-    description: 'Guarda datos del cliente necesarios para finalizar el carrito: nombre, dirección, comuna, email, zona y forma de pago.',
+    description: 'Guarda datos del cliente necesarios para finalizar el carrito: nombre, dirección, comuna, teléfono, email, zona y forma de pago.',
     inputSchema: {
       type: 'object',
       properties: {
         nombre: { type: 'string' },
         direccion: { type: 'string' },
         comuna: { type: 'string' },
+        phone: { type: 'string' },
         email: { type: 'string' },
         zonaId: { type: 'string' },
-        paymentMethod: { type: 'string', enum: ['mercadopago', 'flow', 'transfer', 'whatsapp'] },
+        paymentMethod: { type: 'string', enum: ['mercadopago', 'flow', 'whatsapp'] },
       },
       additionalProperties: false,
     },
@@ -155,7 +169,7 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   payment_link: {
     name: 'payment_link',
-    description: 'Genera o regenera un link de pago para un pedido ya creado.',
+    description: 'Genera o regenera un link de pago para un pedido ya creado del mismo cliente.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -349,12 +363,27 @@ async function addToCart(
   return { ok: true, ...cartSummary(saved) };
 }
 
-async function removeFromCart(db: SupabaseClient, context: RemyToolContext, productId: string, quantity?: number) {
+async function removeFromCart(
+  db: SupabaseClient,
+  context: RemyToolContext,
+  productId: string,
+  quantity?: number,
+  format?: string,
+  variety?: string,
+) {
   const cart = await getCart(db, context);
   if (!cart) return cartSummary(null);
   const items = [...(cart.items || [])];
-  const index = items.findIndex((item) => item.productoId === productId);
-  if (index < 0) return { ok: false, reason: 'product_not_in_cart', ...cartSummary(cart) };
+  const matching = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.productoId === productId)
+    .filter(({ item }) => !format || String(item.formato || '').toLowerCase() === String(format).toLowerCase())
+    .filter(({ item }) => !variety || String(item.variedad || '').toLowerCase() === String(variety).toLowerCase());
+  if (!matching.length) return { ok: false, reason: 'product_not_in_cart', ...cartSummary(cart) };
+  if (matching.length > 1 && !format && !variety) {
+    return { ok: false, reason: 'cart_line_selection_required', lines: matching.map(({ item }) => ({ format: item.formato || null, variety: item.variedad || null, qty: item.qty })) };
+  }
+  const index = matching[0].index;
   if (!quantity || Number(quantity) >= Number(items[index].qty || 0)) items.splice(index, 1);
   else items[index] = { ...items[index], qty: Number(items[index].qty || 0) - Math.max(1, Math.trunc(Number(quantity))) };
   const saved = await saveCart(db, context, { items, existing: cart });
@@ -381,7 +410,7 @@ async function updateCheckout(db: SupabaseClient, context: RemyToolContext, args
   const cart = await getCart(db, context);
   const existing = cart || await saveCart(db, context, { items: [] });
   const current = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
-  const allowed = ['nombre', 'direccion', 'comuna', 'email', 'zonaId', 'paymentMethod'];
+  const allowed = ['nombre', 'direccion', 'comuna', 'phone', 'email', 'zonaId', 'paymentMethod'];
   const incoming = Object.fromEntries(Object.entries(args).filter(([key, value]) => allowed.includes(key) && typeof value === 'string' && value.trim()));
   const metadata = { ...current, ...incoming };
   const saved = await saveCart(db, context, { items: existing.items || [], metadata, existing });
@@ -391,6 +420,7 @@ async function updateCheckout(db: SupabaseClient, context: RemyToolContext, args
     if (incoming.nombre) patch.nombre = incoming.nombre;
     if (incoming.email) patch.email = String(incoming.email).trim().toLowerCase();
     if (incoming.direccion) patch.direccion = incoming.direccion;
+    if (incoming.phone) patch.phone = String(incoming.phone).trim();
     if (context.channel === 'whatsapp' && context.externalUserId) patch.phone = context.externalUserId;
     if (Object.keys(patch).length) {
       await db.from('omnichannel_contacts').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', context.customerId);
@@ -406,9 +436,10 @@ function checkoutStatusFromCart(cart: CartRow | null, context: RemyToolContext) 
   if (!String(metadata.nombre || '').trim()) missing.push('nombre');
   if (!String(metadata.direccion || '').trim()) missing.push('direccion');
   if (!String(metadata.comuna || '').trim()) missing.push('comuna');
+  if (context.channel !== 'whatsapp' && !String(metadata.phone || '').trim()) missing.push('phone');
   if (!String(metadata.zonaId || '').trim()) missing.push('zonaId');
   if (!String(metadata.paymentMethod || '').trim()) missing.push('paymentMethod');
-  if (context.channel !== 'whatsapp' && !cartIdentifier(context)) missing.push('contacto');
+  if (String(metadata.paymentMethod || '') === 'flow' && !String(metadata.email || '').trim()) missing.push('email');
   return {
     ready: missing.length === 0,
     missing,
@@ -417,6 +448,7 @@ function checkoutStatusFromCart(cart: CartRow | null, context: RemyToolContext) 
       nombre: metadata.nombre || null,
       direccion: metadata.direccion || null,
       comuna: metadata.comuna || null,
+      phone: context.channel === 'whatsapp' ? context.externalUserId || null : metadata.phone || null,
       email: metadata.email || null,
       zonaId: metadata.zonaId || null,
       paymentMethod: metadata.paymentMethod || null,
@@ -425,7 +457,7 @@ function checkoutStatusFromCart(cart: CartRow | null, context: RemyToolContext) 
 }
 
 async function createOrder(db: SupabaseClient, context: RemyToolContext) {
-  if (!EXPLICIT_ORDER_CONFIRM.test(context.userText)) throw new Error('explicit_order_confirmation_required');
+  if (!hasExplicitOrderConfirmation(context)) throw new Error('explicit_order_confirmation_required');
   const cart = await getCart(db, context);
   const status = checkoutStatusFromCart(cart, context);
   if (!status.ready || !cart) return { ok: false, reason: 'checkout_incomplete', ...status };
@@ -433,7 +465,7 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
   const metadata = cart.metadata || {};
   const phone = context.channel === 'whatsapp'
     ? cartIdentifier(context)
-    : String((await db.from('omnichannel_contacts').select('phone').eq('id', context.customerId || '').maybeSingle()).data?.phone || '').trim();
+    : String(metadata.phone || '').trim();
   if (!phone) return { ok: false, reason: 'phone_missing' };
 
   const request: CheckoutRequest = {
@@ -515,16 +547,28 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
 }
 
 async function orderStatus(db: SupabaseClient, context: RemyToolContext, orderId?: string) {
+  if (!context.customerId) return { found: false, orders: [] };
   const repo = new OrderRepository(db, getSchemaCapabilities());
   if (orderId) {
     const order = await repo.getById(orderId);
-    if (!order) return { found: false };
-    if (context.customerId && order.customer_id && order.customer_id !== context.customerId) return { found: false };
+    if (!order || !order.customer_id || order.customer_id !== context.customerId) return { found: false };
     return { found: true, orders: [{ id: order.id, status: order.status, paymentStatus: order.payment_status, total: order.total, trackingNumber: order.tracking_number, deliveryDate: order.delivery_date }] };
   }
-  if (!context.customerId) return { found: false, orders: [] };
   const orders = await repo.list({ customerId: context.customerId, limit: 5 });
   return { found: orders.length > 0, orders: orders.map((order) => ({ id: order.id, status: order.status, paymentStatus: order.payment_status, total: order.total, trackingNumber: order.tracking_number, deliveryDate: order.delivery_date })) };
+}
+
+async function paymentLinkForCustomer(
+  db: SupabaseClient,
+  context: RemyToolContext,
+  orderId: string,
+  provider: PaymentProvider,
+) {
+  if (!context.customerId) return { ok: false, reason: 'customer_identity_required' };
+  const order = await new OrderRepository(db, getSchemaCapabilities()).getById(orderId);
+  if (!order || !order.customer_id || order.customer_id !== context.customerId) return { ok: false, reason: 'order_not_found' };
+  const link = await createPaymentLink(db, { pedidoId: orderId, provider });
+  return { ok: true, provider, paymentUrl: link.url };
 }
 
 export async function executeRemyTool(
@@ -543,7 +587,14 @@ export async function executeRemyTool(
     args.format ? String(args.format) : undefined,
     args.variety ? String(args.variety) : undefined,
   );
-  if (name === 'cart_remove') return removeFromCart(db, context, String(args.productId || ''), args.quantity === undefined ? undefined : Number(args.quantity));
+  if (name === 'cart_remove') return removeFromCart(
+    db,
+    context,
+    String(args.productId || ''),
+    args.quantity === undefined ? undefined : Number(args.quantity),
+    args.format ? String(args.format) : undefined,
+    args.variety ? String(args.variety) : undefined,
+  );
   if (name === 'cart_clear') return clearCart(db, context);
   if (name === 'shipping_quote') return shippingQuote(db, args.comuna ? String(args.comuna) : undefined);
   if (name === 'checkout_update') return updateCheckout(db, context, args);
@@ -551,9 +602,8 @@ export async function executeRemyTool(
   if (name === 'order_create') return createOrder(db, context);
   if (name === 'order_status') return orderStatus(db, context, args.orderId ? String(args.orderId) : undefined);
   if (name === 'payment_link') {
-    const provider = args.provider === 'flow' ? 'flow' : 'mercadopago';
-    const link = await createPaymentLink(db, { pedidoId: String(args.orderId || ''), provider });
-    return { ok: true, provider, paymentUrl: link.url };
+    const provider: PaymentProvider = args.provider === 'flow' ? 'flow' : 'mercadopago';
+    return paymentLinkForCustomer(db, context, String(args.orderId || ''), provider);
   }
   throw new Error(`unknown_remy_tool:${name}`);
 }
