@@ -2,6 +2,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmac } from '@/lib/messaging/signature';
+import { maybeAutoReply } from '@/lib/ai/remy';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,20 +41,42 @@ export async function POST(request: Request) {
   }
 
   if (payload?.object !== 'instagram') {
-    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false });
+    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false, ai_replied: false });
   }
 
   const db = createSupabaseServiceClient();
   let stored = 0;
   let duplicates = 0;
+  let aiCalled = 0;
+  let aiReplied = 0;
 
   try {
     for (const message of normalizeMetaInstagram(payload)) {
       const result = await persistMessage(db, message);
       result.duplicate ? (duplicates += 1) : (stored += 1);
+
+      if (!result.duplicate && message.direction === 'inbound') {
+        try {
+          const ai = await maybeAutoReply(db, result, message);
+          if (ai.called) aiCalled += 1;
+          if (ai.replied) aiReplied += 1;
+        } catch (error) {
+          console.error('remy_instagram_auto_reply_failed', {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }
     }
 
-    return Response.json({ ok: true, stored, duplicates, ai_called: false });
+    return Response.json({
+      ok: true,
+      stored,
+      duplicates,
+      ai_called: aiCalled > 0,
+      ai_replied: aiReplied > 0,
+    });
   } catch (error) {
     console.error('instagram_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
