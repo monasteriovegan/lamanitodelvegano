@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ProviderToolDefinition } from '@/lib/ai/providers';
 import { calcularPedido } from '@/lib/pricing/calcular-pedido';
+import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
@@ -62,7 +63,7 @@ export function selectRemyTools(userText: string): ProviderToolDefinition[] {
 const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   catalog_search: {
     name: 'catalog_search',
-    description: 'Busca productos reales de este negocio. Úsala antes de afirmar precios, stock, ingredientes o IDs de producto.',
+    description: 'Busca productos reales de este negocio. Úsala antes de afirmar precios, stock, ingredientes, formatos, variedades o IDs de producto.',
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Producto o característica buscada.' } },
@@ -77,12 +78,14 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   cart_add: {
     name: 'cart_add',
-    description: 'Agrega una cantidad de un producto real al carrito. Es reversible.',
+    description: 'Agrega una cantidad de un producto real al carrito. Si el producto tiene varias opciones, usa format y/o variety después de que el cliente las elija.',
     inputSchema: {
       type: 'object',
       properties: {
         productId: { type: 'string', description: 'UUID obtenido de catalog_search.' },
         quantity: { type: 'integer', minimum: 1, maximum: 20 },
+        format: { type: 'string', description: 'Formato/gramaje elegido por el cliente.' },
+        variety: { type: 'string', description: 'Variedad/sabor elegido por el cliente.' },
       },
       required: ['productId', 'quantity'],
       additionalProperties: false,
@@ -237,7 +240,7 @@ function cartSummary(cart: CartRow | null) {
   if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) return { empty: true, items: [], subtotal: 0 };
   return {
     empty: false,
-    items: cart.items.map((item) => ({ productId: item.productoId, name: item.nombre, qty: item.qty, unitPrice: item.precio })),
+    items: cart.items.map((item) => ({ productId: item.productoId, name: item.nombre, qty: item.qty, unitPrice: item.precio, format: item.formato || null, variety: item.variedad || null })),
     subtotal: Number(cart.subtotal || 0),
   };
 }
@@ -265,8 +268,8 @@ async function searchCatalog(db: SupabaseClient, context: RemyToolContext, query
       stock: item.maneja_stock ? Number(item.stock || 0) : null,
       availability: item.disponibilidad || null,
       category: item.categoria || null,
-      formats: item.gramaje || null,
-      varieties: item.variedades || null,
+      formats: parseFormatos(item.gramaje, Number(item.precio || 0)).filter((entry) => entry.label).map((entry) => ({ name: entry.label, price: entry.precio })),
+      varieties: parseVariedades(item.variedades),
       ingredients: item.ingredients || null,
       allergens: item.allergens || null,
       glutenFree: item.gluten_free ?? null,
@@ -276,10 +279,17 @@ async function searchCatalog(db: SupabaseClient, context: RemyToolContext, query
   };
 }
 
-async function addToCart(db: SupabaseClient, context: RemyToolContext, productId: string, quantity: number) {
+async function addToCart(
+  db: SupabaseClient,
+  context: RemyToolContext,
+  productId: string,
+  quantity: number,
+  format?: string,
+  variety?: string,
+) {
   const qty = Math.max(1, Math.min(20, Math.trunc(Number(quantity || 1))));
   const { data: product, error } = await db.from('productos')
-    .select('id,nombre,precio,emoji,maneja_stock,stock')
+    .select('id,nombre,precio,emoji,maneja_stock,stock,gramaje,variedades')
     .eq('id', productId)
     .eq('business_unit_id', context.businessUnitId)
     .eq('activo', true)
@@ -287,16 +297,54 @@ async function addToCart(db: SupabaseClient, context: RemyToolContext, productId
   if (error) throw error;
   if (!product) throw new Error('product_not_found');
 
+  const formats = parseFormatos(product.gramaje, Number(product.precio || 0)).filter((entry) => entry.label);
+  const varieties = parseVariedades(product.variedades);
+  const requestedFormat = String(format || '').trim();
+  const requestedVariety = String(variety || '').trim();
+
+  if (formats.length > 1 && !requestedFormat) {
+    return { ok: false, reason: 'format_selection_required', formats: formats.map((entry) => ({ name: entry.label, price: entry.precio })) };
+  }
+  if (varieties.length > 1 && !requestedVariety) {
+    return { ok: false, reason: 'variety_selection_required', varieties };
+  }
+
+  const selectedFormat = requestedFormat
+    ? formats.find((entry) => entry.label.toLowerCase() === requestedFormat.toLowerCase())
+    : formats.length === 1 ? formats[0] : null;
+  if (requestedFormat && !selectedFormat) {
+    return { ok: false, reason: 'invalid_format', formats: formats.map((entry) => ({ name: entry.label, price: entry.precio })) };
+  }
+  const selectedVariety = requestedVariety
+    ? varieties.find((entry) => entry.toLowerCase() === requestedVariety.toLowerCase())
+    : varieties.length === 1 ? varieties[0] : null;
+  if (requestedVariety && !selectedVariety) return { ok: false, reason: 'invalid_variety', varieties };
+
+  const unitPrice = Number(selectedFormat?.precio ?? product.precio ?? 0);
   const cart = await getCart(db, context);
   const items = Array.isArray(cart?.items) ? [...cart!.items] : [];
-  const index = items.findIndex((item) => item.productoId === product.id && !item.formato && !item.variedad);
+  const index = items.findIndex((item) =>
+    item.productoId === product.id
+    && String(item.formato || '') === String(selectedFormat?.label || '')
+    && String(item.variedad || '') === String(selectedVariety || '')
+  );
   const currentQty = index >= 0 ? Number(items[index].qty || 0) : 0;
   const requestedTotal = currentQty + qty;
-  if (product.maneja_stock && requestedTotal > Number(product.stock || 0)) {
-    return { ok: false, reason: 'insufficient_stock', available: Number(product.stock || 0), requested: requestedTotal };
+  const totalProductQty = items.filter((item) => item.productoId === product.id).reduce((sum, item) => sum + Number(item.qty || 0), 0) + qty;
+  if (product.maneja_stock && totalProductQty > Number(product.stock || 0)) {
+    return { ok: false, reason: 'insufficient_stock', available: Number(product.stock || 0), requested: totalProductQty };
   }
-  if (index >= 0) items[index] = { ...items[index], qty: requestedTotal, precio: Number(product.precio || 0), nombre: product.nombre };
-  else items.push({ productoId: product.id, nombre: product.nombre, precio: Number(product.precio || 0), qty, emoji: product.emoji || '🌱' });
+
+  if (index >= 0) items[index] = { ...items[index], qty: requestedTotal, precio: unitPrice, nombre: product.nombre };
+  else items.push({
+    productoId: product.id,
+    nombre: product.nombre,
+    precio: unitPrice,
+    qty,
+    emoji: product.emoji || '🌱',
+    formato: selectedFormat?.label || null,
+    variedad: selectedVariety || null,
+  });
   const saved = await saveCart(db, context, { items, existing: cart });
   return { ok: true, ...cartSummary(saved) };
 }
@@ -487,7 +535,14 @@ export async function executeRemyTool(
 ): Promise<unknown> {
   if (name === 'catalog_search') return searchCatalog(db, context, String(args.query || context.userText));
   if (name === 'cart_get') return cartSummary(await getCart(db, context));
-  if (name === 'cart_add') return addToCart(db, context, String(args.productId || ''), Number(args.quantity || 1));
+  if (name === 'cart_add') return addToCart(
+    db,
+    context,
+    String(args.productId || ''),
+    Number(args.quantity || 1),
+    args.format ? String(args.format) : undefined,
+    args.variety ? String(args.variety) : undefined,
+  );
   if (name === 'cart_remove') return removeFromCart(db, context, String(args.productId || ''), args.quantity === undefined ? undefined : Number(args.quantity));
   if (name === 'cart_clear') return clearCart(db, context);
   if (name === 'shipping_quote') return shippingQuote(db, args.comuna ? String(args.comuna) : undefined);
