@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ProviderToolDefinition } from '@/lib/ai/providers';
 import { calcularPedido } from '@/lib/pricing/calcular-pedido';
+import { genFechas } from '@/lib/pricing/fechas';
 import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
@@ -31,7 +32,7 @@ type CartRow = {
 
 const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill/i;
 const CART_INTENT = /carrito|agrega|agregar|a[nñ]ade|a[nñ]adir|quita|quitar|saca|sacar|llevo|quiero\s+(?:uno|una|dos|tres|comprar)|dame|ponme/i;
-const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o|tel[eé]fono|celular/i;
+const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o|fecha|entrega|tel[eé]fono|celular/i;
 const STATUS_INTENT = /estado.*pedido|pedido.*estado|seguimiento|rastrear|d[oó]nde.*pedido|despachado|entregado|cu[aá]ndo.*llega/i;
 const EXPLICIT_ORDER_CONFIRM = /confirmo(?:\s+el)?\s+pedido|confirmar(?:\s+el)?\s+pedido|haz(?:me)?\s+el\s+pedido|hacer\s+el\s+pedido|procesa(?:r)?\s+el\s+pedido|finaliza(?:r)?\s+el\s+pedido|quiero\s+comprar|dale\s+con\s+el\s+pedido|s[ií][,\s]+(?:confirmo|haz|procesa|finaliza)/i;
 const SHORT_CONFIRM = /^(?:s[ií]|dale|ok|okay|ya|por\s*favor|confirmo|hazlo|vamos)$/i;
@@ -139,7 +140,7 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   checkout_update: {
     name: 'checkout_update',
-    description: 'Guarda datos del cliente necesarios para finalizar el carrito: nombre, dirección, comuna, teléfono, email, zona y forma de pago.',
+    description: 'Guarda datos necesarios para finalizar el carrito: nombre, dirección, comuna, teléfono, email, zona, fecha de despacho y forma de pago. deliveryDate debe ser YYYY-MM-DD y será validada contra las fechas reales disponibles.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -149,6 +150,7 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
         phone: { type: 'string' },
         email: { type: 'string' },
         zonaId: { type: 'string' },
+        deliveryDate: { type: 'string', description: 'Fecha de despacho elegida por el cliente en formato YYYY-MM-DD.' },
         paymentMethod: { type: 'string', enum: ['mercadopago', 'flow', 'whatsapp'] },
       },
       additionalProperties: false,
@@ -412,12 +414,63 @@ async function shippingQuote(db: SupabaseClient, comuna?: string) {
   return { zones: (data || []).map((zone: any) => ({ id: zone.id, name: zone.nombre, comunas: zone.comunas, price: Number(zone.precio || 0) })) };
 }
 
+function parseAvailability(value: unknown) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item));
+}
+
+function ymd(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+async function availableDeliveryDates(db: SupabaseClient, context: RemyToolContext, cart: CartRow) {
+  const productIds = Array.from(new Set((cart.items || []).map((item) => String(item.productoId || '')).filter(Boolean)));
+  let products: Array<{ disponibilidad: string[] | null }> = [];
+  if (productIds.length) {
+    const { data, error } = await db.from('productos')
+      .select('disponibilidad')
+      .eq('business_unit_id', context.businessUnitId)
+      .in('id', productIds);
+    if (error) throw error;
+    products = (data || []).map((row: any) => ({ disponibilidad: parseAvailability(row.disponibilidad) }));
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: blocked, error: blockedError } = await db.from('blocked_delivery_dates')
+    .select('date')
+    .eq('business_unit_id', context.businessUnitId)
+    .gte('date', today)
+    .order('date')
+    .limit(60);
+  if (blockedError) throw blockedError;
+  const blockedDates = new Set((blocked || []).map((row: any) => String(row.date)));
+
+  return genFechas(products)
+    .filter((entry) => entry.ok)
+    .map((entry) => ymd(entry.fecha))
+    .filter((date) => !blockedDates.has(date));
+}
+
 async function updateCheckout(db: SupabaseClient, context: RemyToolContext, args: Record<string, unknown>) {
   const cart = await getCart(db, context);
   const existing = cart || await saveCart(db, context, { items: [] });
   const current = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
-  const allowed = ['nombre', 'direccion', 'comuna', 'phone', 'email', 'zonaId', 'paymentMethod'];
+  const allowed = ['nombre', 'direccion', 'comuna', 'phone', 'email', 'zonaId', 'deliveryDate', 'paymentMethod'];
   const incoming = Object.fromEntries(Object.entries(args).filter(([key, value]) => allowed.includes(key) && typeof value === 'string' && value.trim()));
+
+  if (incoming.deliveryDate) {
+    const requestedDate = String(incoming.deliveryDate).trim();
+    const availableDates = await availableDeliveryDates(db, context, existing);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) || !availableDates.includes(requestedDate)) {
+      return { ok: false, reason: 'invalid_delivery_date', availableDates: availableDates.slice(0, 8) };
+    }
+  }
+
   const metadata = { ...current, ...incoming };
   const saved = await saveCart(db, context, { items: existing.items || [], metadata, existing });
 
@@ -444,6 +497,7 @@ function checkoutStatusFromCart(cart: CartRow | null, context: RemyToolContext) 
   if (!String(metadata.comuna || '').trim()) missing.push('comuna');
   if (context.channel !== 'whatsapp' && !String(metadata.phone || '').trim()) missing.push('phone');
   if (!String(metadata.zonaId || '').trim()) missing.push('zonaId');
+  if (!String(metadata.deliveryDate || '').trim()) missing.push('deliveryDate');
   if (!String(metadata.paymentMethod || '').trim()) missing.push('paymentMethod');
   if (String(metadata.paymentMethod || '') === 'flow' && !String(metadata.email || '').trim()) missing.push('email');
   return {
@@ -457,6 +511,7 @@ function checkoutStatusFromCart(cart: CartRow | null, context: RemyToolContext) 
       phone: context.channel === 'whatsapp' ? context.externalUserId || null : metadata.phone || null,
       email: metadata.email || null,
       zonaId: metadata.zonaId || null,
+      deliveryDate: metadata.deliveryDate || null,
       paymentMethod: metadata.paymentMethod || null,
     },
   };
@@ -473,6 +528,14 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
     ? cartIdentifier(context)
     : String(metadata.phone || '').trim();
   if (!phone) return { ok: false, reason: 'phone_missing' };
+
+  // Revalidamos la fecha al crear el pedido por si cambió una restricción desde que
+  // el cliente la eligió. Nunca se crea un pedido con una fecha ya inválida.
+  const deliveryDate = String(metadata.deliveryDate || '').trim();
+  const availableDates = await availableDeliveryDates(db, context, cart);
+  if (!availableDates.includes(deliveryDate)) {
+    return { ok: false, reason: 'delivery_date_no_longer_available', availableDates: availableDates.slice(0, 8) };
+  }
 
   const request: CheckoutRequest = {
     idempotencyKey: `remy:${cart.id}`,
@@ -524,8 +587,8 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
   });
 
   await Promise.all([
-    db.from('pedidos').update({ source_channel: context.channel }).eq('id', order.numeric_id),
-    db.from('conversion_events').update({ source_channel: context.channel }).eq('event_id', `checkout:${order.numeric_id}`),
+    db.from('pedidos').update({ source_channel: context.channel, delivery_date: deliveryDate }).eq('id', order.numeric_id),
+    db.from('conversion_events').update({ source_channel: context.channel }).eq('order_id', order.numeric_id),
     db.from('carritos_abandonados').update({ recuperado: true, order_id: order.numeric_id }).eq('id', cart.id),
     context.conversationId ? db.from('conversations').update({ order_id: order.numeric_id, updated_at: new Date().toISOString() }).eq('id', context.conversationId) : Promise.resolve(),
   ]);
@@ -546,6 +609,7 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
     orderId: String(order.numeric_id),
     total,
     paymentMethod: request.metodoPago,
+    deliveryDate,
     paymentUrl,
     paymentError,
     trackingUrl: `https://lamanitodelvegano.vercel.app/pedido/${order.numeric_id}`,
