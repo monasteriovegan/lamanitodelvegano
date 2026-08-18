@@ -3,6 +3,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const PAYMENT_INTENT = /pagar|pago|mercado\s*pago|flow|transfer|tarjeta|efectivo|cuenta\s+bancaria|medio\s+de\s+pago/i;
 
+function mercadoPagoEnvToken() {
+  return String(
+    process.env.MERCADOPAGO_ACCESS_TOKEN
+    || process.env.MERCADO_PAGO_ACCESS_TOKEN
+    || process.env.MP_ACCESS_TOKEN
+    || '',
+  ).trim();
+}
+
 export async function loadRemyPaymentContext(db: SupabaseClient, userText: string) {
   if (!PAYMENT_INTENT.test(String(userText || ''))) return '';
   const { data, error } = await db.from('integraciones_secretas')
@@ -12,7 +21,7 @@ export async function loadRemyPaymentContext(db: SupabaseClient, userText: strin
   if (error) throw error;
 
   const flowReady = Boolean(data?.flow_enabled && String(data?.flow_api_key || '').trim() && String(data?.flow_secret_key || '').trim());
-  const mercadoPagoReady = Boolean(String(data?.mp_access_token || '').trim());
+  const mercadoPagoReady = Boolean(mercadoPagoEnvToken() || String(data?.mp_access_token || '').trim());
   const ready = [mercadoPagoReady ? 'Mercado Pago' : '', flowReady ? 'Flow' : ''].filter(Boolean);
 
   if (!ready.length) {
