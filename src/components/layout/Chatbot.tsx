@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useCart } from '@/lib/cart/CartContext';
 
 interface Message {
   role: 'user' | 'model';
@@ -17,6 +18,7 @@ function getOrCreateWebSession() {
 }
 
 export function Chatbot() {
+  const { items: cartItems, replaceCart } = useCart();
   const [isOpen, setIsOpen] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -69,9 +71,9 @@ export function Chatbot() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // El backend selecciona catálogo, memoria, CRM y contexto. El navegador
-        // mantiene solo una identidad anónima estable y una ventana pequeña.
-        body: JSON.stringify({ history: newMessages.slice(-6), sessionId })
+        // El backend mantiene CRM, carrito conversacional y contexto. En web
+        // sincronizamos además el carrito visual para que Remy lo manipule de verdad.
+        body: JSON.stringify({ history: newMessages.slice(-6), sessionId, cartItems })
       });
 
       const data = await response.json();
@@ -80,6 +82,7 @@ export function Chatbot() {
         sessionIdRef.current = data.sessionId;
         window.localStorage.setItem('remy_web_session', data.sessionId);
       }
+      if (Array.isArray(data?.cartItems)) replaceCart(data.cartItems);
 
       setMessages(prev => [
         ...prev,
