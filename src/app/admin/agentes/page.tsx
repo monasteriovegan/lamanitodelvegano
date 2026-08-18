@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const DETAILS: Record<string, { icon: string; title: string; description: string }> = {
   wonka: { icon: '🎩', title: 'Wonka', description: 'Director general y super asistente. Su modelo se mantiene fijo hasta que tú lo cambies.' },
-  remy: { icon: '🤖', title: 'Remy', description: 'Ventas y atención automática. Web y WhatsApp comparten este mismo runtime.' },
+  remy: { icon: '🤖', title: 'Remy', description: 'Ventas y atención omnicanal. Web, WhatsApp e Instagram comparten el mismo cerebro, herramientas y memoria.' },
 };
 
 export default async function AgentesPage() {
@@ -16,7 +16,7 @@ export default async function AgentesPage() {
   const db = createSupabaseServiceClient();
   const [{ data }, providers] = await Promise.all([
     db.from('agent_runtime_configs')
-      .select('agent,provider,model,execution_mode,enabled,allow_external_web_tools,updated_at')
+      .select('agent,provider,model,execution_mode,enabled,allow_external_web_tools,metadata,updated_at')
       .in('agent', ['wonka', 'remy']),
     getProviderConnectionStatus(db),
   ]);
@@ -30,8 +30,9 @@ export default async function AgentesPage() {
 
     <div className="grid gap-4 lg:grid-cols-2">
       {['wonka', 'remy'].map((agent) => {
-        const row = byAgent[agent] || { provider: 'gemini', model: 'gemini-2.5-flash', execution_mode: 'api', enabled: true, allow_external_web_tools: true };
+        const row = byAgent[agent] || { provider: 'gemini', model: 'gemini-2.5-flash', execution_mode: 'api', enabled: true, allow_external_web_tools: true, metadata: {} };
         const detail = DETAILS[agent];
+        const instagramEnabled = Boolean(row.metadata?.channels?.instagram);
         return <SectionCard key={agent} title={`${detail.icon} ${detail.title}`}>
           <p className="mb-4 text-xs leading-5 text-white/45">{detail.description}</p>
           <form action={saveAgentRuntime} className="space-y-4">
@@ -61,10 +62,17 @@ export default async function AgentesPage() {
               <input type="checkbox" name="enabled" defaultChecked={row.enabled !== false} />
               Agente habilitado
             </label>
+            {agent === 'remy' && <label className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
+              <input type="checkbox" name="instagram_enabled" defaultChecked={instagramEnabled} className="mt-1" />
+              <span><span className="block font-semibold text-white/80">Responder automáticamente en Instagram</span><span className="mt-0.5 block text-[10px] leading-4 text-white/35">Déjalo apagado hasta validar el canal. WhatsApp mantiene su interruptor maestro separado en Conversaciones; la web funciona siempre de forma asistida por el usuario.</span></span>
+            </label>}
             <label className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
               <input type="checkbox" name="allow_external_web_tools" defaultChecked={row.allow_external_web_tools !== false} className="mt-1" />
               <span><span className="block font-semibold text-white/80">Permitir herramientas web externas</span><span className="mt-0.5 block text-[10px] leading-4 text-white/35">No cambia el LLM del agente. Permite usar ChatGPT web, Gemini web, Claude web, Flow o Higgsfield únicamente cuando corresponda a tu orden.</span></span>
             </label>
+            {agent === 'remy' && <div className={`rounded-xl border p-3 text-[10px] leading-4 ${providers.gemini ? 'border-neon/15 bg-neon/5 text-white/45' : 'border-amber-300/20 bg-amber-300/5 text-amber-100/70'}`}>
+              Multimedia de WhatsApp (audio, foto y video) usa Gemini como visión/transcripción. Estado: <b>{providers.gemini ? 'Gemini conectado' : 'falta credencial Gemini'}</b>.
+            </div>}
             <button className="rounded-full bg-neon px-5 py-2.5 text-xs font-black text-[#02100a]">Guardar {detail.title}</button>
           </form>
         </SectionCard>;
