@@ -118,7 +118,7 @@ export async function generateRemyReply(
     .select('ai_enabled,ai_provider,ai_model,ai_system_prompt')
     .eq('id', 'global')
     .maybeSingle();
-  if (!config?.ai_enabled) throw new Error('remy_global_off');
+  if (input.channel === 'whatsapp' && !config?.ai_enabled) throw new Error('remy_global_off');
 
   const runtime = await getAgentRuntimeConfig(db, 'remy', {
     provider: config?.ai_provider || 'gemini',
