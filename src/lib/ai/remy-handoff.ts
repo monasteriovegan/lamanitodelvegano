@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { compactText } from '@/lib/ai/context-budget';
 
-const HANDOFF_INTENT = /(?:hablar|comunicar|contactar|pasar|derivar).{0,20}(?:humano|persona|asesor|ejecutivo|alguien)|(?:quiero|necesito).{0,15}(?:humano|persona|asesor|ejecutivo)|reclamo|devoluci[oó]n|reembolso|cobro\s+duplicado|pago\s+duplicado|pedido.{0,20}(?:mal|equivocado|incompleto|no\s+lleg)|producto.{0,20}(?:mal|dañado|equivocado)/i;
+const HANDOFF_INTENT = /(?:hablar|comunicar|contactar|pasar|derivar).{0,20}(?:humano|persona|asesor|ejecutivo|alguien)|(?:quiero|necesito).{0,15}(?:humano|persona|asesor|ejecutivo)|reclamo|devoluci[oó]n|reembolso|cobro\s+duplicado|pago\s+duplicado|pedido.{0,20}(?:mal|equivocado|incompleto|no\s+lleg)|producto.{0,20}(?:mal|dañado|equivocado)|transferencia|datos\s+bancarios|cuenta\s+bancaria/i;
 
 export function shouldHandoffToHuman(text: string) {
   return HANDOFF_INTENT.test(String(text || ''));
