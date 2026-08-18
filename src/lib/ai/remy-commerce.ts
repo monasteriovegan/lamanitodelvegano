@@ -52,20 +52,26 @@ export function selectRemyTools(userText: string): ProviderToolDefinition[] {
   };
 
   if (PRODUCT_INTENT.test(userText)) add(TOOL_DEFINITIONS.catalog_search);
+
+  // En una conversación de checkout priorizamos el camino que permite realmente
+  // vender: localizar producto, agregarlo, completar datos, crear pedido y pagar.
+  // Las mutaciones secundarias (quitar/vaciar) se agregan después si el turno las pide.
+  if (CHECKOUT_INTENT.test(userText)) {
+    add(TOOL_DEFINITIONS.catalog_search);
+    add(TOOL_DEFINITIONS.cart_get);
+    add(TOOL_DEFINITIONS.cart_add);
+    add(TOOL_DEFINITIONS.shipping_quote);
+    add(TOOL_DEFINITIONS.checkout_update);
+    add(TOOL_DEFINITIONS.checkout_status);
+    add(TOOL_DEFINITIONS.order_create);
+    add(TOOL_DEFINITIONS.payment_link);
+  }
   if (CART_INTENT.test(userText)) {
     add(TOOL_DEFINITIONS.catalog_search);
     add(TOOL_DEFINITIONS.cart_get);
     add(TOOL_DEFINITIONS.cart_add);
     add(TOOL_DEFINITIONS.cart_remove);
     add(TOOL_DEFINITIONS.cart_clear);
-  }
-  if (CHECKOUT_INTENT.test(userText)) {
-    add(TOOL_DEFINITIONS.cart_get);
-    add(TOOL_DEFINITIONS.shipping_quote);
-    add(TOOL_DEFINITIONS.checkout_update);
-    add(TOOL_DEFINITIONS.checkout_status);
-    add(TOOL_DEFINITIONS.order_create);
-    add(TOOL_DEFINITIONS.payment_link);
   }
   if (STATUS_INTENT.test(userText)) add(TOOL_DEFINITIONS.order_status);
   return tools.slice(0, 8);
