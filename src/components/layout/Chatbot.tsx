@@ -7,6 +7,15 @@ interface Message {
   parts: { text: string }[];
 }
 
+function getOrCreateWebSession() {
+  const key = 'remy_web_session';
+  const current = window.localStorage.getItem(key);
+  if (current && /^[a-zA-Z0-9_-]{8,100}$/.test(current)) return current;
+  const created = `web_${crypto.randomUUID()}`;
+  window.localStorage.setItem(key, created);
+  return created;
+}
+
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -19,8 +28,10 @@ export function Chatbot() {
   const [inputVal, setInputVal] = useState('');
   const [loading, setLoading] = useState(false);
   const chatBodyRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef('');
 
   useEffect(() => {
+    sessionIdRef.current = getOrCreateWebSession();
     const timer = setTimeout(() => {
       setIsOpen(prev => {
         if (!prev) setShowTooltip(true);
@@ -53,16 +64,22 @@ export function Chatbot() {
     setMessages(newMessages);
 
     try {
+      const sessionId = sessionIdRef.current || getOrCreateWebSession();
+      sessionIdRef.current = sessionId;
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // El backend selecciona catálogo, memoria y contexto. El navegador solo
-        // envía una ventana pequeña; el presupuesto final se aplica en Remy.
-        body: JSON.stringify({ history: newMessages.slice(-6) })
+        // El backend selecciona catálogo, memoria, CRM y contexto. El navegador
+        // mantiene solo una identidad anónima estable y una ventana pequeña.
+        body: JSON.stringify({ history: newMessages.slice(-6), sessionId })
       });
 
       const data = await response.json();
       if (!response.ok && !data?.respuesta) throw new Error('chat_unavailable');
+      if (data?.sessionId && /^[a-zA-Z0-9_-]{8,100}$/.test(data.sessionId)) {
+        sessionIdRef.current = data.sessionId;
+        window.localStorage.setItem('remy_web_session', data.sessionId);
+      }
 
       setMessages(prev => [
         ...prev,
