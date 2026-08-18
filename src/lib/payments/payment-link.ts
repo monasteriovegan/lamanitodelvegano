@@ -22,6 +22,15 @@ function defaultOrigin() {
   return vercel ? `https://${vercel}` : 'https://lamanitodelvegano.vercel.app';
 }
 
+function mercadoPagoEnvToken() {
+  return String(
+    process.env.MERCADOPAGO_ACCESS_TOKEN
+    || process.env.MERCADO_PAGO_ACCESS_TOKEN
+    || process.env.MP_ACCESS_TOKEN
+    || '',
+  ).trim();
+}
+
 async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise<PedidoPago> {
   const id = Number(pedidoId);
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
@@ -45,7 +54,7 @@ export async function createPaymentLink(
 
   if (input.provider === 'mercadopago') {
     const { data: config } = await db.from('integraciones_secretas').select('mp_access_token').eq('id', 'global').maybeSingle();
-    const token = String(config?.mp_access_token || '').trim();
+    const token = mercadoPagoEnvToken() || String(config?.mp_access_token || '').trim();
     if (!token) throw new Error('mercadopago_not_configured');
 
     const mpItems = items.map((item) => ({
