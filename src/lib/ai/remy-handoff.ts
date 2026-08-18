@@ -54,7 +54,7 @@ export async function activateHumanHandoff(
     await db.from('omnichannel_contacts')
       .update({
         metadata: contactMetadata,
-        crm_status: contact?.crm_status === 'customer' ? 'customer' : 'needs_attention',
+        crm_status: contact?.crm_status === 'customer' ? 'customer' : 'follow_up',
         updated_at: now,
       })
       .eq('id', input.customerId);
