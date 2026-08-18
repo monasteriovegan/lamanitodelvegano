@@ -1,8 +1,10 @@
 // Migrado de genFechas() del app.js viejo.
 // Reglas:
 // - Por defecto: mínimo 3 días de anticipación, solo lunes a sábado (no domingo).
-// - Si algún producto del carrito tiene fechas especiales (disponibilidad),
+// - Si algún producto del carrito tiene fechas especiales FUTURAS (disponibilidad),
 //   se usa la INTERSECCIÓN de las fechas disponibles de todos los productos restringidos.
+// - Fechas especiales completamente vencidas se consideran históricas y dejan de
+//   bloquear pedidos futuros; el producto vuelve a la regla general de despacho.
 
 export interface FechaDespacho {
   fecha: Date;
@@ -15,28 +17,39 @@ interface ProductoConDisponibilidad {
   disponibilidad: string[] | null;
 }
 
+function dateFromYmd(value: string) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function genFechas(productosEnCarrito: ProductoConDisponibilidad[]): FechaDespacho[] {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  const productosConRestriccion = productosEnCarrito.filter(
-    (p) => p.disponibilidad && p.disponibilidad.length > 0
-  );
+  // Sólo una fecha futura vigente puede restringir el calendario. Esto evita que
+  // promociones/ventanas antiguas queden bloqueando el checkout para siempre.
+  const productosConRestriccion = productosEnCarrito
+    .map((producto) => ({
+      ...producto,
+      disponibilidad: (producto.disponibilidad || []).filter((value) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        return dateFromYmd(value).getTime() >= hoy.getTime();
+      }),
+    }))
+    .filter((producto) => producto.disponibilidad.length > 0);
 
   if (productosConRestriccion.length > 0) {
     let fechasRestringidas: string[] | null = null;
-    for (const p of productosConRestriccion) {
-      const dates = p.disponibilidad as string[];
+    for (const producto of productosConRestriccion) {
+      const dates = producto.disponibilidad;
       fechasRestringidas =
-        fechasRestringidas === null ? dates : fechasRestringidas.filter((d) => dates.includes(d));
+        fechasRestringidas === null ? dates : fechasRestringidas.filter((date) => dates.includes(date));
     }
 
     const res: FechaDespacho[] = (fechasRestringidas || []).map((dateStr) => {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const fecha = new Date(y, m - 1, d);
+      const fecha = dateFromYmd(dateStr);
       const diffDays = Math.ceil((fecha.getTime() - hoy.getTime()) / 86400000);
-      const isPast = hoy.getTime() > fecha.getTime();
-      return { fecha, ok: !isPast, dias: diffDays, isSpecial: true };
+      return { fecha, ok: true, dias: diffDays, isSpecial: true };
     });
 
     res.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
