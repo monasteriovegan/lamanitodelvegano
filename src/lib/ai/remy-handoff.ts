@@ -60,5 +60,5 @@ export async function activateHumanHandoff(
       .eq('id', input.customerId);
   }
 
-  return 'Claro. Dejo esta conversación para atención humana y no seguiré respondiendo automáticamente. Una persona del equipo continuará contigo por aquí.';
+  return 'Claro. Dejo el caso marcado para atención humana y no seguiré respondiendo automáticamente. Si estás en la web, puedes continuar ahora con el botón de WhatsApp.';
 }
