@@ -50,6 +50,7 @@ const GRUPOS = [
   {
     label: 'Marketing',
     tabs: [
+      { href: '/admin/media', label: '🎬 Creativos Meta', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/cupones', label: '🎟️ Cupones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/promo-flyer', label: '📢 Promo Flyer', exact: false, roles: ['admin'] as Rol[] },
     ],
