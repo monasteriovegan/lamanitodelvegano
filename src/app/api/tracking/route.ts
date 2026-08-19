@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 /**
- * Tracking público por código único LMV-XXXXXX.
- * Por compatibilidad también acepta el ID integer completo del pedido, pero ya
- * no hace búsquedas parciales que puedan revelar accidentalmente otro pedido.
+ * Tracking público exclusivamente por código privado LMV-XXXXXXXXXX.
+ * No acepta IDs numéricos ni prefijos parciales para evitar enumeración de pedidos.
  */
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('id')?.trim() || '';
@@ -12,26 +11,21 @@ export async function GET(req: NextRequest) {
   if (!tracking) {
     return NextResponse.json({ error: 'Ingresa tu código de seguimiento.' }, { status: 400 });
   }
-
-  const supabase = createSupabaseServiceClient();
-  let query = supabase
-    .from('pedidos')
-    .select('id,nombre_cliente,direccion,comuna,total,estado,metodopago,payment_status,fecha_entrega,shipping_zone_name,tracking_number,created_at');
-
-  if (/^LMV-\d{6,}$/.test(tracking)) {
-    query = query.eq('tracking_number', tracking);
-  } else if (/^\d+$/.test(tracking)) {
-    query = query.eq('id', Number(tracking));
-  } else {
-    return NextResponse.json({ error: 'El código debe tener formato LMV-000001.' }, { status: 400 });
+  if (!/^LMV-[0-9A-F]{10}$/.test(tracking)) {
+    return NextResponse.json({ error: 'El código de seguimiento no es válido.' }, { status: 400 });
   }
 
-  const { data: pedido, error } = await query.maybeSingle();
+  const supabase = createSupabaseServiceClient();
+  const { data: pedido, error } = await supabase
+    .from('pedidos')
+    .select('id,nombre_cliente,direccion,comuna,total,estado,metodopago,payment_status,fecha_entrega,shipping_zone_name,tracking_number,created_at')
+    .eq('tracking_number', tracking)
+    .maybeSingle();
+
   if (error) {
     console.error('tracking_lookup_failed', { detail: error.message });
     return NextResponse.json({ error: 'Error al buscar el pedido.' }, { status: 500 });
   }
-
   if (!pedido) {
     return NextResponse.json({ error: 'No se encontró ningún pedido con ese código.' }, { status: 404 });
   }
