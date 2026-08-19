@@ -10,5 +10,6 @@ declare global {
       lastPageViewUrl?: string;
     };
     __lmvPendingMetaEvents?: unknown[][];
+    __lmvPendingGoogleEvents?: Array<[string, Record<string, unknown>]>;
   }
 }

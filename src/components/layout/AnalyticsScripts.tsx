@@ -61,6 +61,8 @@ export function AnalyticsScripts({ metaPixelId, ga4Id }: { metaPixelId?: string 
               window.__lmvAnalytics = window.__lmvAnalytics || {};
               window.__lmvAnalytics.initialPageViewSent = true;
               window.__lmvAnalytics.lastPageViewUrl = window.location.pathname + window.location.search;
+              (window.__lmvPendingGoogleEvents || []).forEach(function(entry) { gtag('event', entry[0], entry[1]); });
+              window.__lmvPendingGoogleEvents = [];
             `}
           </Script>
         </>

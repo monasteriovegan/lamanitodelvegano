@@ -22,6 +22,7 @@ test('PageView inicial y SPA comparten un guard contra duplicados', () => {
   assert.match(source, /lastPageViewUrl = routeUrl/);
   assert.match(source, /trackPageView\(window\.location\.href\)/);
   assert.match(source, /__lmvPendingMetaEvents/);
+  assert.match(source, /__lmvPendingGoogleEvents/);
   assert.equal((source.match(/fbq\('init'/g) || []).length, 1);
 });
 

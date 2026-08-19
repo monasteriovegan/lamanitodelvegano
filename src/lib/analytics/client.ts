@@ -24,9 +24,10 @@ function metaTrack(eventName: string, parameters: Record<string, unknown>, event
 
 function googleTrack(eventName: string, parameters: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
-  if (!window.gtag) {
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = (...args: unknown[]) => window.dataLayer?.push(args);
+  if (!window.gtag || !window.__lmvAnalytics?.initialPageViewSent) {
+    window.__lmvPendingGoogleEvents = window.__lmvPendingGoogleEvents || [];
+    window.__lmvPendingGoogleEvents.push([eventName, parameters]);
+    return;
   }
   window.gtag('event', eventName, parameters);
 }
