@@ -1,6 +1,7 @@
 // Migrado de genFechas() del app.js viejo.
 // Reglas:
 // - Por defecto: mínimo 3 días de anticipación, solo lunes a sábado (no domingo).
+// - El "hoy" comercial se calcula en horario de Chile (America/Santiago), no en UTC.
 // - Si algún producto del carrito tiene fechas especiales FUTURAS (disponibilidad),
 //   se usa la INTERSECCIÓN de las fechas disponibles de todos los productos restringidos.
 // - Fechas especiales completamente vencidas se consideran históricas y dejan de
@@ -17,13 +18,42 @@ interface ProductoConDisponibilidad {
   disponibilidad: string[] | null;
 }
 
+const BUSINESS_TIME_ZONE = 'America/Santiago';
+
 function dateFromYmd(value: string) {
   const [y, m, d] = value.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
+export function businessTodayYmd(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function businessTodayDate(now = new Date()) {
+  return dateFromYmd(businessTodayYmd(now));
+}
+
+export function formatDeliveryDateLabel(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  return new Intl.DateTimeFormat('es-CL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
 export function genFechas(productosEnCarrito: ProductoConDisponibilidad[]): FechaDespacho[] {
-  const hoy = new Date();
+  const hoy = businessTodayDate();
   hoy.setHours(0, 0, 0, 0);
 
   // Sólo una fecha futura vigente puede restringir el calendario. Esto evita que
