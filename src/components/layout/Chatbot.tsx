@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useCart } from '@/lib/cart/CartContext';
 
 interface Message {
@@ -28,6 +28,46 @@ function validRestoredMessages(value: unknown): Message[] {
     const role = raw?.role === 'model' ? 'model' : raw?.role === 'user' ? 'user' : null;
     const text = String(raw?.parts?.[0]?.text || '').trim();
     return role && text ? [{ role, parts: [{ text }] } as Message] : [];
+  });
+}
+
+function linkifyMessage(text: string): ReactNode[] {
+  const tokenRegex = /(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<]+)/gi;
+  return text.split(tokenRegex).filter(Boolean).map((part, index) => {
+    const markdown = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/i);
+    if (markdown) {
+      return (
+        <a
+          key={`${index}-${markdown[2]}`}
+          href={markdown[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon underline underline-offset-2 break-all hover:text-white"
+        >
+          {markdown[1]}
+        </a>
+      );
+    }
+
+    if (/^https?:\/\//i.test(part)) {
+      const trailing = part.match(/[),.!?;:]+$/)?.[0] || '';
+      const href = trailing ? part.slice(0, -trailing.length) : part;
+      return (
+        <span key={`${index}-${href}`}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon underline underline-offset-2 break-all hover:text-white"
+          >
+            {href}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
+
+    return <span key={index}>{part}</span>;
   });
 }
 
@@ -207,7 +247,7 @@ export function Chatbot() {
                 className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${m.role === 'model' ? 'bg-[rgba(0,255,179,0.08)] text-texto border border-[rgba(0,255,179,0.15)] rounded-bl-sm align-self-start' : 'bg-neon text-[#020705] font-semibold rounded-br-sm align-self-end'}`}
                 style={{ alignSelf: m.role === 'model' ? 'flex-start' : 'flex-end' }}
               >
-                {m.parts[0].text}
+                {linkifyMessage(m.parts[0].text)}
               </div>
             ))}
             {loading && (

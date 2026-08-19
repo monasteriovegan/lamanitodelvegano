@@ -10,6 +10,24 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+function paymentMethodLabel(value: string | null | undefined) {
+  const method = String(value || '').toLowerCase();
+  if (method === 'mercadopago') return 'Mercado Pago';
+  if (method === 'flow') return 'Flow';
+  if (method === 'transfer') return 'Transferencia';
+  if (method === 'whatsapp') return 'WhatsApp / coordinación';
+  return value || 'Sin definir';
+}
+
+function paymentStatusLabel(value: string | null | undefined) {
+  const status = String(value || 'pending').toLowerCase();
+  if (status === 'paid') return 'Pagado';
+  if (status === 'failed') return 'Fallido';
+  if (status === 'refunded') return 'Reembolsado';
+  if (status === 'partial') return 'Parcial';
+  return 'Pendiente';
+}
+
 export default async function AdminPedidoDetailPage({ params }: PageProps) {
   await requireRole(['admin', 'soporte', 'bodega']);
   const { id } = await params;
@@ -38,12 +56,15 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">
             Canal: {order.source || 'web'}
           </span>
+          <span className="text-xs font-mono px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-200 font-semibold">
+            Medio: {paymentMethodLabel(order.payment_method)}
+          </span>
           <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">
-            Pago: {order.payment_status || 'pending'}
+            Pago: {paymentStatusLabel(order.payment_status)}
           </span>
         </div>
       </div>
