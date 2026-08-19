@@ -48,7 +48,8 @@ export async function GET() {
     const campaigns = campaignsResult.data.filter((campaign) => /barra|dub[aá]i/i.test(campaign.name || ''));
     const campaignIds = campaigns.map((campaign) => campaign.id);
 
-    const [adSetsResult, adsResult, insightsResult, pixelsResult] = await Promise.all([
+    const business = account.business as MetaRecord | undefined;
+    const [adSetsResult, adsResult, insightsResult, pixelsResult, businessPixelsResult] = await Promise.all([
       campaignIds.length ? optionalGraph<MetaRecord>(`${account.id}/adsets`, config.wa_access_token, {
         fields: 'id,campaign_id,name,status,effective_status,daily_budget,lifetime_budget,bid_strategy,billing_event,optimization_goal,attribution_spec,promoted_object,targeting,start_time,end_time',
         filtering: JSON.stringify([{ field: 'campaign.id', operator: 'IN', value: campaignIds }]),
@@ -70,6 +71,10 @@ export async function GET() {
         fields: 'id,name,last_fired_time,is_unavailable',
         limit: '100',
       }),
+      business?.id ? optionalGraph<MetaRecord>(`${business.id}/owned_pixels`, config.wa_access_token, {
+        fields: 'id,name,last_fired_time,is_unavailable',
+        limit: '100',
+      }) : Promise.resolve({ data: [], error: null }),
     ]);
 
     return {
@@ -79,7 +84,8 @@ export async function GET() {
       ads: adsResult.data,
       insights: insightsResult.data,
       pixels: pixelsResult.data,
-      errors: [campaignsResult.error, adSetsResult.error, adsResult.error, insightsResult.error, pixelsResult.error].filter(Boolean),
+      businessPixels: businessPixelsResult.data,
+      errors: [campaignsResult.error, adSetsResult.error, adsResult.error, insightsResult.error, pixelsResult.error, businessPixelsResult.error].filter(Boolean),
     };
   }));
 
