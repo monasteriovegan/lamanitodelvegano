@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { SchemaCapabilityError } from '@/lib/repositories/schema-capabilities';
+import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -20,15 +21,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   try {
     const repo = new OrderRepository(db);
+    const before = await repo.getById(id);
+    if (!before) return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
+
     const requestedStatus = String(body?.status || '').trim().toLowerCase();
+    let updatedOrder;
 
     // El estado operativo y el pago son conceptos distintos. Confirmar o empezar
-    // a preparar un pedido no debe convertirlo en "Pagado" si la pasarela aún
-    // mantiene payment_status pendiente.
+    // a preparar un pedido no debe convertirlo en "Pagado" si el pago sigue pendiente.
     if (requestedStatus === 'confirmed' || requestedStatus === 'processing') {
-      const before = await repo.getById(id);
-      if (!before) return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
-
       const requestedPaymentStatus = body?.payment_status === undefined
         ? before.payment_status
         : String(body.payment_status || 'pending');
@@ -58,13 +59,26 @@ export async function PUT(req: Request, { params }: RouteParams) {
           if (historyError) throw historyError;
         }
 
-        const updatedOrder = await repo.getById(id);
-        return NextResponse.json({ ok: true, data: updatedOrder });
+        updatedOrder = await repo.getById(id);
       }
     }
 
-    const updatedOrder = await repo.update(id, body, admin.id);
-    return NextResponse.json({ ok: true, data: updatedOrder });
+    if (!updatedOrder) updatedOrder = await repo.update(id, body, admin.id);
+    if (!updatedOrder) throw new Error('order_update_failed');
+
+    // Las notificaciones son transaccionales y deterministas: no dependen del
+    // interruptor de IA de Remy y nunca bloquean un cambio operativo si el canal falla.
+    let notifications: Awaited<ReturnType<typeof notifyOrderTransitions>> = [];
+    try {
+      notifications = await notifyOrderTransitions(db, before, updatedOrder);
+    } catch (notificationError) {
+      console.error('order_transition_notification_failed', {
+        orderId: updatedOrder.numeric_id,
+        reason: notificationError instanceof Error ? notificationError.message : 'unknown',
+      });
+    }
+
+    return NextResponse.json({ ok: true, data: updatedOrder, notifications });
   } catch (error) {
     const status = error instanceof SchemaCapabilityError ? 503 : 400;
     return NextResponse.json({ error: error instanceof Error ? error.message : 'order_update_failed' }, { status });
