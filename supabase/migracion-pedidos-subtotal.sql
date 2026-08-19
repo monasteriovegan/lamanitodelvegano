@@ -26,13 +26,12 @@ for each row
 execute function public.fill_pedido_subtotal();
 
 update public.pedidos p
-set subtotal = x.subtotal
-from lateral (
+set subtotal = (
   select coalesce(sum(
     coalesce(nullif(item ->> 'precio', '')::numeric, 0)
     * coalesce(nullif(item ->> 'qty', '')::numeric, 1)
-  ), 0) as subtotal
+  ), 0)
   from jsonb_array_elements(p.items) as item
-) x
+)
 where p.subtotal is null
   and jsonb_typeof(p.items) = 'array';
