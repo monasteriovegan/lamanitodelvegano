@@ -4,27 +4,14 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import type { Producto } from '@/types/domain';
 import { ProductPurchasePanel } from '@/components/tienda/ProductPurchasePanel';
+import { trackViewContent } from '@/lib/analytics/client';
 
 export function VistaProducto({ producto }: { producto: Producto }) {
   // ViewContent / view_item: se dispara una sola vez al entrar a la página
   // del producto — es el evento que Meta/Google usan para armar públicos
   // de retargeting ("gente que vio este producto y no compró").
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'ViewContent', {
-        content_name: producto.nombre,
-        content_ids: [producto.id],
-        value: producto.precio,
-        currency: 'CLP',
-      });
-    }
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'view_item', {
-        currency: 'CLP',
-        value: producto.precio,
-        items: [{ item_id: producto.id, item_name: producto.nombre }],
-      });
-    }
+    trackViewContent({ id: producto.id, name: producto.nombre, price: producto.precio });
   }, [producto.id, producto.nombre, producto.precio]);
 
   return (

@@ -4,6 +4,7 @@ import './globals.css';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { AnalyticsScripts } from '@/components/layout/AnalyticsScripts';
 import { CartProvider } from '@/lib/cart/CartContext';
+import { Suspense } from 'react';
 
 const syne = Syne({
   subsets: ['latin'],
@@ -55,7 +56,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es">
       <body className={`${syne.variable} ${spaceGrotesk.variable} ${fraunces.variable} antialiased`}>
-        <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
+        <Suspense fallback={null}>
+          <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
+        </Suspense>
         <CartProvider>{children}</CartProvider>
       </body>
     </html>

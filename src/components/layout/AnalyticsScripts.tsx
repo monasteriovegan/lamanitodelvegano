@@ -1,6 +1,9 @@
 'use client';
 
 import Script from 'next/script';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import { trackPageView } from '@/lib/analytics/client';
 
 /**
  * Meta Pixel + GA4. Los IDs se configuran desde /admin/integraciones (no
@@ -9,6 +12,18 @@ import Script from 'next/script';
  * script simplemente no se renderiza — no rompe nada, solo no trackea.
  */
 export function AnalyticsScripts({ metaPixelId, ga4Id }: { metaPixelId?: string | null; ga4Id?: string | null }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeUrl = `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ''}`;
+
+  useEffect(() => {
+    window.__lmvAnalytics = window.__lmvAnalytics || {};
+    if (!window.__lmvAnalytics.initialPageViewSent) return;
+    if (window.__lmvAnalytics.lastPageViewUrl === routeUrl) return;
+    window.__lmvAnalytics.lastPageViewUrl = routeUrl;
+    trackPageView(window.location.href);
+  }, [routeUrl]);
+
   return (
     <>
       {metaPixelId && (
@@ -24,6 +39,9 @@ export function AnalyticsScripts({ metaPixelId, ga4Id }: { metaPixelId?: string 
             'https://connect.facebook.net/en_US/fbevents.js');
             fbq('init', '${metaPixelId}');
             fbq('track', 'PageView');
+            window.__lmvAnalytics = window.__lmvAnalytics || {};
+            window.__lmvAnalytics.initialPageViewSent = true;
+            window.__lmvAnalytics.lastPageViewUrl = window.location.pathname + window.location.search;
           `}
         </Script>
       )}
@@ -36,8 +54,11 @@ export function AnalyticsScripts({ metaPixelId, ga4Id }: { metaPixelId?: string 
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', '${ga4Id}');
+              gtag('config', '${ga4Id}', { send_page_view: true });
               window.gtag = gtag;
+              window.__lmvAnalytics = window.__lmvAnalytics || {};
+              window.__lmvAnalytics.initialPageViewSent = true;
+              window.__lmvAnalytics.lastPageViewUrl = window.location.pathname + window.location.search;
             `}
           </Script>
         </>

@@ -6,6 +6,7 @@ import { SiteShell } from '@/components/layout/SiteShell';
 import { useCart } from '@/lib/cart/CartContext';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Zona } from '@/types/domain';
+import { trackContact, trackInitiateCheckout } from '@/lib/analytics/client';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -47,8 +48,10 @@ function CheckoutContent() {
   // con el valor real del carrito en ese momento.
   useEffect(() => {
     if (items.length === 0) return;
-    if (window.fbq) window.fbq('track', 'InitiateCheckout', { value: subtotal, currency: 'CLP', num_items: items.length });
-    if (window.gtag) window.gtag('event', 'begin_checkout', { currency: 'CLP', value: subtotal });
+    trackInitiateCheckout({
+      items: items.map((item) => ({ id: item.productoId, name: item.nombre, price: item.precio, quantity: item.qty })),
+      value: subtotal,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'flow' | 'whatsapp'>('mercadopago');
@@ -126,6 +129,10 @@ function CheckoutContent() {
       const pedidoId = checkoutData.pedidoId;
 
       if (metodoPago === 'whatsapp') {
+        trackContact('whatsapp', {
+          items: items.map((item) => ({ id: item.productoId, name: item.nombre, price: item.precio, quantity: item.qty })),
+          value: checkoutData.total,
+        });
         clearCart();
         const mensaje = encodeURIComponent(
           `Hola! Quiero confirmar mi pedido #${pedidoId.substring(0, 6).toUpperCase()} por $${checkoutData.total.toLocaleString('es-CL')}`

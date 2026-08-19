@@ -1,21 +1,27 @@
 'use client';
 
 import { useEffect } from 'react';
+import { trackPurchase } from '@/lib/analytics/client';
 
-export function PurchaseTracking({ pedidoId, total }: { pedidoId: string; total: number }) {
+type PurchaseItem = { productoId?: string; producto_id?: string; nombre?: string; name?: string; precio?: number; qty?: number };
+
+export function PurchaseTracking({ pedidoId, total, items }: { pedidoId: string; total: number; items: PurchaseItem[] }) {
   useEffect(() => {
     const clave = `purchase-trackeado-${pedidoId}`;
     if (typeof window === 'undefined' || sessionStorage.getItem(clave)) return;
 
-    if (window.fbq) {
-      window.fbq('track', 'Purchase', { value: total, currency: 'CLP', content_ids: [pedidoId] });
-    }
-    if (window.gtag) {
-      window.gtag('event', 'purchase', { transaction_id: pedidoId, value: total, currency: 'CLP' });
-    }
+    trackPurchase(pedidoId, {
+      value: total,
+      items: items.map((item, index) => ({
+        id: item.productoId || item.producto_id || `${pedidoId}_${index}`,
+        name: item.nombre || item.name || 'Producto',
+        price: item.precio,
+        quantity: item.qty,
+      })),
+    });
 
     sessionStorage.setItem(clave, '1');
-  }, [pedidoId, total]);
+  }, [items, pedidoId, total]);
 
   return null;
 }

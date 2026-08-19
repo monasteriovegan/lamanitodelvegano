@@ -6,28 +6,25 @@ import { PurchaseTracking } from './PurchaseTracking';
 
 export default async function PedidoConfirmacionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ status?: string }>;
 }) {
   const { id } = await params;
-  const { status } = await searchParams;
 
   const supabase = createSupabaseServiceClient();
   const { data: pedido } = await supabase
     .from('pedidos')
-    .select('id, total, status, cliente')
+    .select('id, total, status, payment_status, cliente, items')
     .eq('id', id)
     .maybeSingle();
 
   if (!pedido) notFound();
 
-  const esExito = status === 'success' || pedido.status === 'Pagado';
+  const esExito = pedido.status === 'Pagado' && pedido.payment_status === 'paid';
 
   return (
     <SiteShell>
-      {esExito && <PurchaseTracking pedidoId={pedido.id} total={pedido.total} />}
+      {esExito && <PurchaseTracking pedidoId={pedido.id} total={pedido.total} items={pedido.items || []} />}
       <main className="pt-[100px] px-4 pb-16 max-w-[480px] mx-auto text-center">
         <span className="text-5xl mb-4 block">{esExito ? '✅' : '⏳'}</span>
         <h1 className="font-display font-bold text-xl text-white mb-2">
