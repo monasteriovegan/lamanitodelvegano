@@ -12,13 +12,22 @@ export type AnalyticsItem = {
 export type CommerceEvent = { items: AnalyticsItem[]; value: number };
 
 function metaTrack(eventName: string, parameters: Record<string, unknown>, eventId?: string) {
-  if (typeof window === 'undefined' || !window.fbq) return;
+  if (typeof window === 'undefined') return;
   const options = eventId ? { eventID: eventId } : undefined;
+  if (!window.fbq) {
+    window.__lmvPendingMetaEvents = window.__lmvPendingMetaEvents || [];
+    window.__lmvPendingMetaEvents.push(['track', eventName, parameters, options]);
+    return;
+  }
   window.fbq('track', eventName, parameters, options);
 }
 
 function googleTrack(eventName: string, parameters: Record<string, unknown>) {
-  if (typeof window === 'undefined' || !window.gtag) return;
+  if (typeof window === 'undefined') return;
+  if (!window.gtag) {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = (...args: unknown[]) => window.dataLayer?.push(args);
+  }
   window.gtag('event', eventName, parameters);
 }
 

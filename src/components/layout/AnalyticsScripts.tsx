@@ -39,6 +39,8 @@ export function AnalyticsScripts({ metaPixelId, ga4Id }: { metaPixelId?: string 
             'https://connect.facebook.net/en_US/fbevents.js');
             fbq('init', '${metaPixelId}');
             fbq('track', 'PageView');
+            (window.__lmvPendingMetaEvents || []).forEach(function(args) { fbq.apply(null, args); });
+            window.__lmvPendingMetaEvents = [];
             window.__lmvAnalytics = window.__lmvAnalytics || {};
             window.__lmvAnalytics.initialPageViewSent = true;
             window.__lmvAnalytics.lastPageViewUrl = window.location.pathname + window.location.search;

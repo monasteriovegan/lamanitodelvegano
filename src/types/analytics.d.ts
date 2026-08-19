@@ -9,5 +9,6 @@ declare global {
       initialPageViewSent?: boolean;
       lastPageViewUrl?: string;
     };
+    __lmvPendingMetaEvents?: unknown[][];
   }
 }
