@@ -115,6 +115,29 @@ function isSimpleCheckoutStart(text: string) {
   return clean.length > 0 && clean.length <= 90 && SIMPLE_CHECKOUT_START.test(clean);
 }
 
+function parseVespucioChoice(text: string): 'inside' | 'outside' | null {
+  const clean = String(text || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (!clean || clean.length > 50) return null;
+  if (/\b(?:dentro|adentro|interior)\b/.test(clean)) return 'inside';
+  if (/\b(?:fuera|afuera|exterior)\b/.test(clean)) return 'outside';
+  return null;
+}
+
+async function resolveVespucioZone(
+  db: ReturnType<typeof createSupabaseServiceClient>,
+  choice: 'inside' | 'outside',
+) {
+  const pattern = choice === 'inside' ? '%dentro%vespucio%' : '%fuera%vespucio%';
+  const { data, error } = await db.from('zonas')
+    .select('id,nombre,precio')
+    .ilike('nombre', pattern)
+    .order('precio')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 function firstCheckoutQuestion(status: any): string | null {
   if (status?.cart?.empty) return 'Tu carrito está vacío. ¿Qué producto quieres agregar?';
   const missing = Array.isArray(status?.missing) ? status.missing.map(String) : [];
@@ -125,6 +148,7 @@ function firstCheckoutQuestion(status: any): string | null {
     case 'direccion': return 'Perfecto. ¿Cuál es la dirección de entrega?';
     case 'comuna': return '¿En qué comuna es la entrega?';
     case 'phone': return '¿Qué teléfono dejamos para coordinar el pedido?';
+    case 'zonaId': return '¿Tu dirección está dentro o fuera de Américo Vespucio?';
     case 'deliveryDate': return 'Ya tengo los datos anteriores. ¿Qué fecha de despacho prefieres?';
     case 'paymentMethod': return 'El medio online disponible es Mercado Pago. ¿Quieres pagar por Mercado Pago?';
     default: return null;
@@ -244,17 +268,44 @@ export async function POST(request: NextRequest) {
       items: browserCart,
     });
 
+    const toolContext: RemyToolContext = {
+      businessUnitId: business.id,
+      customerId: inbound.customerId,
+      conversationId: inbound.conversationId,
+      channel: 'web',
+      externalUserId: sessionId,
+      userText: latestUser,
+    };
+
+    // Si Remy preguntó dentro/fuera de Vespucio, resolvemos la zona real sin LLM.
+    // Esto evita reinterpretar la comuna y ahorra una llamada completa al modelo.
+    const vespucioChoice = parseVespucioChoice(latestUser);
+    const previousAssistant = [...browserHistory].reverse().find((message) => message.direction === 'outbound')?.body || '';
+    if (vespucioChoice && /vespucio/i.test(previousAssistant)) {
+      const checkoutStatus = await executeRemyTool(db, toolContext, 'checkout_status', {});
+      const missing = Array.isArray((checkoutStatus as any)?.missing) ? (checkoutStatus as any).missing.map(String) : [];
+      if (missing.includes('zonaId')) {
+        const zone = await resolveVespucioZone(db, vespucioChoice);
+        if (zone?.id) {
+          const updatedStatus = await executeRemyTool(db, toolContext, 'checkout_update', { zonaId: zone.id });
+          const nextQuestion = firstCheckoutQuestion(updatedStatus) || '¿Quieres continuar con el pedido?';
+          const deterministicText = `Perfecto. Despacho ${vespucioChoice === 'inside' ? 'dentro' : 'fuera'} de Américo Vespucio: $${Number(zone.precio || 0).toLocaleString('es-CL')}. ${nextQuestion}`;
+          await persistWebReply(db, {
+            sessionId,
+            text: deterministicText,
+            source: 'remy_web_shipping_zone_rules',
+            provider: 'synthetiq',
+            model: 'shipping-zone-rules',
+          });
+          const cartItems = await loadConversationCart(db, business.id, inbound.conversationId);
+          return NextResponse.json({ respuesta: deterministicText, sessionId, cartItems });
+        }
+      }
+    }
+
     // Este arranque de checkout es determinista: una sola pregunta y cero tokens.
     // El resto de la conversación sigue usando el mismo Remy/LLM y sus tools.
     if (isSimpleCheckoutStart(latestUser)) {
-      const toolContext: RemyToolContext = {
-        businessUnitId: business.id,
-        customerId: inbound.customerId,
-        conversationId: inbound.conversationId,
-        channel: 'web',
-        externalUserId: sessionId,
-        userText: latestUser,
-      };
       const checkoutStatus = await executeRemyTool(db, toolContext, 'checkout_status', {});
       const deterministicText = firstCheckoutQuestion(checkoutStatus);
       if (deterministicText) {
