@@ -1,6 +1,6 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
-import { guardarIntegraciones } from './actions';
+import { crearMetaPixel, guardarIntegraciones } from './actions';
 
 function secretPlaceholder(configured: boolean) {
   return configured ? '••••••••  configurada · deja vacío para conservar' : 'Pega la clave aquí';
@@ -126,6 +126,18 @@ export default async function AdminIntegracionesPage() {
           Guardar integraciones
         </button>
       </form>
+
+      {!integraciones?.meta_pixel_id && (
+        <form action={crearMetaPixel} className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
+          <p className="mb-3 text-xs leading-5 text-white/65">
+            No existe un Pixel/Dataset web en el Business Manager. Esta acción crea uno bajo “La manito del vegano”,
+            lo comparte con la cuenta publicitaria activa cuando Meta lo permite y guarda solamente su ID público.
+          </p>
+          <button type="submit" className="rounded-full bg-blue-500 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-400">
+            Crear y conectar Pixel web
+          </button>
+        </form>
+      )}
     </div>
   );
 }
