@@ -52,8 +52,8 @@ export function formatDeliveryDateLabel(value: string) {
   }).format(date);
 }
 
-export function genFechas(productosEnCarrito: ProductoConDisponibilidad[]): FechaDespacho[] {
-  const hoy = businessTodayDate();
+export function genFechas(productosEnCarrito: ProductoConDisponibilidad[], now = new Date()): FechaDespacho[] {
+  const hoy = businessTodayDate(now);
   hoy.setHours(0, 0, 0, 0);
 
   // Sólo una fecha futura vigente puede restringir el calendario. Esto evita que
