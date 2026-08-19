@@ -100,7 +100,7 @@ export default function SeguimientoPage() {
             value={inputId}
             onChange={(e) => setInputId(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === 'Enter' && buscar()}
-            placeholder="Ej: LMV-000002"
+            placeholder="Ej: LMV-7F3A91C2D8"
             className="flex-1 bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-full px-4 py-2.5 text-sm text-white font-mono"
           />
           <button
@@ -132,7 +132,7 @@ export default function SeguimientoPage() {
               <>
                 <p className="text-[10px] uppercase text-muted font-bold tracking-wider">Código de seguimiento</p>
                 <p className="font-mono font-bold text-lg text-neon mb-1">
-                  {resultado.trackingNumber || `LMV-${resultado.id.padStart(6, '0')}`}
+                  {resultado.trackingNumber || '—'}
                 </p>
                 <p className="text-xs text-muted mb-5">
                   Pedido #{resultado.id} · {new Date(resultado.createdAt).toLocaleDateString('es-CL', {
