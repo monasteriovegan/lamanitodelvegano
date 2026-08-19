@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { genFechas } from '@/lib/pricing/fechas';
+import { businessTodayYmd, formatDeliveryDateLabel, genFechas } from '@/lib/pricing/fechas';
 
 const DATE_INTENT = /fecha|cu[aá]ndo|entrega|despach|env[ií]o|disponibilidad|finaliz|checkout|comprar|hacer.{0,12}pedido|crear.{0,12}pedido/i;
 const CHECKOUT_INTENT = /finaliz|checkout|comprar|hacer.{0,12}pedido|crear.{0,12}pedido/i;
@@ -68,7 +68,7 @@ export async function loadRemyDeliveryContext(
   }
 
   const generated = genFechas(products);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessTodayYmd();
   const { data: blocked } = await db.from('blocked_delivery_dates')
     .select('date,reason')
     .eq('business_unit_id', input.businessUnitId)
@@ -92,8 +92,9 @@ export async function loadRemyDeliveryContext(
     return `FECHAS DE DESPACHO: los productos del carrito tienen fechas especiales registradas, pero no queda una fecha futura válida confirmada. No inventes una fecha; indica que debe confirmarse disponibilidad.${settings?.delivery_message ? ` Mensaje del negocio: ${settings.delivery_message}` : ''}`;
   }
 
+  const readableDates = valid.map((date) => `${formatDeliveryDateLabel(date)}=${date}`).join('; ');
   const parts = [
-    `FECHAS DE DESPACHO DISPONIBLES: ${valid.length ? valid.join(', ') : 'sin fechas calculadas'}.`,
+    `FECHAS DE DESPACHO DISPONIBLES: ${readableDates || 'sin fechas calculadas'}. Muestra al cliente solo la fecha en lenguaje natural; usa YYYY-MM-DD únicamente al llamar checkout_update.`,
     CHECKOUT_INTENT.test(input.userText) ? 'CHECKOUT: revisa primero el estado del checkout y pide solo un dato faltante por turno; cuando toque la fecha, ofrece únicamente fechas disponibles.' : '',
     settings?.delivery_message ? `Mensaje del negocio: ${settings.delivery_message}` : '',
     blocked?.length ? `Fechas bloqueadas próximas: ${(blocked || []).slice(0, 6).map((row: any) => row.date).join(', ')}.` : '',
