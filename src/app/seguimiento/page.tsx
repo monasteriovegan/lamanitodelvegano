@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 
 interface TrackingData {
@@ -52,9 +51,7 @@ function paymentStatusLabel(value: string) {
 }
 
 export default function SeguimientoPage() {
-  const searchParams = useSearchParams();
-  const initialTracking = searchParams.get('tracking') || searchParams.get('id') || '';
-  const [inputId, setInputId] = useState(initialTracking);
+  const [inputId, setInputId] = useState('');
   const [resultado, setResultado] = useState<TrackingData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,7 +79,12 @@ export default function SeguimientoPage() {
   }
 
   useEffect(() => {
-    if (initialTracking) void buscar(initialTracking);
+    const params = new URLSearchParams(window.location.search);
+    const initialTracking = params.get('tracking') || params.get('id') || '';
+    if (initialTracking) {
+      setInputId(initialTracking.toUpperCase());
+      void buscar(initialTracking);
+    }
     // Sólo se ejecuta al abrir la página con un código en la URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
