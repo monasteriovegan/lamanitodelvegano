@@ -19,7 +19,51 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const body = await req.json();
 
   try {
-    const updatedOrder = await new OrderRepository(db).update(id, body, admin.id);
+    const repo = new OrderRepository(db);
+    const requestedStatus = String(body?.status || '').trim().toLowerCase();
+
+    // El estado operativo y el pago son conceptos distintos. Confirmar o empezar
+    // a preparar un pedido no debe convertirlo en "Pagado" si la pasarela aún
+    // mantiene payment_status pendiente.
+    if (requestedStatus === 'confirmed' || requestedStatus === 'processing') {
+      const before = await repo.getById(id);
+      if (!before) return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
+
+      const requestedPaymentStatus = body?.payment_status === undefined
+        ? before.payment_status
+        : String(body.payment_status || 'pending');
+
+      if (requestedPaymentStatus !== 'paid') {
+        const legacyStatus = requestedStatus === 'confirmed' ? 'Confirmado' : 'Procesando';
+        const patch: Record<string, unknown> = {
+          estado: legacyStatus,
+          updated_at: new Date().toISOString(),
+        };
+        if (body?.payment_status !== undefined) patch.payment_status = requestedPaymentStatus;
+        if (body?.tracking_number !== undefined) patch.tracking_number = body.tracking_number || null;
+        if (body?.admin_notes !== undefined) patch.admin_notes = body.admin_notes || null;
+
+        const { error: updateError } = await db.from('pedidos').update(patch).eq('id', Number(id));
+        if (updateError) throw updateError;
+
+        if (before.legacy_status !== legacyStatus) {
+          const { error: historyError } = await db.from('order_status_history').insert({
+            pedido_id: Number(id),
+            old_status: before.legacy_status,
+            new_status: legacyStatus,
+            payment_status: requestedPaymentStatus,
+            notes: body?.admin_notes || 'Actualización desde panel administrativo',
+            changed_by: admin.id,
+          });
+          if (historyError) throw historyError;
+        }
+
+        const updatedOrder = await repo.getById(id);
+        return NextResponse.json({ ok: true, data: updatedOrder });
+      }
+    }
+
+    const updatedOrder = await repo.update(id, body, admin.id);
     return NextResponse.json({ ok: true, data: updatedOrder });
   } catch (error) {
     const status = error instanceof SchemaCapabilityError ? 503 : 400;
