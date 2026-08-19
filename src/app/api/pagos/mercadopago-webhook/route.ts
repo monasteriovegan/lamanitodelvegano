@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
 import {
   getMercadoPagoPayment,
   mapMercadoPagoPaymentStatus,
@@ -77,6 +79,8 @@ export async function POST(req: NextRequest) {
       : nextPaymentStatus;
 
     if (effectiveStatus !== currentPaymentStatus) {
+      const repo = new OrderRepository(db);
+      const beforeOrder = await repo.getById(pedidoId);
       const update: Record<string, any> = {
         payment_status: effectiveStatus,
         updated_at: new Date().toISOString(),
@@ -92,6 +96,20 @@ export async function POST(req: NextRequest) {
         payment_status: effectiveStatus,
         notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
       });
+
+      // El aviso al cliente es best-effort: nunca hacemos fallar el webhook de pago
+      // por un problema temporal de WhatsApp o email.
+      if (beforeOrder) {
+        try {
+          const afterOrder = await repo.getById(pedidoId);
+          if (afterOrder) await notifyOrderTransitions(db, beforeOrder, afterOrder);
+        } catch (notificationError) {
+          console.error('mercadopago_customer_notification_failed', {
+            pedidoId,
+            reason: notificationError instanceof Error ? notificationError.message : 'unknown',
+          });
+        }
+      }
     }
 
     return NextResponse.json({ ok: true });
