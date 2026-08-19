@@ -12,6 +12,7 @@ function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
   const idempotencyKey = useRef<string>(crypto.randomUUID());
+  const checkoutTracked = useRef(false);
 
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonaId, setZonaId] = useState('');
@@ -47,13 +48,13 @@ function CheckoutContent() {
   // InitiateCheckout / begin_checkout — una vez por carga de la página,
   // con el valor real del carrito en ese momento.
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || checkoutTracked.current) return;
+    checkoutTracked.current = true;
     trackInitiateCheckout({
       items: items.map((item) => ({ id: item.productoId, name: item.nombre, price: item.precio, quantity: item.qty })),
       value: subtotal,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [items, subtotal]);
   const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'flow' | 'whatsapp'>('mercadopago');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

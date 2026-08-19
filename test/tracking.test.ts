@@ -39,3 +39,11 @@ test('contactos públicos instrumentan WhatsApp e Instagram', () => {
   assert.match(source, /trackContact\('whatsapp'\)/);
   assert.match(source, /trackContact\('instagram'\)/);
 });
+
+test('checkout espera la hidratación del carrito y evita duplicados', () => {
+  const source = read('src/app/checkout/page.tsx');
+  assert.match(source, /const checkoutTracked = useRef\(false\)/);
+  assert.match(source, /items\.length === 0 \|\| checkoutTracked\.current/);
+  assert.match(source, /checkoutTracked\.current = true/);
+  assert.match(source, /\[items, subtotal\]/);
+});
