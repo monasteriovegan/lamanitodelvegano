@@ -2,6 +2,7 @@ import 'server-only';
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMercadoPagoAccessToken } from './mercadopago';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 export type PaymentProvider = 'mercadopago' | 'flow';
 
@@ -17,10 +18,7 @@ type PedidoPago = {
 };
 
 function defaultOrigin() {
-  const configured = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
-  if (configured) return configured;
-  const vercel = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-  return vercel ? `https://${vercel}` : 'https://lamanitodelvegano.vercel.app';
+  return runtimeSiteUrl();
 }
 
 async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise<PedidoPago> {

@@ -1,10 +1,10 @@
 import 'server-only';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 const DEFAULT_APP_ID = '1691394752113175';
 const DEFAULT_PAGE_ID = '1210803402107834';
 const DEFAULT_IG_BUSINESS_ID = '17841419477422736';
 const DEFAULT_WABA_ID = '1129249369256097';
-const DEFAULT_SITE_URL = 'https://lamanitodelvegano.vercel.app';
 
 export type MetaMessagingSetupResult = {
   ok: boolean;
@@ -51,7 +51,7 @@ async function configureInstagramAppCallback(version: string, verifyToken?: stri
     return { ok: false, status: tokenResponse.status, error: graphError(tokenBody, 'No se obtuvo App Access Token') };
   }
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, '');
+  const siteUrl = runtimeSiteUrl();
   const callbackUrl = `${siteUrl}/api/instagram`;
   const subscriptionUrl = new URL(`https://graph.facebook.com/${version}/${appId}/subscriptions`);
   const body = new URLSearchParams({

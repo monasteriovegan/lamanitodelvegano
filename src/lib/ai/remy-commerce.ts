@@ -9,6 +9,7 @@ import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import { createPaymentLink, type PaymentProvider } from '@/lib/payments/payment-link';
 import type { CheckoutRequest, ItemCarrito } from '@/types/domain';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 export type RemyToolContext = {
   businessUnitId: string;
@@ -612,7 +613,7 @@ async function createOrder(db: SupabaseClient, context: RemyToolContext) {
     deliveryDate,
     paymentUrl,
     paymentError,
-    trackingUrl: `https://lamanitodelvegano.vercel.app/pedido/${order.numeric_id}`,
+    trackingUrl: `${runtimeSiteUrl()}/pedido/${order.numeric_id}`,
   };
 }
 

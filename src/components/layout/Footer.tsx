@@ -24,6 +24,11 @@ export function Footer() {
           Rastrear Pedido
         </Link>
       </div>
+      <div className="flex flex-wrap gap-3 justify-center mt-2">
+        <Link href="/privacidad" className="text-white/40 hover:text-neon transition-colors">Privacidad</Link>
+        <Link href="/terminos" className="text-white/40 hover:text-neon transition-colors">Términos</Link>
+        <Link href="/eliminacion-de-datos" className="text-white/40 hover:text-neon transition-colors">Eliminación de datos</Link>
+      </div>
     </footer>
   );
 }

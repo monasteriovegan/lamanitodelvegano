@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 type PurchaseItem = {
   productoId?: string;
@@ -84,7 +85,7 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
           event_time: Math.floor(Date.now() / 1000),
           event_id: eventId,
           action_source: 'website',
-          event_source_url: attribution?.landing_url || `https://lamanitodelvegano.vercel.app/pedido/${order.id}`,
+          event_source_url: attribution?.landing_url || `${runtimeSiteUrl()}/pedido/${order.id}`,
           user_data: userData,
           custom_data: {
             currency: String(order.currency || 'CLP').toUpperCase(),
