@@ -4,79 +4,58 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 
 ## DOMINIO
 
-- Dominio oficial: `https://lamanitodelvegano.cl`
-- Estado DNS: pendiente en el proveedor DNS. Vercel solicita `A lamanitodelvegano.cl 76.76.21.21` y `A www.lamanitodelvegano.cl 76.76.21.21`.
-- SSL: pendiente de emisión hasta que los registros resuelvan y Vercel verifique el dominio.
+- Dominio oficial: `https://lamanitodelvegano.cl`.
+- DNS, HTTPS y SSL: verificados externamente; el dominio raíz responde HTTP 200.
+- `www`: resuelve y Vercel aplica redirección permanente al dominio raíz.
 - Canonical: `https://lamanitodelvegano.cl` en metadata, OpenGraph, sitemap y robots.
-- www redirect: preparado como redirección permanente hacia el dominio raíz.
-- Vercel project: `lamanitodelvegano`, ID `prj_tjGEPQ9gFAGOFLRAKgqkrxj1NUfU`, equipo `team_n7nS5veSRB7KWvBYFWH8VTlG`.
-- Compatibilidad temporal: `https://lamanitodelvegano.vercel.app` permanece disponible y es el fallback operativo de callbacks hasta activar `NEXT_PUBLIC_SITE_URL` después de verificar DNS/HTTPS.
+- Proyecto Vercel existente: `lamanitodelvegano`, ID `prj_tjGEPQ9gFAGOFLRAKgqkrxj1NUfU`.
+- `NEXT_PUBLIC_SITE_URL=https://lamanitodelvegano.cl` está configurada para Production y para el preview de la rama activa.
+- `https://lamanitodelvegano.vercel.app` permanece como fallback temporal, pero no es canonical.
 
 ## META
 
 - Business ID: `1210930218761819`.
 - Dataset: `1982469039131019`.
-- App principal: `synthetiq Core sirve`, App ID `1691394752113175`. Es la app usada por el secreto del servidor y aparece suscrita a la Página con `messages,messaging_postbacks`.
-- App secundaria: `Synthetiq Bridge - La Manito`, App ID `1388581679803769`. No hay referencias runtime ni suscripciones comprobadas que justifiquen migrar responsabilidades hacia ella.
-- App mode principal: sin publicar (Development).
+- App principal: `synthetiq Core sirve`, App ID `1691394752113175`.
+- App secundaria: `Synthetiq Bridge - La Manito`, App ID `1388581679803769`; clasificada como `BRIDGE/LEGACY`, sin responsabilidad runtime comprobada.
+- App principal: sin publicar.
+- Configuración básica actualizada y persistida: dominio `lamanitodelvegano.cl`, sitio oficial, privacidad, términos y eliminación de datos. El dominio Vercel se conserva temporalmente.
+- Pendientes básicos: correo de contacto, categoría e ícono oficial 1024×1024. No existe un logo oficial utilizable dentro del repositorio.
+- Verificación del negocio: `No aprobado`; Meta ofrece `Reenviar`.
 - Instagram: `@lamanitodelvegano`, Business ID `17841419477422736`.
-- Facebook Page: ID `1210803402107834`, con tareas `MANAGE`, `CREATE_CONTENT`, `MODERATE`, `MESSAGING`, `ADVERTISE`, `ANALYZE`.
-- WhatsApp: WABA configurado en runtime `1129249369256097`; el número y Phone Number ID no se modificaron.
+- Facebook Page: `1210803402107834`.
+- WhatsApp WABA: `1129249369256097`; número y Phone Number ID sin cambios.
+
+## OAUTH Y WEBHOOKS
+
+- OAuth público: `/api/meta/oauth/start` y `/api/meta/oauth/callback`.
+- Callback oficial: `https://lamanitodelvegano.cl/api/meta/oauth/callback`.
+- Fallback temporal: `https://lamanitodelvegano.vercel.app/api/meta/oauth/callback`.
+- El intercambio de token se delega al backend HTTPS configurado en `META_PROXY_UPSTREAM_URL`; Next.js conserva cookies, `Authorization`, `state` y cabeceras de respuesta. App Secret y tokens no se exponen al navegador.
 - Webhooks directos: `/api/instagram` y `/api/whatsapp`.
-- Webhooks de compatibilidad/proxy: `/api/meta/webhooks/messaging`, `/api/meta/webhooks/whatsapp`, `/api/meta/webhooks/leads`.
-- OAuth real: `/api/meta/oauth/start` y `/api/meta/oauth/callback`, delegados al backend HTTPS configurado en `META_PROXY_UPSTREAM_URL`. El proxy conserva cookies, `Authorization`, `state` y cabeceras de respuesta; los secretos no llegan al browser desde Next.js.
-- URLs oficiales preparadas para Meta:
-  - `https://lamanitodelvegano.cl/api/meta/oauth/callback`
-  - `https://lamanitodelvegano.cl/api/meta/webhooks/messaging`
-  - `https://lamanitodelvegano.cl/api/meta/webhooks/whatsapp`
-  - `https://lamanitodelvegano.cl/api/meta/webhooks/leads`
-  - `https://lamanitodelvegano.cl/api/instagram`
-  - `https://lamanitodelvegano.cl/api/whatsapp`
-- No retirar aún las URLs equivalentes bajo `lamanitodelvegano.vercel.app`.
+- Webhooks proxy: `/api/meta/webhooks/messaging`, `/api/meta/webhooks/whatsapp` y `/api/meta/webhooks/leads`.
+- Todos los endpoints oficiales son públicos por HTTPS y rechazan una verificación sin token correcto con HTTP 403.
+- El panel de Meta confirma que una app sin publicar solo recibe webhooks de prueba desde el panel; no entrega datos de producción, ni siquiera de administradores/evaluadores, hasta publicar la app.
 
 ## PERMISOS Y MENSAJERÍA
 
-- Activos en el token auditado: `pages_show_list`, `ads_read`, `business_management`, `pages_messaging`, `instagram_basic`, `leads_retrieval`, `whatsapp_business_management`, `instagram_manage_messages`, `pages_read_engagement`, `pages_manage_metadata`, `whatsapp_business_messaging`, `public_profile`.
-- Página encontrada y suscripción de app activa: sí.
-- Perfil Instagram legible: sí.
-- Lectura de conversaciones Instagram: bloqueada con Graph error `#3 Application does not have the capability to make this API call`.
-- Infraestructura implementada: sí.
-- Webhook configurado en la app/página histórica: sí, con la app principal.
-- Usuarios externos y DM reales: no demostrados; bloqueados por capacidad/App Review mientras la app siga sin publicar.
-- Clasificación: los permisos aparecen concedidos al usuario administrador, pero la capacidad de conversaciones requiere acceso/capacidad aprobada para producción. No se solicitarán permisos adicionales fuera de mensajería, Pages, WhatsApp y Leads ya usados.
+- Concedidos al token auditado: `pages_show_list`, `pages_messaging`, `instagram_basic`, `instagram_manage_messages`, `pages_read_engagement`, `pages_manage_metadata`, `whatsapp_business_management`, `whatsapp_business_messaging`, además de permisos ya usados por Ads/Leads.
+- Meta muestra `instagram_basic`, `instagram_manage_messages`, `pages_manage_metadata`, `pages_messaging`, `pages_read_engagement` y `pages_show_list` como `Listo para la prueba`.
+- Los permisos modernos de Instagram Login (`instagram_business_basic`, `instagram_business_manage_comments`, `instagram_business_manage_messages`) aparecen disponibles para agregar, pero no son el flujo activo actual basado en Facebook Login/Page; no se agregaron para evitar duplicar arquitectura.
+- Lectura de conversaciones reales: Graph error `#3 Application does not have the capability to make this API call`.
+- Al intentar preparar `instagram_manage_messages` para App Review, Meta exige convertirse primero en Tech Provider, completar Business Verification y Access Verification. La conversión es irreversible y requiere decisión humana.
+- Estado del flujo: código, persistencia, Remy y respuesta están implementados; token y suscripción de Página son válidos. Usuarios externos, entrega de DM de producción y respuesta real siguen bloqueados por publicación/capacidad.
 
-## PIXEL
+## TRACKING
 
-- Estado: operativo.
-- Dataset: `1982469039131019`.
-- Eventos browser instrumentados: `PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Contact`; `Purchase` solo tras pago real.
+- Pixel/Dataset `1982469039131019`: operativo. Eventos browser: `PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Contact`.
+- CAPI: operativo y autorizado; `META_CONVERSIONS_API_ACCESS_TOKEN` es server-side. `Purchase` solo después de pago real, con `event_name=Purchase` y `event_id=purchase_<orderId>` compartido con browser.
+- Atribución: conserva `_fbp`, `_fbc`, `fbclid`, UTMs y `event_source_url`; en el dominio oficial la URL de origen usa `.cl`.
+- GA4: operativo con `G-1Q7QB5EZ33`; el guard SPA evita duplicar `page_view`.
 
-## CAPI
+## PUBLICACIÓN
 
-- Estado: operativo y autorizado.
-- Dataset: `1982469039131019`.
-- Token: `META_CONVERSIONS_API_ACCESS_TOKEN`, solo servidor.
-- Deduplicación: `event_name=Purchase`, `event_id=purchase_<orderId>` en browser y servidor.
-- Atribución: conserva `fbp`, `fbc` y `event_source_url` cuando existen; el tráfico por el dominio oficial conservará su URL real.
-
-## GA4
-
-- Estado: operativo.
-- Measurement ID: `G-1Q7QB5EZ33`.
-- El guard de PageView inicial/SPA continúa evitando duplicados.
-
-## APP PUBLICATION
-
-- Listo: Business asociado, app principal identificada, Page e Instagram vinculados, webhook histórico suscrito, permisos del administrador visibles, política de privacidad, términos y eliminación de datos implementados.
-- Pendiente en configuración básica de `synthetiq Core sirve`: agregar `lamanitodelvegano.cl`, URL del sitio, política, términos, eliminación de datos, categoría e ícono 1024×1024. Mantener el dominio Vercel durante la transición.
-- Requiere App Review/capacidad: mensajería Instagram para conversaciones de usuarios externos y cualquier acceso avanzado que Meta marque en el caso de uso.
-- Requiere acción humana: publicar DNS; aportar ícono; completar datos comerciales/contacto que no deben inventarse; adjuntar video de prueba e instrucciones con un usuario/rol permitido cuando se solicite App Review; enviar la revisión y esperar aprobación de Meta.
-- No se debe activar Live hasta que DNS/HTTPS, URLs legales, pruebas del caso de uso y requisitos visibles en el panel estén completos.
-
-## ACTIVACIÓN DESPUÉS DEL DNS
-
-1. Crear exactamente los dos registros A indicados por Vercel y esperar resolución.
-2. Verificar HTTPS en raíz y www.
-3. Configurar `NEXT_PUBLIC_SITE_URL=https://lamanitodelvegano.cl` para Production y Preview en el proyecto existente y redeploy.
-4. Probar pagos/callbacks, webhooks, OAuth, Pixel, GA4 y CAPI en el dominio oficial.
-5. Añadir en la app principal el dominio y URLs oficiales, conservando temporalmente las antiguas.
+- No puede pasar a Live todavía: botón `Publicar` deshabilitado.
+- Bloqueos visibles: Business Verification `No aprobado`, categoría, ícono oficial 1024×1024 y conversión irreversible a Tech Provider/Access Verification para solicitar acceso avanzado.
+- No se inventó correo, categoría ni icono de marca.
+- La evidencia e instrucciones para el revisor están en `docs/META-APP-REVIEW.md`.
