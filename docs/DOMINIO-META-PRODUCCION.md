@@ -12,6 +12,12 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 - `NEXT_PUBLIC_SITE_URL=https://lamanitodelvegano.cl` está configurada para Production y para el preview de la rama activa.
 - `https://lamanitodelvegano.vercel.app` permanece como fallback temporal, pero no es canonical.
 
+## GATE DE DEPLOY
+
+- El deployment actual `dpl_CbaofYAYCVb7mYPZkp5emAV53u52` continúa `Ready`; no fue reemplazado.
+- Vercel Production contiene los nombres `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`, pero al sincronizarlos para el build los tres valores resultaron de longitud cero. El prerender recibe `Invalid API key` al consultar categorías, zonas y ajustes.
+- No se desplegó este bloque porque el build Production no pasa. Se requieren las tres credenciales reales del proyecto Supabase `adrydqvahzqjbgtcvlay`; no deben enviarse por chat ni inventarse.
+
 ## META
 
 - Business ID: `1210930218761819`.
@@ -20,7 +26,9 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 - App secundaria: `Synthetiq Bridge - La Manito`, App ID `1388581679803769`; clasificada como `BRIDGE/LEGACY`, sin responsabilidad runtime comprobada.
 - App principal: sin publicar.
 - Configuración básica actualizada y persistida: dominio `lamanitodelvegano.cl`, sitio oficial, privacidad, términos y eliminación de datos. El dominio Vercel se conserva temporalmente.
-- Pendientes básicos: correo de contacto operativo, elección de categoría e ícono oficial 1024×1024. No existe un logo oficial utilizable dentro del repositorio.
+- Categoría básica guardada y verificada tras recargar: `Negocios y páginas`.
+- El logo oficial entregado por el usuario fue convertido mecánicamente y verificado como `public/meta/app-icon-1024.png` (PNG RGB, 1024×1024, círculo exterior completo). La transferencia al formulario de Meta quedó bloqueada por el controlador local de archivos (`fileChooser.setFiles: Not allowed`); Meta aún muestra únicamente el ícono como dato básico faltante.
+- El correo de contacto continúa vacío hasta que el buzón corporativo reciba correo real.
 - Verificación del negocio: `Verificado` desde la comprobación del 20 de agosto de 2026.
 - Instagram: `@lamanitodelvegano`, Business ID `17841419477422736`.
 - Facebook Page: `1210803402107834`.
@@ -51,13 +59,21 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 ## TRACKING
 
 - Pixel/Dataset `1982469039131019`: operativo. Eventos browser: `PageView`, `ViewContent`, `AddToCart`, `InitiateCheckout`, `Contact`.
-- CAPI: operativo y autorizado; `META_CONVERSIONS_API_ACCESS_TOKEN` es server-side. `Purchase` solo después de pago real, con `event_name=Purchase` y `event_id=purchase_<orderId>` compartido con browser.
+- `META_CONVERSIONS_API_ACCESS_TOKEN` figura cifrado para Production y Preview en Vercel y no usa prefijo público. El diagnóstico equivalente a `/api/admin/meta/capi-status` se repitió con un lote vacío: Meta respondió HTTP 400/código 100 (validación de payload), no 401/403/código 190; resultado `authorized=true`, `eventSent=false`. El archivo temporal de variables se eliminó inmediatamente.
+- `Purchase` continúa limitado a pedidos recuperados con `payment_status=paid`, con `event_name=Purchase` y `event_id=purchase_<orderId>` compartido con browser. El Dataset activo todavía no registra una primera entrega server-side, coherente con no haber generado una compra falsa.
 - Atribución: conserva `_fbp`, `_fbc`, `fbclid`, UTMs y `event_source_url`; en el dominio oficial la URL de origen usa `.cl`.
 - GA4: operativo con `G-1Q7QB5EZ33`; el guard SPA evita duplicar `page_view`.
 
 ## PUBLICACIÓN
 
 - Meta habilita el botón `Publicar`, pero no se publicó la app. La identidad básica aún debe completarse correctamente antes de usarlo.
-- Bloqueos operativos: correo corporativo no creado, categoría sin decisión, ícono oficial 1024×1024 y conversión irreversible a Tech Provider/Access Verification para solicitar acceso avanzado.
-- No se inventó correo, categoría ni icono de marca.
+- Bloqueos operativos: correo corporativo no creado, subida del ícono oficial preparada pero bloqueada por el selector local y conversión irreversible a Tech Provider/Access Verification para solicitar acceso avanzado.
+- No se inventó correo ni icono de marca; la categoría fue la autorizada por el usuario.
 - La evidencia e instrucciones para el revisor están en `docs/META-APP-REVIEW.md`.
+
+## GOOGLE WORKSPACE
+
+- DNS autoritativo: `ns1.vercel-dns.com` y `ns2.vercel-dns.com`.
+- No hay MX, SPF, DKIM ni DMARC publicados.
+- Opción mínima verificada en la página oficial para Chile: Business Starter, prueba de 14 días, plan anual facturado mensualmente, promoción visible de USD 5,60 por usuario/mes durante tres meses y USD 7,00 después. El precio final e impuestos deben confirmarse en checkout.
+- No se inició ningún cargo ni se publicó DNS de correo sin un tenant real. El usuario debe aprobar el plan/cobro antes de continuar con la contratación.
