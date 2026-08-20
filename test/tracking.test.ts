@@ -58,6 +58,14 @@ test('CAPI se invoca solo en transiciones backend hacia paid', () => {
   }
 });
 
+test('diagnóstico CAPI valida autenticación sin enviar eventos', () => {
+  const source = read('src/app/api/admin/meta/capi-status/route.ts');
+  assert.match(source, /requireRole\(\['admin'\]\)/);
+  assert.match(source, /JSON\.stringify\(\{ data: \[\] \}\)/);
+  assert.match(source, /eventSent: false/);
+  assert.doesNotMatch(source, /accessToken:|token,/);
+});
+
 test('contactos públicos instrumentan WhatsApp e Instagram', () => {
   const source = read('src/app/contacto/page.tsx');
   assert.match(source, /trackContact\('whatsapp'\)/);
