@@ -20,8 +20,8 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 - App secundaria: `Synthetiq Bridge - La Manito`, App ID `1388581679803769`; clasificada como `BRIDGE/LEGACY`, sin responsabilidad runtime comprobada.
 - App principal: sin publicar.
 - Configuración básica actualizada y persistida: dominio `lamanitodelvegano.cl`, sitio oficial, privacidad, términos y eliminación de datos. El dominio Vercel se conserva temporalmente.
-- Pendientes básicos: correo de contacto, categoría e ícono oficial 1024×1024. No existe un logo oficial utilizable dentro del repositorio.
-- Verificación del negocio: `No aprobado`; Meta ofrece `Reenviar`.
+- Pendientes básicos: correo de contacto operativo, elección de categoría e ícono oficial 1024×1024. No existe un logo oficial utilizable dentro del repositorio.
+- Verificación del negocio: `Verificado` desde la comprobación del 20 de agosto de 2026.
 - Instagram: `@lamanitodelvegano`, Business ID `17841419477422736`.
 - Facebook Page: `1210803402107834`.
 - WhatsApp WABA: `1129249369256097`; número y Phone Number ID sin cambios.
@@ -57,7 +57,7 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 
 ## PUBLICACIÓN
 
-- No puede pasar a Live todavía: botón `Publicar` deshabilitado.
-- Bloqueos visibles: Business Verification `No aprobado`, categoría, ícono oficial 1024×1024 y conversión irreversible a Tech Provider/Access Verification para solicitar acceso avanzado.
+- Meta habilita el botón `Publicar`, pero no se publicó la app. La identidad básica aún debe completarse correctamente antes de usarlo.
+- Bloqueos operativos: correo corporativo no creado, categoría sin decisión, ícono oficial 1024×1024 y conversión irreversible a Tech Provider/Access Verification para solicitar acceso avanzado.
 - No se inventó correo, categoría ni icono de marca.
 - La evidencia e instrucciones para el revisor están en `docs/META-APP-REVIEW.md`.
