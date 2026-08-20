@@ -23,8 +23,8 @@ test('webhook de Mercado Pago reconcilia un estado legado Pagado cuando el pago 
 
   assert.match(
     source,
-    /const\s+stalePaidLegacyState\s*=\s*effectiveStatus\s*!==\s*['"]paid['"]\s*&&\s*String\(pedido\.estado\s*\|\|\s*['"]['"]\)\s*===\s*['"]Pagado['"]\s*;/,
-    'el webhook debe detectar Pagado + payment_status no pagado como estado legado incoherente',
+    /const\s+stalePaidLegacyState\s*=\s*\(effectiveStatus\s*===\s*['"]pending['"]\s*\|\|\s*effectiveStatus\s*===\s*['"]failed['"]\)\s*&&\s*String\(pedido\.estado\s*\|\|\s*['"]['"]\)\s*===\s*['"]Pagado['"]\s*;/,
+    'el webhook debe detectar Pagado + pago verificado pending/failed como estado legado incoherente',
   );
   assert.match(
     source,
