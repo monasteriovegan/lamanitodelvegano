@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const db = createSupabaseServiceClient();
   let query = db
     .from('conversations')
-    .select('id,customer_id,contact_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels,ai_enabled')
+    .select('id,customer_id,contact_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels,ai_enabled,order_id')
     .in('channel', allowedChannels)
     .order('last_message_at', { ascending: false });
 
@@ -77,6 +77,7 @@ export async function GET(request: Request) {
       serviceWindowExpiresAt,
       personal,
       aiEnabled: Boolean(row.ai_enabled) && !personal,
+      orderId: row.order_id ? Number(row.order_id) : null,
     };
   });
 
