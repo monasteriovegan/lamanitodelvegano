@@ -4,6 +4,6 @@ import ConversationSalesClient from './ConversationSalesClient';
 export const dynamic = 'force-dynamic';
 
 export default async function ConversationSalesPage() {
-  await requireRole(['admin', 'owner', 'supervisor']);
+  await requireRole(['admin']);
   return <ConversationSalesClient />;
 }
