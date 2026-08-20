@@ -10,7 +10,7 @@ Este documento no contiene secretos ni credenciales.
 - Facebook Page: `1210803402107834`.
 - WhatsApp WABA: `1129249369256097`.
 - App secundaria: `Synthetiq Bridge - La Manito` (`1388581679803769`), `BRIDGE/LEGACY`; no reemplazar la app principal.
-- OAuth: `https://lamanitodelvegano.cl/api/meta/oauth/start` y `/api/meta/oauth/callback`.
+- OAuth: `https://lamanitodelvegano.cl/api/meta/oauth/start` y `/api/meta/oauth/callback`; el inicio devuelve a Meta el callback `.cl` y el intercambio ocurre server-side en el backend Vercel existente.
 - Webhooks: `/api/instagram`, `/api/whatsapp`, `/api/meta/webhooks/messaging`, `/api/meta/webhooks/whatsapp`, `/api/meta/webhooks/leads`.
 
 ## Permisos mínimos para mensajería actual

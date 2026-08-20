@@ -30,11 +30,13 @@ Fecha de auditoría: 20 de agosto de 2026. Este documento no contiene secretos.
 
 - OAuth público: `/api/meta/oauth/start` y `/api/meta/oauth/callback`.
 - Callback oficial: `https://lamanitodelvegano.cl/api/meta/oauth/callback`.
-- Fallback temporal: `https://lamanitodelvegano.vercel.app/api/meta/oauth/callback`.
-- El intercambio de token se delega al backend HTTPS configurado en `META_PROXY_UPSTREAM_URL`; Next.js conserva cookies, `Authorization`, `state` y cabeceras de respuesta. App Secret y tokens no se exponen al navegador.
+- El entrypoint temporal `https://lamanitodelvegano.vercel.app/api/meta/oauth/start` permanece accesible, pero también dirige el callback al dominio oficial.
+- El intercambio de token se delega al backend Vercel existente `synthetiq-meta-dev-proxy`; se retiró del camino crítico el túnel temporal `trycloudflare.com`. Next.js conserva cookies, `Authorization`, `state` y cabeceras de respuesta. App Secret y tokens no se exponen al navegador.
+- El inicio OAuth fue verificado: devuelve HTTP 302 a Meta con `redirect_uri=https://lamanitodelvegano.cl/api/meta/oauth/callback`.
 - Webhooks directos: `/api/instagram` y `/api/whatsapp`.
 - Webhooks proxy: `/api/meta/webhooks/messaging`, `/api/meta/webhooks/whatsapp` y `/api/meta/webhooks/leads`.
 - Todos los endpoints oficiales son públicos por HTTPS y rechazan una verificación sin token correcto con HTTP 403.
+- La suscripción de app Instagram fue migrada y verificada por Graph API con HTTP 200 a `https://lamanitodelvegano.cl/api/instagram`; la Página y el WABA también devolvieron HTTP 200.
 - El panel de Meta confirma que una app sin publicar solo recibe webhooks de prueba desde el panel; no entrega datos de producción, ni siquiera de administradores/evaluadores, hasta publicar la app.
 
 ## PERMISOS Y MENSAJERÍA
