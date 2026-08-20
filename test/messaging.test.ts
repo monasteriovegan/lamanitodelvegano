@@ -104,13 +104,17 @@ test('misma entrega genera una clave estable por transporte', () => {
   );
 });
 
-test('webhook inbound no importa ni invoca proveedores LLM', () => {
+test('webhook inbound delega en Remy sin invocar proveedores LLM directamente', () => {
   const source = readFileSync(
     new URL('../src/app/api/whatsapp/route.ts', import.meta.url),
     'utf8',
   );
   assert.doesNotMatch(source, /gemini|openai|anthropic|claude|generarRespuesta/i);
-  assert.match(source, /ai_called: false/);
+  assert.match(source, /import \{ maybeAutoReply \} from '@\/lib\/ai\/remy'/);
+  assert.match(source, /!result\.duplicate && !isStatus && !isAppEcho && message\.direction === 'inbound'/);
+  assert.match(source, /const ai = await maybeAutoReply\(db, result, message\)/);
+  assert.match(source, /ai_called:\s*aiCalled > 0/);
+  assert.match(source, /ai_replied:\s*aiReplied > 0/);
 });
 
 test('envío real permanece bloqueado salvo habilitación explícita', () => {
