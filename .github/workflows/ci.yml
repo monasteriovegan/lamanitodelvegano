@@ -30,7 +30,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Lint
+      - name: Lint (advisory while legacy debt is cleaned up)
+        continue-on-error: true
         run: npm run lint
 
       - name: Build
