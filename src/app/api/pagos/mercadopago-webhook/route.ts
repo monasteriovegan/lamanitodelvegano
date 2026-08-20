@@ -77,22 +77,31 @@ export async function POST(req: NextRequest) {
     const effectiveStatus = currentPaymentStatus === 'paid' && (nextPaymentStatus === 'pending' || nextPaymentStatus === 'failed')
       ? 'paid'
       : nextPaymentStatus;
+    // Antes de separar estado operativo y estado financiero, el panel podía dejar
+    // "Pagado" con payment_status pendiente. Si Mercado Pago confirma pending/failed,
+    // corregimos únicamente ese legado. Otros estados operativos se conservan.
+    const stalePaidLegacyState = (effectiveStatus === 'pending' || effectiveStatus === 'failed') && String(pedido.estado || '') === 'Pagado';
 
-    if (effectiveStatus !== currentPaymentStatus) {
+    if (effectiveStatus !== currentPaymentStatus || stalePaidLegacyState) {
       const repo = new OrderRepository(db);
       const beforeOrder = await repo.getById(pedidoId);
+      const nextOperationalStatus = effectiveStatus === 'paid'
+        ? 'Pagado'
+        : stalePaidLegacyState
+          ? 'Pendiente'
+          : String(pedido.estado || 'Pendiente');
       const update: Record<string, any> = {
         payment_status: effectiveStatus,
+        estado: effectiveStatus === 'paid' ? 'Pagado' : stalePaidLegacyState ? 'Pendiente' : String(pedido.estado || 'Pendiente'),
         updated_at: new Date().toISOString(),
       };
-      if (effectiveStatus === 'paid') update.estado = 'Pagado';
       const { error: updateError } = await db.from('pedidos').update(update).eq('id', pedidoId);
       if (updateError) throw updateError;
 
       await db.from('order_status_history').insert({
         pedido_id: pedidoId,
         old_status: String(pedido.estado || 'Pendiente'),
-        new_status: effectiveStatus === 'paid' ? 'Pagado' : String(pedido.estado || 'Pendiente'),
+        new_status: nextOperationalStatus,
         payment_status: effectiveStatus,
         notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
       });
