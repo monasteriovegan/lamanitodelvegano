@@ -34,6 +34,30 @@ test('Purchase exige pago verificado por backend y conserva event id estable', (
   assert.match(client, /const eventId = `purchase_\$\{orderId\}`/);
 });
 
+test('CAPI usa secreto server-side y deduplica Purchase con el Pixel', () => {
+  const capi = read('src/lib/meta/conversions-api.ts');
+  assert.match(capi, /META_CONVERSIONS_API_ACCESS_TOKEN/);
+  assert.match(capi, /\.eq\('payment_status', 'paid'\)/);
+  assert.match(capi, /const eventId = `purchase_\$\{order\.id\}`/);
+  assert.match(capi, /event_id: eventId/);
+  assert.match(capi, /currency: String\(order\.currency \|\| 'CLP'\)/);
+  assert.match(capi, /fbp: attribution\?\.fbp/);
+  assert.match(capi, /fbc: attribution\?\.fbc/);
+  assert.doesNotMatch(capi, /wa_access_token/);
+});
+
+test('CAPI se invoca solo en transiciones backend hacia paid', () => {
+  for (const path of [
+    'src/app/api/pagos/mercadopago-webhook/route.ts',
+    'src/app/api/pagos/flow-confirm/route.ts',
+    'src/app/api/admin/orders/[id]/route.ts',
+  ]) {
+    const source = read(path);
+    assert.match(source, /effectiveStatus === 'paid'|updatedOrder\.payment_status === 'paid'/);
+    assert.match(source, /sendPaidPurchaseToMeta/);
+  }
+});
+
 test('contactos públicos instrumentan WhatsApp e Instagram', () => {
   const source = read('src/app/contacto/page.tsx');
   assert.match(source, /trackContact\('whatsapp'\)/);

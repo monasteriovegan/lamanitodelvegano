@@ -9,6 +9,7 @@ import {
   resolveMercadoPagoAccessToken,
   validateMercadoPagoWebhookSignature,
 } from '@/lib/payments/mercadopago';
+import { sendPaidPurchaseToMeta } from '@/lib/meta/conversions-api';
 
 function eventDataId(req: NextRequest, body: any) {
   return String(
@@ -110,6 +111,8 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+
+      if (effectiveStatus === 'paid') await sendPaidPurchaseToMeta(db, pedidoId);
     }
 
     return NextResponse.json({ ok: true });
