@@ -30,11 +30,18 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Worker syntax
+        run: npm run check:worker
+
       - name: Lint (advisory while legacy debt is cleaned up)
         continue-on-error: true
         run: npm run lint
 
-      - name: Build
+      - name: Build without production secrets (advisory)
+        continue-on-error: true
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
