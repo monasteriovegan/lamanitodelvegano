@@ -7,14 +7,12 @@ import {
   type ConversationSaleDraft,
 } from '@/lib/orders/conversation-sale';
 
-const ALLOWED_ROLES = new Set(['admin', 'owner', 'supervisor']);
-
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const admin = await getCurrentAdminUser();
-  if (!admin || !ALLOWED_ROLES.has(admin.rol)) {
+  if (!admin || admin.rol !== 'admin') {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
