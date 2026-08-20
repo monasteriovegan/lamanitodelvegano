@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   normalizeBaileys,
+  normalizeMetaInstagram,
   normalizeMetaWhatsApp,
   normalizePhone,
 } from '../src/lib/messaging/normalize.ts';
@@ -118,6 +119,96 @@ test('webhook WhatsApp delega en Remy solo después de persistir un inbound eleg
   );
   assert.match(source, /const ai = await maybeAutoReply\(db, result, message\)/);
   assert.match(source, /ai_called: aiCalled > 0/);
+});
+
+test('Instagram normaliza texto inbound con el mid como clave idempotente', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      time: 1700000000000,
+      messaging: [{
+        sender: { id: 'ig-customer-1' },
+        recipient: { id: '17841419477422736' },
+        timestamp: 1700000000000,
+        message: { mid: 'ig-mid-1', text: 'Hola Remy' },
+      }],
+    }],
+  });
+
+  assert.equal(message.channel, 'instagram');
+  assert.equal(message.provider_message_id, 'ig-mid-1');
+  assert.equal(message.external_thread_id, 'ig-customer-1');
+  assert.equal(message.direction, 'inbound');
+  assert.equal(message.text, 'Hola Remy');
+  assert.deepEqual(message.attachments, []);
+});
+
+test('Instagram conserva metadatos seguros de imagen, video y audio', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: 'ig-customer-2' },
+        recipient: { id: '17841419477422736' },
+        timestamp: 1700000000000,
+        message: {
+          mid: 'ig-mid-media',
+          attachments: [
+            { type: 'image', payload: { url: 'https://cdn.example/image.jpg' } },
+            { type: 'video', payload: { url: 'https://cdn.example/video.mp4' } },
+            { type: 'audio', payload: { url: 'https://cdn.example/audio.m4a' } },
+          ],
+        },
+      }],
+    }],
+  });
+
+  assert.equal(message.message_type, 'image');
+  assert.deepEqual(message.attachments, [
+    { type: 'image', url: 'https://cdn.example/image.jpg' },
+    { type: 'video', url: 'https://cdn.example/video.mp4' },
+    { type: 'audio', url: 'https://cdn.example/audio.m4a' },
+  ]);
+});
+
+test('Instagram persiste adjuntos desconocidos con fallback estable', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: 'ig-customer-3' },
+        recipient: { id: '17841419477422736' },
+        message: {
+          mid: 'ig-mid-unsupported',
+          attachments: [{ type: 'share', payload: { title: 'Publicación' } }],
+        },
+      }],
+    }],
+  });
+
+  assert.equal(message.message_type, 'share');
+  assert.deepEqual(message.attachments, [{ type: 'unsupported' }]);
+});
+
+test('Instagram marca ecos de la cuenta profesional como salida humana', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: '17841419477422736' },
+        recipient: { id: 'ig-customer-4' },
+        message: { mid: 'ig-mid-echo', text: 'Respuesta humana', is_echo: true },
+      }],
+    }],
+  });
+
+  assert.equal(message.external_thread_id, 'ig-customer-4');
+  assert.equal(message.direction, 'outbound');
+  assert.equal(message.sender_type, 'human');
 });
 
 test('envío real permanece bloqueado salvo habilitación explícita', () => {
