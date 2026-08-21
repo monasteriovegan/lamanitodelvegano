@@ -360,7 +360,7 @@ export async function confirmConversationSale(
     attribution: request.attribution || {},
   });
 
-  const transferPaid = draft.paymentMethod === 'transfer';
+  const transferPaid = draft.paymentMethod === 'transfer' && draft.paymentEvidence;
   const updated = await orderRepository.update(order.numeric_id, {
     status: transferPaid ? 'confirmed' : 'pending',
     payment_status: transferPaid ? 'paid' : 'pending',
