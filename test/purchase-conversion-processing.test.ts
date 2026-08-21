@@ -20,8 +20,8 @@ test('purchase pagado se procesa server-side hacia Meta CAPI y actualiza convers
   assert.match(source, /\bfbc\b/);
   assert.match(source, /\bfbp\b/);
   assert.match(source, /\.from\(['"]conversion_events['"]\)/);
-  assert.match(source, /status:\s*['"]processed['"]/);
-  assert.match(source, /processed_at:/);
+  assert.match(source, /patch\.status\s*=\s*['"]processed['"]/);
+  assert.match(source, /patch\.processed_at\s*=/);
 });
 
 test('webhook Mercado Pago dispara conversión sólo después de pago verificado y sin romper el webhook', () => {
