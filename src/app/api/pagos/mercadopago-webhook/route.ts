@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
+import { processPaidPurchaseConversion } from '@/lib/analytics/server-conversions';
 import {
   getMercadoPagoPayment,
   mapMercadoPagoPaymentStatus,
@@ -118,6 +119,21 @@ export async function POST(req: NextRequest) {
             reason: notificationError instanceof Error ? notificationError.message : 'unknown',
           });
         }
+      }
+    }
+
+    // CAPI es best-effort respecto del webhook financiero: un fallo de analítica
+    // nunca revierte ni hace reintentar un pago ya verificado por Mercado Pago.
+    // También se ejecuta en webhooks duplicados de un pedido ya pagado para poder
+    // recuperar eventos pendientes; el procesador es idempotente por event_id.
+    if (effectiveStatus === 'paid') {
+      try {
+        await processPaidPurchaseConversion(db, pedidoId);
+      } catch (conversionError) {
+        console.error('purchase_conversion_processing_failed', {
+          pedidoId,
+          reason: conversionError instanceof Error ? conversionError.message : 'unknown',
+        });
       }
     }
 
