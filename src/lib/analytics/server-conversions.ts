@@ -43,7 +43,7 @@ async function updateProviderResult(
   db: SupabaseClient,
   conversion: ConversionEvent,
   metaResult: Record<string, unknown>,
-  processed: boolean,
+  delivered: boolean,
 ) {
   const now = new Date().toISOString();
   const providerResults = {
@@ -54,8 +54,8 @@ async function updateProviderResult(
     },
   };
   const patch: Record<string, unknown> = { provider_results: providerResults };
-  if (processed) {
-    patch.status = 'processed';
+  if (delivered) {
+    patch.status = 'sent';
     patch.processed_at = now;
   }
   const { error } = await db.from('conversion_events').update(patch).eq('id', conversion.id);
@@ -87,7 +87,7 @@ export async function processPaidPurchaseConversion(db: SupabaseClient, pedidoId
   const existingMeta = conversion.provider_results && typeof conversion.provider_results === 'object'
     ? (conversion.provider_results as Record<string, any>).meta_capi
     : null;
-  if (conversion.status === 'processed' && existingMeta?.status === 'success') {
+  if (conversion.status === 'sent' && existingMeta?.status === 'success') {
     return { processed: true, alreadyProcessed: true, eventId: existingMeta.event_id };
   }
 
