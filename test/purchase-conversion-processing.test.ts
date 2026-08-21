@@ -31,6 +31,13 @@ test('webhook Mercado Pago dispara conversión sólo después de pago verificado
   assert.match(source, /purchase_conversion_processing_failed/);
 });
 
+test('confirmación privada reintenta una conversión pendiente sólo para pedido pagado autorizado', () => {
+  const source = read('src/app/pedido/[id]/page.tsx');
+  assert.match(source, /esExito\s*&&\s*trackingAuthorized/);
+  assert.match(source, /await processPaidPurchaseConversion\(supabase, Number\(pedido\.id\)\)/);
+  assert.match(source, /purchase_confirmation_conversion_failed/);
+});
+
 test('Pixel browser usa el mismo eventID estable que CAPI para deduplicar Purchase', () => {
   const source = read('src/app/pedido/[id]/PurchaseTracking.tsx');
   assert.match(source, /purchase_\$\{pedidoId\}/);
