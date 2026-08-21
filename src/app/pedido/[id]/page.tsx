@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { processPaidPurchaseConversion } from '@/lib/analytics/server-conversions';
 import { PurchaseTracking } from './PurchaseTracking';
 
 export default async function PedidoConfirmacionPage({
@@ -33,6 +34,20 @@ export default async function PedidoConfirmacionPage({
     && suppliedTracking
     && suppliedTracking === String(pedido.tracking_number).toUpperCase(),
   );
+
+  // Recuperación idempotente: si el webhook financiero ya dejó el pedido pagado
+  // pero la entrega de analytics quedó pendiente, el enlace privado de confirmación
+  // vuelve a intentarla. Nunca se ejecuta desde un ID público sin el tracking privado.
+  if (esExito && trackingAuthorized) {
+    try {
+      await processPaidPurchaseConversion(supabase, Number(pedido.id));
+    } catch (conversionError) {
+      console.error('purchase_confirmation_conversion_failed', {
+        pedidoId: pedido.id,
+        reason: conversionError instanceof Error ? conversionError.message : 'unknown',
+      });
+    }
+  }
 
   return (
     <SiteShell>
