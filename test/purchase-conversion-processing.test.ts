@@ -6,7 +6,7 @@ import test from 'node:test';
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('purchase pagado se procesa server-side hacia Meta CAPI y actualiza conversion_events', () => {
+test('purchase pagado se procesa server-side hacia Meta CAPI y actualiza conversion_events con estado canónico', () => {
   const path = 'src/lib/analytics/server-conversions.ts';
   assert.ok(existsSync(join(root, path)), 'falta el procesador server-side de conversiones');
   const source = read(path);
@@ -20,7 +20,8 @@ test('purchase pagado se procesa server-side hacia Meta CAPI y actualiza convers
   assert.match(source, /\bfbc\b/);
   assert.match(source, /\bfbp\b/);
   assert.match(source, /\.from\(['"]conversion_events['"]\)/);
-  assert.match(source, /patch\.status\s*=\s*['"]processed['"]/);
+  assert.match(source, /patch\.status\s*=\s*['"]sent['"]/);
+  assert.doesNotMatch(source, /patch\.status\s*=\s*['"]processed['"]/);
   assert.match(source, /patch\.processed_at\s*=/);
 });
 
