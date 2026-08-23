@@ -29,7 +29,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const raw = await request.text();
-  if (!verifyHmac(raw, request.headers.get('x-hub-signature-256'), process.env.META_APP_SECRET)) {
+  const signature256 = request.headers.get('x-hub-signature-256');
+  if (!verifyHmac(raw, signature256, process.env.META_APP_SECRET)) {
+    console.warn('instagram_webhook_signature_rejected', {
+      signature256Present: Boolean(signature256),
+      signatureLegacyPresent: Boolean(request.headers.get('x-hub-signature')),
+      appSecretPresent: Boolean(process.env.META_APP_SECRET),
+      bodyBytes: Buffer.byteLength(raw),
+    });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }
 
