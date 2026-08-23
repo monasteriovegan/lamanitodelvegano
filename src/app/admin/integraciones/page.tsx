@@ -1,19 +1,32 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
-import { crearMetaPixel, guardarIntegraciones } from './actions';
+import { guardarIntegraciones } from './actions';
+import { MetaConnectionPanel, type MetaConnectionView } from './MetaConnectionPanel';
+
+type BusinessMembershipRow = { business_units: { id: string; name: string; slug: string } | null };
 
 function secretPlaceholder(configured: boolean) {
   return configured ? '••••••••  configurada · deja vacío para conservar' : 'Pega la clave aquí';
 }
 
 export default async function AdminIntegracionesPage() {
-  await requireRole(['admin']);
+  const admin = await requireRole(['admin']);
 
   const supabase = createSupabaseServiceClient();
-  const [{ data: integraciones }, { data: groq }] = await Promise.all([
+  const [{ data: integraciones }, { data: groq }, { data: memberships }] = await Promise.all([
     supabase.from('integraciones_secretas').select('*').eq('id', 'global').maybeSingle(),
     supabase.from('ai_provider_credentials').select('provider,api_key,enabled').eq('provider', 'groq').maybeSingle(),
+    supabase.from('business_members').select('business_unit_id,business_units(id,name,slug)').eq('user_id', admin.id),
   ]);
+  const business = (memberships?.[0] as unknown as BusinessMembershipRow | undefined)?.business_units;
+  const { data: connectionRows } = business ? await supabase.from('meta_connections')
+    .select('id,status,token_expires_at,last_error_code,created_at')
+    .eq('business_unit_id', business.id).order('created_at', { ascending: false }).limit(1) : { data: [] };
+  const connection = connectionRows?.[0] || null;
+  const { data: assets } = connection && business ? await supabase.from('meta_connection_assets')
+    .select('id,asset_type,external_id,display_name,selected').eq('connection_id', connection.id)
+    .eq('business_unit_id', business.id).order('asset_type') : { data: [] };
+  const metaConnection = connection ? { ...connection, assets: assets || [] } : null;
 
   return (
     <div className="max-w-[640px]">
@@ -22,6 +35,10 @@ export default async function AdminIntegracionesPage() {
         Las claves se guardan para uso exclusivo del servidor. El panel solo muestra si una credencial está configurada:
         nunca vuelve a insertar el secreto guardado en el HTML. Deja un campo de clave vacío para conservar su valor actual.
       </p>
+
+      {business ? <MetaConnectionPanel businessUnitId={business.id} businessName={business.name} connection={metaConnection as MetaConnectionView | null} /> : (
+        <p className="mb-6 rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-xs text-amber-100">No tienes un negocio activo asignado.</p>
+      )}
 
       <form action={guardarIntegraciones} className="flex flex-col gap-6">
         <fieldset className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
@@ -77,26 +94,6 @@ export default async function AdminIntegracionesPage() {
         </fieldset>
 
         <fieldset className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
-          <legend className="text-sm font-bold text-white px-1">💬 Meta Messaging — WhatsApp + Instagram</legend>
-          <p className="text-[11px] text-muted mb-3">
-            El token de Meta habilita el envío oficial por WhatsApp e Instagram. Al guardar un token nuevo, el servidor intenta convertirlo a una credencial de mayor duración y verificar las suscripciones de mensajería.
-          </p>
-          <div className="mt-2 mb-3">
-            <label className="block text-xs text-muted mb-1.5">Meta User Access Token</label>
-            <input name="wa_access_token" type="password" autoComplete="new-password" placeholder={secretPlaceholder(Boolean(integraciones?.wa_access_token))} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
-          </div>
-          <div className="mb-3">
-            <label className="block text-xs text-muted mb-1.5">WhatsApp Phone Number ID</label>
-            <input name="wa_phone_number_id" defaultValue={integraciones?.wa_phone_number_id || ''} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
-            <p className="text-[10px] text-muted mt-1">Necesario para poder enviar mensajes por WhatsApp Cloud API.</p>
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1.5">Verify Token (webhooks Meta)</label>
-            <input name="wa_verify_token" type="password" autoComplete="new-password" placeholder={secretPlaceholder(Boolean(integraciones?.wa_verify_token))} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
-          </div>
-        </fieldset>
-
-        <fieldset className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
           <legend className="text-sm font-bold text-white px-1">📧 Emails transaccionales (Resend)</legend>
           <p className="text-[11px] text-muted mb-3">Necesitas un dominio verificado en Resend para que los emails lleguen de forma confiable.</p>
           <div className="mt-2 mb-3">
@@ -127,17 +124,6 @@ export default async function AdminIntegracionesPage() {
         </button>
       </form>
 
-      {!integraciones?.meta_pixel_id && (
-        <form action={crearMetaPixel} className="mt-6 rounded-xl border border-blue-400/20 bg-blue-400/5 p-4">
-          <p className="mb-3 text-xs leading-5 text-white/65">
-            No existe un Pixel/Dataset web en el Business Manager. Esta acción crea uno bajo “La manito del vegano”,
-            lo comparte con la cuenta publicitaria activa cuando Meta lo permite y guarda solamente su ID público.
-          </p>
-          <button type="submit" className="rounded-full bg-blue-500 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-400">
-            Crear y conectar Pixel web
-          </button>
-        </form>
-      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizarTelefonoChile } from '@/lib/whatsapp/client';
+import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 
 export async function sendWhatsAppCloud(
   input: { to: string; text: string },
-  options: { manual?: boolean; automatic?: boolean } = {},
+  options: { manual?: boolean; automatic?: boolean; businessUnitId: string },
 ) {
   // Human CRM sends and explicitly authorized Remy sends are allowed.
   // Every other automatic path remains blocked unless the global Meta send mode is live.
@@ -13,22 +14,18 @@ export async function sendWhatsAppCloud(
   }
 
   const db = createSupabaseServiceClient();
-  const { data: config } = await db
-    .from('integraciones_secretas')
-    .select('wa_access_token,wa_phone_number_id')
-    .eq('id', 'global')
-    .maybeSingle();
-  if (!config?.wa_access_token || !config.wa_phone_number_id) {
-    throw new Error('whatsapp_cloud_not_configured');
-  }
+  const credential = await new MetaConnectionsRepository(db).getActiveCredential(
+    options.businessUnitId,
+    'whatsapp_phone_number',
+  );
 
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
   const response = await fetch(
-    `https://graph.facebook.com/${version}/${encodeURIComponent(config.wa_phone_number_id)}/messages`,
+    `https://graph.facebook.com/${version}/${encodeURIComponent(credential.externalId)}/messages`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${config.wa_access_token}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

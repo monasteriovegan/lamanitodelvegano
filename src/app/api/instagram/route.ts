@@ -78,6 +78,9 @@ export async function POST(request: Request) {
       ai_replied: aiReplied > 0,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === 'meta_asset_not_connected') {
+      return Response.json({ ok: true, ignored: true, reason: 'asset_not_connected' }, { status: 200 });
+    }
     console.error('instagram_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
     });
