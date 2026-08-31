@@ -11,10 +11,15 @@ export async function POST(request: Request) {
   const admin = await getCurrentAdminUser();
   if (!admin) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-  const body = await request.json().catch(() => null);
-  const token = body && typeof body === 'object' && typeof body.token === 'string'
-    ? body.token.trim()
-    : '';
+  const contentType = request.headers.get('content-type') || '';
+  let token = '';
+  if (contentType.includes('application/json')) {
+    const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+    token = typeof body?.token === 'string' ? body.token.trim() : '';
+  } else {
+    const form = await request.formData().catch(() => null);
+    token = String(form?.get('token') || '').trim();
+  }
   const appSecret = process.env.META_APP_SECRET || '';
   const appId = process.env.META_APP_ID || MAIN_APP_ID;
   if (!token || !appSecret || appId !== MAIN_APP_ID) {
