@@ -131,7 +131,7 @@ test('missing subscription performs GET POST GET and trusts only the read-back',
   });
 
   assert.deepEqual(calls.map((call) => call.method), ['GET', 'POST', 'GET']);
-  assert.equal(calls[1]?.body, 'subscribed_fields=messages');
+  assert.equal(calls[1]?.body, null);
   assert.equal(result.before.status, 'not_subscribed');
   assert.equal(result.mutationStatus, 200);
   assert.equal(result.mutationAccepted, true);

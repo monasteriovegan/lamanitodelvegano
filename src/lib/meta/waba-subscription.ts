@@ -143,11 +143,7 @@ export async function ensureWabaMessagesSubscription(
   try {
     const response = await fetchImpl(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${input.token}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ subscribed_fields: 'messages' }),
+      headers: { Authorization: `Bearer ${input.token}` },
       cache: 'no-store',
     });
     mutationStatus = response.status;
