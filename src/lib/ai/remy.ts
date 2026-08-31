@@ -13,6 +13,7 @@ import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
 import { loadRemyPaymentContext } from '@/lib/ai/remy-payment';
+import { evaluateAutomaticWhatsAppReplyEntry, resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -348,6 +349,13 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
   if (persisted.duplicate || !eligibleChannel || inbound.direction !== 'inbound' || (!textMessage && !whatsappMedia)) {
     return { called: false, replied: false, reason: 'not_eligible' };
   }
+
+  const entry = evaluateAutomaticWhatsAppReplyEntry({
+    channel: inbound.channel,
+    sendMode: resolveWhatsAppSendMode(),
+    afterGuard: () => undefined,
+  });
+  if (!entry.allowed) return { called: false, replied: false, reason: entry.reason };
 
   const { data: conversation } = await db.from('conversations')
     .select('id,business_unit_id,ai_enabled,human_takeover,metadata,labels')

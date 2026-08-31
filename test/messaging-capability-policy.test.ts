@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  evaluateAutomaticWhatsAppReplyEntry,
   evaluateMessagingCapability,
   resolveWhatsAppSendMode,
   type MessagingCapability,
@@ -120,4 +121,28 @@ test('disabled send mode blocks WhatsApp and Instagram sends by default', () => 
 
 test('live mode permits send only when every gate is open', () => {
   assert.deepEqual(evaluateMessagingCapability(base()), { allowed: true, reason: 'send_allowed' });
+});
+
+test('automatic WhatsApp entry stops read_only before any Remy dependency can run', () => {
+  let dependencyCalls = 0;
+  const decision = evaluateAutomaticWhatsAppReplyEntry({
+    channel: 'whatsapp',
+    sendMode: 'read_only',
+    afterGuard: () => { dependencyCalls += 1; },
+  });
+
+  assert.deepEqual(decision, { allowed: false, reason: 'send_mode_read_only' });
+  assert.equal(dependencyCalls, 0);
+});
+
+test('automatic WhatsApp entry continues only in live mode', () => {
+  let dependencyCalls = 0;
+  const decision = evaluateAutomaticWhatsAppReplyEntry({
+    channel: 'whatsapp',
+    sendMode: 'live',
+    afterGuard: () => { dependencyCalls += 1; },
+  });
+
+  assert.deepEqual(decision, { allowed: true, reason: 'automatic_reply_allowed' });
+  assert.equal(dependencyCalls, 1);
 });

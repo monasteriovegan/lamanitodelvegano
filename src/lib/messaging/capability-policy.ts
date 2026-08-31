@@ -71,3 +71,21 @@ export function evaluateMessagingCapability(
 
   return { allowed: true, reason: 'send_allowed' };
 }
+
+export function evaluateAutomaticWhatsAppReplyEntry(input: {
+  channel: MessagingChannel;
+  sendMode: MetaSendMode;
+  afterGuard: () => void;
+}): MessagingCapabilityDecision {
+  if (input.channel === 'whatsapp') {
+    if (input.sendMode === 'read_only') {
+      return { allowed: false, reason: 'send_mode_read_only' };
+    }
+    if (input.sendMode !== 'live') {
+      return { allowed: false, reason: 'send_mode_disabled' };
+    }
+  }
+
+  input.afterGuard();
+  return { allowed: true, reason: 'automatic_reply_allowed' };
+}
