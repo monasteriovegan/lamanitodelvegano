@@ -61,6 +61,43 @@ export async function listWabaSubscriptions(input: {
   }
 }
 
+export async function listWabaPhoneNumbers(input: {
+  graphVersion: string;
+  wabaId: string;
+  token: string;
+  fetchImpl?: typeof fetch;
+}) {
+  const url = new URL(
+    `https://graph.facebook.com/${encodeURIComponent(input.graphVersion)}/${encodeURIComponent(input.wabaId)}/phone_numbers`,
+  );
+  url.searchParams.set('fields', 'id,display_phone_number,verified_name,quality_rating');
+  try {
+    const response = await (input.fetchImpl ?? fetch)(url, {
+      headers: { Authorization: `Bearer ${input.token}` }, cache: 'no-store',
+    });
+    const body = await response.json().catch(() => null);
+    const data = body && typeof body === 'object' && Array.isArray((body as Record<string, unknown>).data)
+      ? (body as Record<string, unknown>).data as unknown[]
+      : null;
+    if (!data) return { httpStatus: response.status, phones: [], error: 'phone_assets_unavailable' };
+    const phones = data.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const record = item as Record<string, unknown>;
+      const id = String(record.id || '').trim();
+      if (!id) return [];
+      return [{
+        id,
+        displayPhoneNumber: String(record.display_phone_number || '').trim() || null,
+        verifiedName: String(record.verified_name || '').trim() || null,
+        qualityRating: String(record.quality_rating || '').trim() || null,
+      }];
+    });
+    return { httpStatus: response.status, phones, error: response.ok ? null : 'phone_assets_unavailable' };
+  } catch {
+    return { httpStatus: null, phones: [], error: 'phone_assets_unavailable' };
+  }
+}
+
 function unknownState(appId: string, error: string, httpStatus: number | null = null): WabaSubscriptionState {
   return { status: 'unknown', appId, fields: [], httpStatus, error };
 }

@@ -4,11 +4,24 @@ import test from 'node:test';
 import {
   ensureWabaMessagesSubscription,
   listWabaSubscriptions,
+  listWabaPhoneNumbers,
   parseWabaSubscription,
 } from '../src/lib/meta/waba-subscription.ts';
 
 const APP_ID = '1691394752113175';
 const WABA_ID = '1129249369256097';
+
+test('lists only safe phone-number asset fields from the configured WABA', async () => {
+  const result = await listWabaPhoneNumbers({
+    graphVersion: 'v26.0', wabaId: WABA_ID, token: TOKEN,
+    fetchImpl: async () => json({ data: [{ id: 'phone-1', display_phone_number: '+5600', verified_name: 'LMV', quality_rating: 'GREEN' }] }),
+  });
+  assert.deepEqual(result, {
+    httpStatus: 200,
+    phones: [{ id: 'phone-1', displayPhoneNumber: '+5600', verifiedName: 'LMV', qualityRating: 'GREEN' }],
+    error: null,
+  });
+});
 
 test('lists only app ids and subscribed fields from WABA read-back', async () => {
   const fetchImpl = async () => new Response(JSON.stringify({ data: [
