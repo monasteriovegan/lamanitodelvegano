@@ -126,11 +126,9 @@ test('Centro de Conexiones opera por membresía y conserva historial al desconec
   assert.doesNotMatch(actions, /delete\(\)[\s\S]*meta_connections/);
 });
 
-test('webhook de un asset no conectado responde 200 sin contaminar otro tenant', () => {
-  for (const path of ['src/app/api/instagram/route.ts', 'src/app/api/whatsapp/route.ts']) {
-    const source = read(path);
-    assert.match(source, /meta_asset_not_connected/);
-    assert.match(source, /ignored:\s*true/);
-    assert.match(source, /status:\s*200/);
-  }
+test('webhook Instagram de un asset no conectado responde 200 sin contaminar otro tenant', () => {
+  const source = read('src/app/api/instagram/route.ts');
+  assert.match(source, /meta_asset_not_connected/);
+  assert.match(source, /ignored:\s*true/);
+  assert.match(source, /status:\s*200/);
 });

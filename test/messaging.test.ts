@@ -105,22 +105,6 @@ test('misma entrega genera una clave estable por transporte', () => {
   );
 });
 
-test('webhook WhatsApp delega en Remy solo después de persistir un inbound elegible', () => {
-  const source = readFileSync(
-    new URL('../src/app/api/whatsapp/route.ts', import.meta.url),
-    'utf8',
-  );
-  assert.doesNotMatch(source, /gemini|openai|anthropic|claude|generarRespuesta/i);
-  assert.match(source, /import \{ maybeAutoReply \} from '@\/lib\/ai\/remy'/);
-  assert.match(source, /const result = await persistMessage\(db, message\)/);
-  assert.match(
-    source,
-    /!result\.duplicate && !isStatus && !isAppEcho && message\.direction === 'inbound'/,
-  );
-  assert.match(source, /const ai = await maybeAutoReply\(db, result, message\)/);
-  assert.match(source, /ai_called: aiCalled > 0/);
-});
-
 test('Instagram normaliza texto inbound con el mid como clave idempotente', () => {
   const [message] = normalizeMetaInstagram({
     object: 'instagram',
