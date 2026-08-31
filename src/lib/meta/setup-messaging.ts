@@ -1,5 +1,6 @@
 import 'server-only';
 import { runtimeSiteUrl } from '@/lib/site-url';
+import { ensureWabaMessagesSubscription } from '@/lib/meta/waba-subscription';
 
 const DEFAULT_APP_ID = '1691394752113175';
 const DEFAULT_PAGE_ID = '1210803402107834';
@@ -13,7 +14,14 @@ export type MetaMessagingSetupResult = {
   page: { id: string; name: string | null; instagramBusinessId: string | null } | null;
   instagramAppSubscription: { ok: boolean; status: number; callbackUrl?: string; error?: string } | null;
   pageSubscription: { ok: boolean; status: number; fields?: string[]; error?: string } | null;
-  wabaSubscription: { ok: boolean; status: number; subscribed?: boolean; error?: string } | null;
+  wabaSubscription: {
+    ok: boolean;
+    status: number;
+    subscribed?: boolean;
+    fields?: string[];
+    verifiedAfterWrite?: boolean;
+    error?: string;
+  } | null;
   warnings: string[];
 };
 
@@ -160,12 +168,22 @@ export async function setupMetaMessaging(
     result.warnings.push('No se encontró la Página vinculada a @lamanitodelvegano en /me/accounts.');
   }
 
-  const wabaUrl = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(wabaId)}/subscribed_apps`);
-  wabaUrl.searchParams.set('subscribed_fields', 'messages');
-  const wabaResult = await graphJson(wabaUrl, userAccessToken, { method: 'POST' });
-  result.wabaSubscription = wabaResult.response.ok && wabaResult.body?.success
-    ? { ok: true, status: wabaResult.response.status, subscribed: true }
-    : { ok: false, status: wabaResult.response.status, error: graphError(wabaResult.body, 'No se pudo verificar la suscripción WABA') };
+  const wabaVerification = await ensureWabaMessagesSubscription({
+    graphVersion: version,
+    wabaId,
+    appId: process.env.META_APP_ID || DEFAULT_APP_ID,
+    token: userAccessToken,
+  });
+  const verifiedWaba = wabaVerification.after.status === 'subscribed'
+    && wabaVerification.after.fields.includes('messages');
+  result.wabaSubscription = {
+    ok: verifiedWaba,
+    status: wabaVerification.after.httpStatus ?? wabaVerification.mutationStatus ?? 0,
+    subscribed: verifiedWaba,
+    fields: wabaVerification.after.fields,
+    verifiedAfterWrite: wabaVerification.mutationStatus !== null,
+    ...(wabaVerification.after.error ? { error: wabaVerification.after.error } : {}),
+  };
 
   const required = [
     'pages_show_list',
