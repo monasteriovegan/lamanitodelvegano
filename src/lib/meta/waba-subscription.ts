@@ -20,6 +20,46 @@ type EnsureWabaMessagesSubscriptionResult = {
   after: WabaSubscriptionState;
 };
 
+export async function listWabaSubscriptions(input: {
+  graphVersion: string;
+  wabaId: string;
+  token: string;
+  fetchImpl?: typeof fetch;
+}) {
+  const url = new URL(
+    `https://graph.facebook.com/${encodeURIComponent(input.graphVersion)}/${encodeURIComponent(input.wabaId)}/subscribed_apps`,
+  );
+  try {
+    const response = await (input.fetchImpl ?? fetch)(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${input.token}` },
+      cache: 'no-store',
+    });
+    const body = await response.json().catch(() => null);
+    if (!body || typeof body !== 'object' || !Array.isArray((body as Record<string, unknown>).data)) {
+      const error = body && typeof body === 'object'
+        ? graphErrorCode(body as Record<string, unknown>)
+        : null;
+      return { httpStatus: response.status, apps: [], error: error || 'malformed_graph_response' };
+    }
+    const apps = ((body as Record<string, unknown>).data as unknown[]).flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const record = item as Record<string, unknown>;
+      const appId = String(record.id || '').trim();
+      if (!appId) return [];
+      return [{
+        appId,
+        fields: Array.isArray(record.subscribed_fields)
+          ? record.subscribed_fields.map((field) => String(field)).filter(Boolean)
+          : [],
+      }];
+    });
+    return { httpStatus: response.status, apps, error: response.ok ? null : 'graph_request_failed' };
+  } catch {
+    return { httpStatus: null, apps: [], error: 'graph_request_failed' };
+  }
+}
+
 function unknownState(appId: string, error: string, httpStatus: number | null = null): WabaSubscriptionState {
   return { status: 'unknown', appId, fields: [], httpStatus, error };
 }

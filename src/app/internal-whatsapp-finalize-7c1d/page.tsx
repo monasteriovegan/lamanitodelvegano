@@ -1,4 +1,4 @@
-import { ensureWabaMessagesSubscription } from '@/lib/meta/waba-subscription';
+import { ensureWabaMessagesSubscription, listWabaSubscriptions } from '@/lib/meta/waba-subscription';
 import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
@@ -25,10 +25,16 @@ export default async function WhatsAppSubscriptionFinalizer() {
     appId,
     token: config.wa_access_token,
   });
+  const observedSubscriptions = await listWabaSubscriptions({
+    graphVersion: process.env.META_GRAPH_VERSION || 'v26.0',
+    wabaId,
+    token: config.wa_access_token,
+  });
   return <pre>{JSON.stringify({
     ok: result.after.status === 'subscribed' && result.after.fields.includes('messages'),
     before: result.before,
     mutationStatus: result.mutationStatus,
     after: result.after,
+    observedSubscriptions,
   }, null, 2)}</pre>;
 }

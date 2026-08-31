@@ -3,11 +3,29 @@ import test from 'node:test';
 
 import {
   ensureWabaMessagesSubscription,
+  listWabaSubscriptions,
   parseWabaSubscription,
 } from '../src/lib/meta/waba-subscription.ts';
 
 const APP_ID = '1691394752113175';
 const WABA_ID = '1129249369256097';
+
+test('lists only app ids and subscribed fields from WABA read-back', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({ data: [
+    { id: 'historical-app', name: 'secret name', subscribed_fields: ['messages'] },
+    { id: 'main-app', subscribed_fields: ['messages', 'message_template_status_update'] },
+  ] }), { status: 200 });
+  assert.deepEqual(await listWabaSubscriptions({
+    graphVersion: 'v26.0', wabaId: WABA_ID, token: 'server-secret', fetchImpl,
+  }), {
+    httpStatus: 200,
+    apps: [
+      { appId: 'historical-app', fields: ['messages'] },
+      { appId: 'main-app', fields: ['messages', 'message_template_status_update'] },
+    ],
+    error: null,
+  });
+});
 const TOKEN = 'secret-token-that-must-never-be-returned';
 
 function json(body: unknown, status = 200) {
