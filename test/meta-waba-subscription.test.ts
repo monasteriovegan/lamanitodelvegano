@@ -134,6 +134,7 @@ test('missing subscription performs GET POST GET and trusts only the read-back',
   assert.equal(calls[1]?.body, 'subscribed_fields=messages');
   assert.equal(result.before.status, 'not_subscribed');
   assert.equal(result.mutationStatus, 200);
+  assert.equal(result.mutationAccepted, true);
   assert.equal(result.after.status, 'subscribed');
   assert.deepEqual(result.after.fields, ['messages']);
 });
@@ -149,6 +150,7 @@ test('POST 200 is not success when the mandatory GET read-back remains absent', 
   });
 
   assert.equal(result.mutationStatus, 200);
+  assert.equal(result.mutationAccepted, true);
   assert.equal(result.after.status, 'not_subscribed');
 });
 
@@ -172,6 +174,7 @@ test('a failed mutation still performs the final GET and returns sanitized state
 
   assert.deepEqual(methods, ['GET', 'POST', 'GET']);
   assert.equal(result.mutationStatus, 403);
+  assert.equal(result.mutationAccepted, false);
   assert.equal(result.after.httpStatus, 401);
   assert.equal(result.after.status, 'unknown');
   assert.doesNotMatch(JSON.stringify(result), new RegExp(TOKEN));

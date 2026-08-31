@@ -17,6 +17,7 @@ type EnsureWabaMessagesSubscriptionInput = {
 type EnsureWabaMessagesSubscriptionResult = {
   before: WabaSubscriptionState;
   mutationStatus: number | null;
+  mutationAccepted: boolean | null;
   after: WabaSubscriptionState;
 };
 
@@ -134,10 +135,11 @@ export async function ensureWabaMessagesSubscription(
   const before = await readSubscription(url, input.appId, input.token, fetchImpl);
 
   if (before.status === 'subscribed' && before.fields.includes('messages')) {
-    return { before, mutationStatus: null, after: before };
+    return { before, mutationStatus: null, mutationAccepted: null, after: before };
   }
 
   let mutationStatus: number | null = null;
+  let mutationAccepted = false;
   try {
     const response = await fetchImpl(url, {
       method: 'POST',
@@ -149,11 +151,13 @@ export async function ensureWabaMessagesSubscription(
       cache: 'no-store',
     });
     mutationStatus = response.status;
-    await response.arrayBuffer().catch(() => undefined);
+    const mutationBody = await response.json().catch(() => null);
+    mutationAccepted = response.ok
+      && Boolean(mutationBody && typeof mutationBody === 'object' && (mutationBody as Record<string, unknown>).success === true);
   } catch {
     mutationStatus = null;
   }
 
   const after = await readSubscription(url, input.appId, input.token, fetchImpl);
-  return { before, mutationStatus, after };
+  return { before, mutationStatus, mutationAccepted, after };
 }

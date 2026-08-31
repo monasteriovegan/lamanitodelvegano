@@ -42,6 +42,7 @@ export default async function WhatsAppSubscriptionFinalizer() {
     ok: result.after.status === 'subscribed' && result.after.fields.includes('messages'),
     before: result.before,
     mutationStatus: result.mutationStatus,
+    mutationAccepted: result.mutationAccepted,
     after: result.after,
     observedSubscriptions,
     tokenDiagnostic,
