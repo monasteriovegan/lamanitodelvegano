@@ -73,7 +73,7 @@ export function evaluateMessagingCapability(
 }
 
 export function evaluateAutomaticWhatsAppReplyEntry(input: {
-  channel: MessagingChannel;
+  channel: string;
   sendMode: MetaSendMode;
   afterGuard: () => void;
 }): MessagingCapabilityDecision {
