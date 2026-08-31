@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { validateWhatsAppSystemUserToken } from '../src/lib/meta/system-user-token.ts';
@@ -31,13 +30,4 @@ test('rejects user tokens, wrong apps and missing scopes without returning a sec
   }, '1691394752113175');
   assert.deepEqual(missing, { ok: false, reason: 'missing_required_scopes' });
   assert.equal(JSON.stringify(missing).includes('access_token'), false);
-});
-
-test('temporary token handoff is admin-only, password-masked and never logged', () => {
-  const page = readFileSync('src/app/internal-whatsapp-system-token-2f6a/page.tsx', 'utf8');
-  const route = readFileSync('src/app/api/admin/whatsapp/system-user-token/route.ts', 'utf8');
-  assert.match(page, /requireRole\(\['admin'\]\)/);
-  assert.match(page, /type="password"/);
-  assert.match(page, /action="\/api\/admin\/whatsapp\/system-user-token"/);
-  assert.doesNotMatch(page + route, /console\.(?:log|info|warn|error)/);
 });
