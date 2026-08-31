@@ -39,6 +39,27 @@ test('lists only app ids and subscribed fields from WABA read-back', async () =>
     error: null,
   });
 });
+
+test('recognizes Meta current nested whatsapp_business_api_data app shape', async () => {
+  const nested = {
+    data: [{
+      whatsapp_business_api_data: {
+        id: APP_ID,
+        name: 'synthetiq Core sirve',
+        link: 'https://www.facebook.com/games/?app_id=1691394752113175',
+      },
+    }],
+  };
+  assert.deepEqual(await listWabaSubscriptions({
+    graphVersion: 'v26.0', wabaId: WABA_ID, token: TOKEN,
+    fetchImpl: async () => json(nested),
+  }), {
+    httpStatus: 200,
+    apps: [{ appId: APP_ID, fields: [] }],
+    error: null,
+  });
+  assert.equal(parseWabaSubscription(nested, APP_ID).status, 'subscribed');
+});
 const TOKEN = 'secret-token-that-must-never-be-returned';
 
 function json(body: unknown, status = 200) {

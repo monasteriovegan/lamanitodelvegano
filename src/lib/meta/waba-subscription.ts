@@ -46,12 +46,19 @@ export async function listWabaSubscriptions(input: {
     const apps = ((body as Record<string, unknown>).data as unknown[]).flatMap((item) => {
       if (!item || typeof item !== 'object') return [];
       const record = item as Record<string, unknown>;
-      const appId = String(record.id || '').trim();
+      const nested = record.whatsapp_business_api_data;
+      const nestedRecord = nested && typeof nested === 'object' && !Array.isArray(nested)
+        ? nested as Record<string, unknown>
+        : null;
+      const appId = String(nestedRecord?.id || record.id || '').trim();
       if (!appId) return [];
+      const rawFields = Array.isArray(record.subscribed_fields)
+        ? record.subscribed_fields
+        : nestedRecord?.subscribed_fields;
       return [{
         appId,
-        fields: Array.isArray(record.subscribed_fields)
-          ? record.subscribed_fields.map((field) => String(field)).filter(Boolean)
+        fields: Array.isArray(rawFields)
+          ? rawFields.map((field) => String(field)).filter(Boolean)
           : [],
       }];
     });
@@ -123,19 +130,34 @@ export function parseWabaSubscription(body: unknown, appId: string): WabaSubscri
   if (!Array.isArray(record.data)) return unknownState(appId, 'malformed_graph_response');
 
   const app = record.data.find((item) => {
-    return Boolean(item && typeof item === 'object' && String((item as Record<string, unknown>).id ?? '') === appId);
+    if (!item || typeof item !== 'object') return false;
+    const itemRecord = item as Record<string, unknown>;
+    const nested = itemRecord.whatsapp_business_api_data;
+    const nestedId = nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? String((nested as Record<string, unknown>).id ?? '')
+      : '';
+    return String(itemRecord.id ?? '') === appId || nestedId === appId;
   });
   if (!app || typeof app !== 'object') {
     return { status: 'not_subscribed', appId, fields: [], httpStatus: null, error: null };
   }
 
-  const rawFields = (app as Record<string, unknown>).subscribed_fields;
+  const appRecord = app as Record<string, unknown>;
+  const nested = appRecord.whatsapp_business_api_data;
+  const nestedRecord = nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : null;
+  const rawFields = Array.isArray(appRecord.subscribed_fields)
+    ? appRecord.subscribed_fields
+    : nestedRecord?.subscribed_fields;
   const fields = Array.isArray(rawFields)
     ? rawFields.map((field) => String(field)).filter(Boolean)
     : [];
 
   return {
-    status: fields.includes('messages') ? 'subscribed' : 'not_subscribed',
+    // Meta's current subscribed_apps response identifies the subscribed app
+    // under whatsapp_business_api_data and may omit subscribed_fields entirely.
+    status: nestedRecord || fields.includes('messages') ? 'subscribed' : 'not_subscribed',
     appId,
     fields,
     httpStatus: null,
