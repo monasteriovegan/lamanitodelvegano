@@ -13,17 +13,18 @@ test('token diagnostic exposes issuer, validity and scopes but never either toke
     fetchImpl: async (url) => {
       requested = String(url);
       return new Response(JSON.stringify({ data: {
-        app_id: 'historical-app', is_valid: true, scopes: ['whatsapp_business_management'],
+        app_id: 'historical-app', type: 'SYSTEM_USER', is_valid: true, scopes: ['whatsapp_business_management'],
         user_id: 'private-user', data_access_expires_at: 123,
       } }), { status: 200 });
     },
   });
   assert.deepEqual(result, {
     httpStatus: 200, appId: 'historical-app', valid: true,
+    tokenType: 'SYSTEM_USER', subjectId: 'private-user',
     scopes: ['whatsapp_business_management'], error: null,
   });
   assert.match(requested, /debug_token/);
   assert.equal(JSON.stringify(result).includes('user-secret'), false);
   assert.equal(JSON.stringify(result).includes('app-secret'), false);
-  assert.equal(JSON.stringify(result).includes('private-user'), false);
+  assert.equal(result.subjectId, 'private-user');
 });

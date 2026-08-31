@@ -22,6 +22,8 @@ export async function diagnoseMetaToken(input: {
       httpStatus: response.status,
       appId: record.app_id ? String(record.app_id) : null,
       valid: record.is_valid === true,
+      tokenType: record.type ? String(record.type) : 'unknown',
+      subjectId: record.user_id ? String(record.user_id) : null,
       scopes: Array.isArray(record.scopes) ? record.scopes.map((scope) => String(scope)).filter(Boolean) : [],
       error: response.ok ? null : 'diagnostic_unavailable',
     };
