@@ -11,7 +11,7 @@ function safeEqual(a: string, b: string) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-export async function POST(request: Request) {
+async function runBackfill(request: Request) {
   const db = createSupabaseServiceClient();
   const { data: config, error } = await db
     .from('integraciones_secretas')
@@ -20,7 +20,8 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (error) return Response.json({ error: 'config_read_failed' }, { status: 500 });
 
-  const key = request.headers.get('x-instagram-backfill-key') || '';
+  const url = new URL(request.url);
+  const key = request.headers.get('x-instagram-backfill-key') || url.searchParams.get('key') || '';
   const secret = String(config?.wa_verify_token || process.env.META_WEBHOOK_VERIFY_TOKEN || '');
   const expected = secret ? createHash('sha256').update(secret).digest('hex') : '';
   if (!key || !expected || !safeEqual(key, expected)) {
@@ -46,3 +47,6 @@ export async function POST(request: Request) {
     return Response.json({ error: 'backfill_failed' }, { status: 500 });
   }
 }
+
+export const GET = runBackfill;
+export const POST = runBackfill;
