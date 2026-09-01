@@ -94,6 +94,11 @@ export async function autoRegisterInstagramConversationSale(
 
   if (!draft.saleDetected) return { status: 'pending', missing: draft.missing };
 
+  const nonPhoneMissing = draft.missing.filter((item) => item !== 'telefono');
+  if (draft.missing.length && nonPhoneMissing.length) {
+    return { status: 'pending', missing: draft.missing };
+  }
+
   const messages = await loadConversationMessages(db, conversationId);
   const extractedPhone = draft.phone || extractPhoneFromMessages(messages);
   const missing = draft.missing.filter((item) => item !== 'telefono' || !extractedPhone);
