@@ -31,7 +31,7 @@ type CartRow = {
   order_id: number | null;
 };
 
-const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill/i;
+const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill|fiestas?\s+patrias?|(?:el\s+)?18/i;
 const CART_INTENT = /carrito|agrega|agregar|a[nñ]ade|a[nñ]adir|quita|quitar|saca|sacar|llevo|quiero\s+(?:uno|una|dos|tres|comprar)|dame|ponme/i;
 const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o|fecha|entrega|tel[eé]fono|celular/i;
 const STATUS_INTENT = /estado.*pedido|pedido.*estado|seguimiento|rastrear|d[oó]nde.*pedido|despachado|entregado|cu[aá]ndo.*llega/i;
@@ -97,12 +97,27 @@ const TOOL_DEFINITIONS: Record<string, ProviderToolDefinition> = {
   },
   cart_add: {
     name: 'cart_add',
-    description: 'Agrega una cantidad de un producto real al carrito. Si el producto tiene varias opciones, usa format y/o variety después de que el cliente las elija.',
+    description: 'Agrega una variante real al carrito. Usa variantId y selections de catalog_search para promociones normalizadas; format/variety solo mantienen compatibilidad con productos antiguos.',
     inputSchema: {
       type: 'object',
       properties: {
         productId: { type: 'string', description: 'UUID obtenido de catalog_search.' },
         quantity: { type: 'integer', minimum: 1, maximum: 20 },
+        variantId: { type: 'string', description: 'UUID de la variante obtenido de catalog_search.' },
+        selections: {
+          type: 'array',
+          description: 'Mezcla exacta de sabores/opciones elegida por el cliente.',
+          items: {
+            type: 'object',
+            properties: {
+              optionValueId: { type: 'string' },
+              quantity: { type: 'integer', minimum: 1, maximum: 20 },
+            },
+            required: ['optionValueId', 'quantity'],
+            additionalProperties: false,
+          },
+        },
+        campaignTag: { type: 'string', description: 'Etiqueta de campaña devuelta por el catálogo.' },
         format: { type: 'string', description: 'Formato/gramaje elegido por el cliente.' },
         variety: { type: 'string', description: 'Variedad/sabor elegido por el cliente.' },
       },
@@ -269,37 +284,8 @@ function cartSummary(cart: CartRow | null) {
 }
 
 async function searchCatalog(db: SupabaseClient, context: RemyToolContext, query: string) {
-  const terms = String(query || '').trim().split(/\s+/).filter(Boolean).slice(0, 4);
-  let request = db.from('productos')
-    .select('id,nombre,descripcion,precio,disponibilidad,maneja_stock,stock,categoria,gramaje,variedades,ingredients,allergens,gluten_free,nut_free')
-    .eq('business_unit_id', context.businessUnitId)
-    .eq('activo', true);
-  if (terms.length) {
-    const clauses = terms.flatMap((term) => {
-      const safe = term.replace(/[,%_()]/g, '');
-      return [`nombre.ilike.%${safe}%`, `descripcion.ilike.%${safe}%`, `categoria.ilike.%${safe}%`];
-    });
-    request = request.or(clauses.join(','));
-  }
-  const { data, error } = await request.order('nombre').limit(6);
-  if (error) throw error;
-  return {
-    products: (data || []).map((item: any) => ({
-      id: item.id,
-      name: item.nombre,
-      price: Number(item.precio || 0),
-      stock: item.maneja_stock ? Number(item.stock || 0) : null,
-      availability: item.disponibilidad || null,
-      category: item.categoria || null,
-      formats: parseFormatos(item.gramaje, Number(item.precio || 0)).filter((entry) => entry.label).map((entry) => ({ name: entry.label, price: entry.precio })),
-      varieties: parseVariedades(item.variedades),
-      ingredients: item.ingredients || null,
-      allergens: item.allergens || null,
-      glutenFree: item.gluten_free ?? null,
-      nutFree: item.nut_free ?? null,
-      description: item.descripcion ? String(item.descripcion).slice(0, 240) : null,
-    })),
-  };
+  const { searchCatalogMaster } = await import('@/lib/catalog/remy-catalog');
+  return searchCatalogMaster(db, context.businessUnitId, query, context.channel);
 }
 
 async function addToCart(
@@ -309,8 +295,39 @@ async function addToCart(
   quantity: number,
   format?: string,
   variety?: string,
+  variantId?: string,
+  selections?: Array<{ optionValueId: string; quantity: number }>,
+  campaignTag?: string,
 ) {
   const qty = Math.max(1, Math.min(20, Math.trunc(Number(quantity || 1))));
+
+  if (variantId) {
+    const [{ CatalogRepository }, { buildRemyCartAddition }, { catalogCartItemKey }] = await Promise.all([
+      import('@/lib/catalog/catalog-repository'),
+      import('@/lib/catalog/remy-catalog'),
+      import('@/lib/catalog/catalog-cart'),
+    ]);
+    const normalizedProduct = await new CatalogRepository(db).getById(context.businessUnitId, productId);
+    if (!normalizedProduct) throw new Error('product_not_found');
+    const addition = buildRemyCartAddition(normalizedProduct, {
+      productId,
+      variantId,
+      quantity: qty,
+      selections,
+      campaignTag,
+    });
+    if (!addition.ok) return { ok: false, reason: addition.error };
+
+    const cart = await getCart(db, context);
+    const items = Array.isArray(cart?.items) ? [...cart.items] : [];
+    const key = catalogCartItemKey(addition.item);
+    const index = items.findIndex((item) => catalogCartItemKey(item) === key);
+    if (index >= 0) items[index] = { ...addition.item, qty: Number(items[index].qty || 0) + qty };
+    else items.push(addition.item);
+    const saved = await saveCart(db, context, { items, existing: cart });
+    return { ok: true, ...cartSummary(saved) };
+  }
+
   const { data: product, error } = await db.from('productos')
     .select('id,nombre,precio,emoji,maneja_stock,stock,gramaje,variedades')
     .eq('id', productId)
@@ -657,6 +674,12 @@ export async function executeRemyTool(
     Number(args.quantity || 1),
     args.format ? String(args.format) : undefined,
     args.variety ? String(args.variety) : undefined,
+    args.variantId ? String(args.variantId) : undefined,
+    Array.isArray(args.selections) ? args.selections.map((selection: any) => ({
+      optionValueId: String(selection.optionValueId || ''),
+      quantity: Number(selection.quantity || 0),
+    })) : undefined,
+    args.campaignTag ? String(args.campaignTag) : undefined,
   );
   if (name === 'cart_remove') return removeFromCart(
     db,
