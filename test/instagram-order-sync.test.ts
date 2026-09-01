@@ -66,3 +66,14 @@ test('pedido de Instagram completa el mismo cliente CRM con teléfono y direcci�
   assert.match(conversationSale, /fecha_entrega:\s*draft\.deliveryDate/);
   assert.match(conversationSale, /comuna:\s*draft\.comuna/);
 });
+
+test('confirmación humana de pago posterior actualiza el pedido existente y no crea otro', () => {
+  const autoSale = read('src/lib/orders/instagram-auto-sale.ts');
+
+  assert.match(autoSale, /reconcileExistingInstagramOrderPayment/);
+  assert.match(autoSale, /payment_status/);
+  assert.match(autoSale, /status:\s*['"]confirmed['"]/);
+  assert.match(autoSale, /linkMessagesToOrder/);
+  assert.match(autoSale, /conversation\.order_id/);
+  assert.match(autoSale, /hasCustomerNewOrderSignal/);
+});
