@@ -2,8 +2,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NormalizedMessage } from '@/lib/messaging/types';
 import { confirmConversationSale, prepareConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 const CUSTOMER_SALE_SIGNAL = /confirm(?:o|ar)|quiero\s+comprar|me\s+llevo|haz(?:me)?\s+el\s+pedido|pedido|transfer(?:encia|[ií])|comprobante|pag(?:o|u[eé]|ado)|direcci[oó]n|despacho|entrega/i;
+const CUSTOMER_NEW_ORDER_SIGNAL = /quiero\s+(?:comprar|pedir|otra|otro)|me\s+llevo|haz(?:me)?\s+el\s+pedido|nuevo\s+pedido|otra\s+(?:barra|caja|box)|otro\s+(?:producto|pedido)/i;
 const CUSTOMER_FULFILLMENT_SIGNAL = /(?:\+?56[\s.\-]*)?9(?:[\s.\-]*\d){8}|calle|avenida|av\.?\s|pasaje|depto|departamento|casa\s|comuna|providencia|ñuñoa|nunoa|macul|la\s+reina|las\s+condes|vitacura|santiago|san\s+miguel|la\s+florida|peñalol[eé]n|penalolen|maip[uú]|pudahuel|quilicura|huechuraba/i;
 const BUSINESS_SALE_SIGNAL = /pedido|confirmad[oa]|agendad[oa]|reservad[oa]|pago|transferencia|recibid[oa]|listo/i;
 const BUSINESS_PAYMENT_CONFIRMED = /(?:pago|transferencia|abono).{0,40}(?:recibid[oa]|confirmad[oa]|correct[oa]|ok)|(?:recibid[oa]|confirmad[oa]).{0,40}(?:pago|transferencia|abono)/i;
@@ -16,6 +18,13 @@ type MessageRow = {
   payload: Record<string, any> | null;
   created_at?: string | null;
   order_id?: number | null;
+};
+
+type InstagramConversationRow = {
+  id: string;
+  channel: string;
+  order_id: number | null;
+  labels?: string[] | null;
 };
 
 export type InstagramAutoSaleResult = {
@@ -59,6 +68,74 @@ function hasBusinessPaymentConfirmation(messages: MessageRow[]) {
   });
 }
 
+function hasCustomerNewOrderSignal(messages: MessageRow[]) {
+  return messages.some((message) => (
+    message.direction === 'inbound'
+    && CUSTOMER_NEW_ORDER_SIGNAL.test(String(message.body || ''))
+  ));
+}
+
+async function linkMessagesToOrder(db: SupabaseClient, conversationId: string, orderId: number) {
+  const { error } = await db.from('omnichannel_messages')
+    .update({ order_id: orderId })
+    .eq('conversation_id', conversationId)
+    .is('order_id', null);
+  if (error) throw error;
+}
+
+async function reconcileExistingInstagramOrderPayment(
+  db: SupabaseClient,
+  conversation: InstagramConversationRow,
+  messages: MessageRow[],
+): Promise<InstagramAutoSaleResult | null> {
+  const orderId = Number(conversation.order_id || 0);
+  if (!orderId || !hasBusinessPaymentConfirmation(messages)) return null;
+
+  // If the still-unlinked cycle already contains a clear request for another
+  // purchase, the payment acknowledgement may belong to that new sale. In that
+  // case do not mutate the previous order; let the normal new-order extractor run.
+  if (hasCustomerNewOrderSignal(messages)) return null;
+
+  const repo = new OrderRepository(db);
+  const before = await repo.getById(orderId);
+  if (!before) return null;
+  const transfer = String(before.payment_method || '').toLowerCase().includes('transfer');
+  if (!transfer) return null;
+
+  if (before.payment_status === 'paid') {
+    await linkMessagesToOrder(db, conversation.id, orderId);
+    return { status: 'already_linked', orderId, paymentStatus: 'paid' };
+  }
+
+  const note = [
+    before.admin_notes,
+    'Pago confirmado desde una respuesta humana del negocio en Instagram.',
+  ].filter(Boolean).join(' ');
+  const updated = await repo.update(orderId, {
+    status: 'confirmed',
+    payment_status: 'paid',
+    admin_notes: note,
+  });
+
+  await linkMessagesToOrder(db, conversation.id, orderId);
+  const labels = Array.from(new Set([
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    'pedido',
+    'pagado',
+  ]));
+  const { error: conversationError } = await db.from('conversations').update({
+    labels,
+    updated_at: new Date().toISOString(),
+  }).eq('id', conversation.id);
+  if (conversationError) throw conversationError;
+
+  return {
+    status: 'synced',
+    orderId,
+    paymentStatus: updated.payment_status || null,
+  };
+}
+
 async function loadConversationMessages(
   db: SupabaseClient,
   conversationId: string,
@@ -82,7 +159,7 @@ export async function autoRegisterInstagramConversationSale(
 ): Promise<InstagramAutoSaleResult> {
   const { data: conversation, error } = await db
     .from('conversations')
-    .select('id,channel,order_id')
+    .select('id,channel,order_id,labels')
     .eq('id', conversationId)
     .maybeSingle();
   if (error) throw error;
@@ -93,6 +170,15 @@ export async function autoRegisterInstagramConversationSale(
   const messages = await loadConversationMessages(db, conversationId, onlyUnlinkedMessages);
   if (repeatOrder && messages.length === 0) {
     return { status: 'already_linked', orderId: Number(conversation.order_id) };
+  }
+
+  if (repeatOrder) {
+    const paymentReconciliation = await reconcileExistingInstagramOrderPayment(
+      db,
+      conversation as InstagramConversationRow,
+      messages,
+    );
+    if (paymentReconciliation) return paymentReconciliation;
   }
 
   const draft = await prepareConversationSaleDraft(db, conversationId, {
