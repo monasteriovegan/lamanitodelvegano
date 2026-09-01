@@ -15,9 +15,23 @@ export async function diagnoseMetaToken(input: {
       ? (body as Record<string, unknown>).data
       : null;
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      return { httpStatus: response.status, appId: null, valid: false, scopes: [], error: 'diagnostic_unavailable' };
+      return { httpStatus: response.status, appId: null, valid: false, scopes: [], granularScopes: [], error: 'diagnostic_unavailable' };
     }
     const record = data as Record<string, unknown>;
+    const granularScopes = Array.isArray(record.granular_scopes)
+      ? record.granular_scopes.flatMap((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+        const granular = item as Record<string, unknown>;
+        const scope = String(granular.scope || '').trim();
+        if (!scope) return [];
+        return [{
+          scope,
+          targetIds: Array.isArray(granular.target_ids)
+            ? granular.target_ids.map((target) => String(target)).filter(Boolean)
+            : [],
+        }];
+      })
+      : [];
     return {
       httpStatus: response.status,
       appId: record.app_id ? String(record.app_id) : null,
@@ -25,9 +39,10 @@ export async function diagnoseMetaToken(input: {
       tokenType: record.type ? String(record.type) : 'unknown',
       subjectId: record.user_id ? String(record.user_id) : null,
       scopes: Array.isArray(record.scopes) ? record.scopes.map((scope) => String(scope)).filter(Boolean) : [],
+      granularScopes,
       error: response.ok ? null : 'diagnostic_unavailable',
     };
   } catch {
-    return { httpStatus: null, appId: null, valid: false, scopes: [], error: 'diagnostic_unavailable' };
+    return { httpStatus: null, appId: null, valid: false, scopes: [], granularScopes: [], error: 'diagnostic_unavailable' };
   }
 }

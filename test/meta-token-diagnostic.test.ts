@@ -14,6 +14,10 @@ test('token diagnostic exposes issuer, validity and scopes but never either toke
       requested = String(url);
       return new Response(JSON.stringify({ data: {
         app_id: 'historical-app', type: 'SYSTEM_USER', is_valid: true, scopes: ['whatsapp_business_management'],
+        granular_scopes: [
+          { scope: 'whatsapp_business_management', target_ids: ['waba-1'] },
+          { scope: 'public_profile' },
+        ],
         user_id: 'private-user', data_access_expires_at: 123,
       } }), { status: 200 });
     },
@@ -21,7 +25,12 @@ test('token diagnostic exposes issuer, validity and scopes but never either toke
   assert.deepEqual(result, {
     httpStatus: 200, appId: 'historical-app', valid: true,
     tokenType: 'SYSTEM_USER', subjectId: 'private-user',
-    scopes: ['whatsapp_business_management'], error: null,
+    scopes: ['whatsapp_business_management'],
+    granularScopes: [
+      { scope: 'whatsapp_business_management', targetIds: ['waba-1'] },
+      { scope: 'public_profile', targetIds: [] },
+    ],
+    error: null,
   });
   assert.match(requested, /debug_token/);
   assert.equal(JSON.stringify(result).includes('user-secret'), false);
