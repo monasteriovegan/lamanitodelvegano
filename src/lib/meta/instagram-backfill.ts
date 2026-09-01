@@ -19,15 +19,27 @@ async function graphJson<T>(url: string, token: string): Promise<GraphPage<T>> {
   return body as GraphPage<T>;
 }
 
-async function resolvePageAccessToken(userToken: string, pageId: string) {
+async function resolvePageAccessToken(storedToken: string, pageId: string) {
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
-  const body = await graphJson<any>(
-    `https://graph.facebook.com/${version}/me/accounts?fields=id,access_token&limit=100`,
-    userToken,
-  );
-  const page = (body.data || []).find((item: any) => String(item?.id || '') === pageId);
-  if (!page?.access_token) throw new Error('instagram_backfill_page_token_not_found');
-  return String(page.access_token);
+
+  try {
+    const body = await graphJson<any>(
+      `https://graph.facebook.com/${version}/me/accounts?fields=id,access_token&limit=100`,
+      storedToken,
+    );
+    const page = (body.data || []).find((item: any) => String(item?.id || '') === pageId);
+    if (page?.access_token) return String(page.access_token);
+  } catch {
+    // A Page Access Token does not necessarily support /me/accounts.
+  }
+
+  const pageProbe = await graphJson<any>(
+    `https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}?fields=id`,
+    storedToken,
+  ) as any;
+  if (String(pageProbe?.id || '') === pageId) return storedToken;
+
+  throw new Error('instagram_backfill_page_token_not_found');
 }
 
 function normalizeHistoryMessage(message: any, businessInstagramId: string): NormalizedMessage | null {
