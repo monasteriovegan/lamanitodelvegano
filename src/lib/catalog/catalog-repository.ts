@@ -14,7 +14,7 @@ const PRODUCT_RELATIONS = `
   *,
   product_variants(*),
   product_option_groups(*, product_option_values(*)),
-  product_pack_components(*)
+  product_pack_components:product_pack_components!product_pack_components_pack_product_id_business_unit_id_fkey(*)
 `;
 
 function asInteger(value: unknown, fallback = 0) {
