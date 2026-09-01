@@ -3,6 +3,7 @@ import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmac } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
+import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   if (payload?.object !== 'instagram') {
-    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false, ai_replied: false });
+    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false, ai_replied: false, orders_synced: 0 });
   }
 
   const db = createSupabaseServiceClient();
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
   let duplicates = 0;
   let aiCalled = 0;
   let aiReplied = 0;
+  let ordersSynced = 0;
 
   try {
     for (const message of normalizeMetaInstagram(payload)) {
@@ -68,6 +70,20 @@ export async function POST(request: Request) {
           });
         }
       }
+
+      if (!result.duplicate && shouldAttemptInstagramAutoSale(message)) {
+        try {
+          const synced = await autoRegisterInstagramConversationSale(db, result.conversationId);
+          if (synced.status === 'synced') ordersSynced += 1;
+        } catch (error) {
+          // Order recognition must never make Meta retry an otherwise valid webhook.
+          console.error('instagram_order_auto_sync_failed', {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }
     }
 
     return Response.json({
@@ -76,6 +92,7 @@ export async function POST(request: Request) {
       duplicates,
       ai_called: aiCalled > 0,
       ai_replied: aiReplied > 0,
+      orders_synced: ordersSynced,
     });
   } catch (error) {
     console.error('instagram_webhook_persist_failed', {
