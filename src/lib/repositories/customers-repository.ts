@@ -221,13 +221,25 @@ export class CustomerRepository {
 
   async upsertCheckoutContact(
     businessUnitId: string,
-    input: { email?: string | null; phone: string; nombre: string; direccion?: string | null },
+    input: { email?: string | null; phone: string; nombre: string; direccion?: string | null; comuna?: string | null },
+    preferredCustomerId?: string | null,
   ): Promise<AdminCustomer> {
     requireSchemaCapability(this.capabilities, 'customerCrm');
     const email = input.email?.trim().toLowerCase() || null;
     const phone = normalizePhone(input.phone);
     let existing: JsonRecord | null = null;
-    if (email) {
+
+    if (preferredCustomerId) {
+      const result = await this.db
+        .from('omnichannel_contacts')
+        .select('*')
+        .eq('business_unit_id', businessUnitId)
+        .eq('id', preferredCustomerId)
+        .maybeSingle();
+      if (result.error) throw result.error;
+      existing = result.data;
+    }
+    if (!existing && email) {
       const result = await this.db.from('omnichannel_contacts').select('*').eq('business_unit_id', businessUnitId).eq('email', email).maybeSingle();
       if (result.error) throw result.error;
       existing = result.data;
@@ -238,9 +250,18 @@ export class CustomerRepository {
       existing = result.data;
     }
     if (existing) {
+      const metadata = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
       const { data, error } = await this.db
         .from('omnichannel_contacts')
-        .update({ email: email ?? existing.email, phone, nombre: input.nombre, direccion: input.direccion ?? existing.direccion ?? null, crm_status: 'customer' })
+        .update({
+          email: email ?? existing.email,
+          phone,
+          nombre: input.nombre,
+          direccion: input.direccion ?? existing.direccion ?? null,
+          crm_status: 'customer',
+          metadata: input.comuna ? { ...metadata, comuna: input.comuna } : metadata,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existing.id)
         .select('*')
         .single();
@@ -258,7 +279,7 @@ export class CustomerRepository {
         channel: 'web',
         external_id: email || phone,
         display_name: input.nombre,
-        metadata: {},
+        metadata: input.comuna ? { comuna: input.comuna } : {},
         email,
         phone,
         nombre: input.nombre,
