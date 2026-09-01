@@ -22,6 +22,12 @@ function asInteger(value: unknown, fallback = 0) {
   return Number.isInteger(number) ? number : fallback;
 }
 
+function parseAvailability(value: unknown) {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
+  if (typeof value !== 'string') return [];
+  return value.split(',').map((item) => item.trim()).filter((item) => /^\d{4}-\d{2}-\d{2}$/.test(item));
+}
+
 function legacyVariants(row: DbRow): CatalogVariant[] {
   return parseFormatos(row.gramaje, Number(row.precio || 0)).map((format, index) => ({
     id: `legacy:${row.id}:${format.label || 'default'}`,
@@ -153,6 +159,9 @@ export function mapCatalogProductRow(businessUnitId: string, row: DbRow | null |
     description: row.descripcion || null,
     imageUrl: row.imagen_url || null,
     active: row.activo !== false,
+    availabilityDates: parseAvailability(row.disponibilidad),
+    emoji: row.emoji || null,
+    color: row.color_fondo || null,
     variants: normalizedVariants.length ? normalizedVariants : legacyVariants(row),
     optionGroups: normalizedGroups.length ? normalizedGroups : legacyOptionGroups(row),
     packComponents,

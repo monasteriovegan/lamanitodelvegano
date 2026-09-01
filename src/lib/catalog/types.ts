@@ -57,9 +57,31 @@ export interface CatalogProduct {
   description: string | null;
   imageUrl: string | null;
   active: boolean;
+  availabilityDates?: string[];
+  emoji?: string | null;
+  color?: string | null;
   variants: CatalogVariant[];
   optionGroups: CatalogOptionGroup[];
   packComponents: CatalogPackComponent[];
+}
+
+export type CatalogChannel = 'web' | 'whatsapp' | 'instagram' | 'remy';
+
+export interface CatalogCampaignProduct extends CatalogProduct {
+  featured: boolean;
+  sortOrder: number;
+}
+
+export interface CatalogCampaign {
+  id: string;
+  tag: string;
+  name: string;
+  description: string | null;
+  bannerImage: string | null;
+  badgeText: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  products: CatalogCampaignProduct[];
 }
 
 export interface CatalogSelectionIntent {

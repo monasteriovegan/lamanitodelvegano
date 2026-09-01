@@ -4,13 +4,17 @@ import { Hero } from '@/components/layout/Hero';
 import { CatalogoGrid } from '@/components/tienda/CatalogoGrid';
 import { PromoEspecial } from '@/components/tienda/PromoEspecial';
 import { getProductosActivos, getCategorias, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
+import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
+
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [productos, categorias, zonas, ajustes] = await Promise.all([
+  const [productos, categorias, zonas, ajustes, fiestasPatrias] = await Promise.all([
     getProductosActivos(),
     getCategorias(),
     getZonas(),
     getAjustesPublicos(),
+    loadDefaultCatalogCampaign('fiestas-patrias-2026', 'web'),
   ]);
 
   const destacados = productos.filter((p) => p.destacado);
@@ -19,6 +23,23 @@ export default async function HomePage() {
     <SiteShell>
       <main>
         <Hero />
+
+        {fiestasPatrias && (
+          <section className="px-4 py-6">
+            <Link href="/fiestas-patrias-2026" className="group mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-[#0a1b13] shadow-[0_18px_70px_rgba(0,0,0,0.35)] md:grid-cols-[1.15fr_0.85fr]">
+              {fiestasPatrias.bannerImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fiestasPatrias.bannerImage} alt="Fiestas Patrias 2026" className="h-full min-h-[240px] w-full object-cover" />
+              )}
+              <div className="flex flex-col justify-center p-7 sm:p-10">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-neon">🇨🇱 Solo por encargo</span>
+                <h2 className="mt-3 font-display text-3xl font-extrabold text-white">Fiestas Patrias 2026</h2>
+                <p className="mt-3 text-sm leading-6 text-white/65">Empanadas, parrilla y postres 100% veganos. Elige formatos y sabores desde el catálogo oficial.</p>
+                <span className="mt-6 inline-flex w-fit rounded-full bg-neon px-5 py-3 text-sm font-extrabold text-[#020705] transition group-hover:bg-white">Ver las promociones →</span>
+              </div>
+            </Link>
+          </section>
+        )}
 
         {ajustes?.data && (
           <PromoEspecial ajustes={ajustes.data} productos={productos} />

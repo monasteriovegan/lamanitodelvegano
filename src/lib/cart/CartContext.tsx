@@ -1,18 +1,19 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
-import type { ItemCarrito } from '@/types/domain';
+import type { CatalogCartItem } from '@/lib/catalog/catalog-cart';
+import { catalogCartItemKey } from '@/lib/catalog/catalog-cart';
 
 interface CartContextValue {
-  items: ItemCarrito[];
+  items: CatalogCartItem[];
   isOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
-  addItem: (item: ItemCarrito) => void;
+  addItem: (item: CatalogCartItem) => void;
   changeQty: (key: string, delta: number) => void;
   removeItem: (key: string) => void;
   clearCart: () => void;
-  replaceCart: (items: ItemCarrito[]) => void;
+  replaceCart: (items: CatalogCartItem[]) => void;
   count: number;
   subtotal: number;
 }
@@ -34,19 +35,17 @@ const noopCartContext: CartContextValue = {
 const CartContext = createContext<CartContextValue>(noopCartContext);
 const CART_STORAGE_KEY = 'lmv_cart_v1';
 
-function itemKey(item: Pick<ItemCarrito, 'productoId' | 'formato' | 'variedad'>): string {
-  return [item.productoId, item.formato || '', item.variedad || ''].join('::');
-}
+const itemKey = catalogCartItemKey;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<ItemCarrito[]>([]);
+  const [items, setItems] = useState<CatalogCartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const stored = JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY) || '[]');
-      if (Array.isArray(stored)) setItems(stored as ItemCarrito[]);
+      if (Array.isArray(stored)) setItems(stored as CatalogCartItem[]);
     } catch {
       window.localStorage.removeItem(CART_STORAGE_KEY);
     } finally {
@@ -59,7 +58,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
   }, [hydrated, items]);
 
-  const addItem = useCallback((newItem: ItemCarrito) => {
+  const addItem = useCallback((newItem: CatalogCartItem) => {
     setItems((prev) => {
       const key = itemKey(newItem);
       const existing = prev.find((i) => itemKey(i) === key);
@@ -94,7 +93,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems([]);
   }, []);
 
-  const replaceCart = useCallback((nextItems: ItemCarrito[]) => {
+  const replaceCart = useCallback((nextItems: CatalogCartItem[]) => {
     const safe = Array.isArray(nextItems) ? nextItems.filter((item) => item?.productoId && Number(item.qty) > 0) : [];
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(safe));
     setItems(safe);
