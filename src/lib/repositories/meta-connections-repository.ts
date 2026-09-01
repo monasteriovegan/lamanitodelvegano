@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { metaAssetReference } from '@/lib/meta/asset-routing';
+import { activeMetaAssetBusinessUnit, metaAssetReference } from '@/lib/meta/asset-routing';
 import type { NormalizedMessage } from '@/lib/messaging/types';
 import { decryptMetaToken } from '@/lib/meta/token-crypto';
 
@@ -15,14 +15,14 @@ export class MetaConnectionsRepository {
 
     const { data, error } = await this.db
       .from('meta_connection_assets')
-      .select('business_unit_id,meta_connections!inner(status)')
+      .select('business_unit_id,meta_connections!inner(business_unit_id,status)')
       .eq('asset_type', asset.assetType)
       .eq('external_id', asset.externalId)
       .eq('selected', true)
       .eq('meta_connections.status', 'active')
       .maybeSingle();
     if (error) throw error;
-    return data?.business_unit_id ? String(data.business_unit_id) : null;
+    return activeMetaAssetBusinessUnit(data);
   }
 
   async getActiveCredential(businessUnitId: string, assetType: MetaAssetType) {
