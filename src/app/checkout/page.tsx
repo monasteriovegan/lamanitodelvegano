@@ -11,7 +11,7 @@ import { trackContact, trackInitiateCheckout } from '@/lib/analytics/client';
 function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
-  const idempotencyKey = useRef<string>(crypto.randomUUID());
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   const checkoutTracked = useRef(false);
 
   const [zonas, setZonas] = useState<Zona[]>([]);
@@ -42,7 +42,8 @@ function CheckoutContent() {
     }
     const merged = { ...current, ...firstTouch, ...captured };
     localStorage.setItem('lmv_cart_attribution', JSON.stringify(merged));
-    setAttribution(merged);
+    const updateId = window.setTimeout(() => setAttribution(merged), 0);
+    return () => window.clearTimeout(updateId);
   }, []);
 
   // InitiateCheckout / begin_checkout — una vez por carga de la página,
@@ -110,9 +111,17 @@ function CheckoutContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          idempotencyKey: idempotencyKey.current,
+          idempotencyKey,
           cliente: { nombre, direccion, telefono, email },
-          items: items.map((i) => ({ productoId: i.productoId, qty: i.qty, formato: i.formato, variedad: i.variedad })),
+          items: items.map((i) => ({
+            productoId: i.productoId,
+            variantId: i.variantId,
+            qty: i.qty,
+            selections: i.selections?.map(({ optionValueId, quantity }) => ({ optionValueId, quantity })),
+            campaignTag: i.campaignTag,
+            formato: i.formato,
+            variedad: i.variedad,
+          })),
           zonaId: zonaId || null,
           cuponCode: cuponCode || null,
           metodoPago,
@@ -183,7 +192,7 @@ function CheckoutContent() {
         <h1 className="font-display font-bold text-xl text-white mb-6">🛒 Finalizar pedido</h1>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input type="hidden" data-testid="checkout-idempotency-key" value={idempotencyKey.current} readOnly />
+          <input type="hidden" data-testid="checkout-idempotency-key" value={idempotencyKey} readOnly />
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Tus datos</h2>
             <div className="flex flex-col gap-2.5">

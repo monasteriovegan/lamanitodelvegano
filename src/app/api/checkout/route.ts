@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { calcularPedido } from '@/lib/pricing/calcular-pedido';
+import { calcularPedido, type CatalogCheckoutRequest } from '@/lib/pricing/calcular-pedido';
 import { validarPin } from '@/lib/pricing/fidelidad';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaConfirmacionPedido } from '@/lib/email/templates';
-import type { CheckoutRequest, Pedido } from '@/types/domain';
+import type { Pedido } from '@/types/domain';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
@@ -19,7 +19,7 @@ import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
  * el schema reconciliado y el descuento atómico de stock UUID.
  */
 export async function POST(req: NextRequest) {
-  const body: CheckoutRequest = await req.json();
+  const body: CatalogCheckoutRequest = await req.json();
   const idempotencyKey = req.headers.get('Idempotency-Key') || body.idempotencyKey;
 
   if (!body.cliente?.nombre || !body.cliente?.telefono || !idempotencyKey) {
