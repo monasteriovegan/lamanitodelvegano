@@ -7,6 +7,10 @@ test('business diagnostic page is strictly read-only', () => {
   assert.match(source, /diagnoseMetaBusinessAssignments/);
   assert.match(source, /diagnoseMetaToken/);
   assert.match(source, /listWabaSubscriptions/);
+  assert.match(source, /meta_connections/);
+  assert.match(source, /decryptMetaToken/);
+  assert.match(source, /tokenSourceAudit/);
   assert.doesNotMatch(source, /ensureWabaMessagesSubscription|method:\s*['"]POST|assigned_users.*POST/);
   assert.doesNotMatch(source, /console\./);
+  assert.doesNotMatch(source, /accessToken:\s*decrypted|token:\s*decrypted.*return/);
 });
