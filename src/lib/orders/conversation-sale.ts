@@ -39,6 +39,18 @@ export type ConversationSaleDraft = {
   missing: string[];
 };
 
+export type ConversationSalePrepareOptions = {
+  allowExistingOrder?: boolean;
+  onlyUnlinkedMessages?: boolean;
+};
+
+export type ConversationSaleConfirmOptions = {
+  allowExistingOrder?: boolean;
+  idempotencyKey?: string;
+  linkUnassignedMessages?: boolean;
+  attributionMedium?: string;
+};
+
 function compact(value: unknown, max = 12000) {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
   return text.length <= max ? text : text.slice(text.length - max);
@@ -61,7 +73,11 @@ function cleanPayment(value: unknown): ConversationSaleDraft['paymentMethod'] {
   return 'unknown';
 }
 
-export async function prepareConversationSaleDraft(db: SupabaseClient, conversationId: string): Promise<ConversationSaleDraft> {
+export async function prepareConversationSaleDraft(
+  db: SupabaseClient,
+  conversationId: string,
+  options: ConversationSalePrepareOptions = {},
+): Promise<ConversationSaleDraft> {
   const { data: conversation, error: conversationError } = await db
     .from('conversations')
     .select('id,business_unit_id,channel,customer_id,contact_id,order_id,external_conversation_id')
@@ -69,18 +85,22 @@ export async function prepareConversationSaleDraft(db: SupabaseClient, conversat
     .maybeSingle();
   if (conversationError) throw conversationError;
   if (!conversation) throw new Error('conversation_not_found');
-  if (conversation.order_id) throw new Error(`conversation_already_has_order:${conversation.order_id}`);
+  if (conversation.order_id && !options.allowExistingOrder) {
+    throw new Error(`conversation_already_has_order:${conversation.order_id}`);
+  }
 
   const customerId = conversation.customer_id || conversation.contact_id || null;
+  let messagesQuery = db.from('omnichannel_messages')
+    .select('direction,body,message_type,created_at,sent_at,payload,order_id')
+    .eq('conversation_id', conversationId);
+  if (options.onlyUnlinkedMessages) messagesQuery = messagesQuery.is('order_id', null);
+  messagesQuery = messagesQuery.order('created_at', { ascending: false }).limit(100);
+
   const [{ data: contact, error: contactError }, { data: rawMessages, error: messagesError }] = await Promise.all([
     customerId
-      ? db.from('omnichannel_contacts').select('id,nombre,display_name,phone,email,direccion,external_id').eq('id', customerId).maybeSingle()
+      ? db.from('omnichannel_contacts').select('id,nombre,display_name,phone,email,direccion,external_id,metadata').eq('id', customerId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    db.from('omnichannel_messages')
-      .select('direction,body,message_type,created_at,sent_at,payload')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .limit(100),
+    messagesQuery,
   ]);
   if (contactError) throw contactError;
   if (messagesError) throw messagesError;
@@ -175,6 +195,7 @@ Reglas estrictas:
 - deliveryDate debe ser YYYY-MM-DD sólo si puede resolverse sin ambigüedad desde lo dicho en el chat.
 Debes llamar a extract_sale una sola vez.`;
 
+  const contactMetadata = contact?.metadata && typeof contact.metadata === 'object' ? contact.metadata : {};
   const response = await callAiProvider(db, {
     provider: runtime.provider,
     model: runtime.model,
@@ -184,6 +205,7 @@ Debes llamar a extract_sale una sola vez.`;
       phone: contact?.phone || (conversation.channel === 'whatsapp' ? contact?.external_id || conversation.external_conversation_id : ''),
       email: contact?.email || '',
       direccion: contact?.direccion || '',
+      comuna: contactMetadata.comuna || '',
       canal: conversation.channel,
     })}\n\nCATÁLOGO:\n${JSON.stringify(catalog)}\n\nZONAS:\n${JSON.stringify(shippingZones)}\n\nCONVERSACIÓN:\n${transcript}` }],
     tools: [tool],
@@ -199,7 +221,7 @@ Debes llamar a extract_sale una sola vez.`;
     model: runtime.model,
     usage: response.usage,
     latencyMs: response.latencyMs,
-    metadata: { purpose: 'admin_conversation_sale_draft', automatic: false },
+    metadata: { purpose: 'admin_conversation_sale_draft', automatic: Boolean(options.allowExistingOrder || options.onlyUnlinkedMessages) },
   });
 
   const args = response.toolCalls.find((call) => call.name === 'extract_sale')?.args;
@@ -230,6 +252,7 @@ Debes llamar a extract_sale una sola vez.`;
   const phone = cleanString(contact?.phone || (conversation.channel === 'whatsapp' ? contact?.external_id || conversation.external_conversation_id : ''));
   const customerName = cleanString(args.customerName) || cleanString(contact?.nombre || contact?.display_name);
   const address = cleanString(args.address) || cleanString(contact?.direccion);
+  const comuna = cleanString(args.comuna) || cleanString(contactMetadata.comuna);
   const paymentMethod = cleanPayment(args.paymentMethod);
   const transcriptTotal = Number(args.transcriptTotal || 0) > 0 ? Math.round(Number(args.transcriptTotal)) : null;
 
@@ -260,7 +283,7 @@ Debes llamar a extract_sale una sola vez.`;
   if (!phone) missing.push('telefono');
   if (!items.length) missing.push('productos');
   if (!address) missing.push('direccion');
-  if (!cleanString(args.comuna)) missing.push('comuna');
+  if (!comuna) missing.push('comuna');
   if (!cleanString(args.deliveryDate)) missing.push('fecha_entrega');
   if (!zone) missing.push('zona_despacho');
   if (paymentMethod === 'unknown') missing.push('medio_pago');
@@ -274,7 +297,7 @@ Debes llamar a extract_sale una sola vez.`;
     phone,
     email: cleanString(contact?.email),
     address,
-    comuna: cleanString(args.comuna),
+    comuna,
     deliveryDate: cleanString(args.deliveryDate),
     paymentMethod,
     paymentEvidence: Boolean(args.paymentEvidence),
@@ -292,6 +315,7 @@ export async function confirmConversationSale(
   db: SupabaseClient,
   draft: ConversationSaleDraft,
   changedBy?: string,
+  options: ConversationSaleConfirmOptions = {},
 ) {
   if (!draft?.conversationId || !draft.saleDetected || draft.missing?.length) throw new Error('sale_draft_incomplete');
   if (!draft.zoneId || !draft.items?.length || draft.paymentMethod === 'unknown') throw new Error('sale_draft_incomplete');
@@ -303,14 +327,17 @@ export async function confirmConversationSale(
     .maybeSingle();
   if (conversationError) throw conversationError;
   if (!conversation) throw new Error('conversation_not_found');
-  if (conversation.order_id) return { ok: true, duplicate: true, orderId: Number(conversation.order_id) };
+  if (conversation.order_id && !options.allowExistingOrder) {
+    return { ok: true, duplicate: true, orderId: Number(conversation.order_id) };
+  }
 
   const business = conversation.business_unit_id
     ? { id: String(conversation.business_unit_id) }
     : await new BusinessRepository(db).requireDefault();
+  const idempotencyKey = options.idempotencyKey || `conversation:${conversation.id}`;
 
   const request: CheckoutRequest = {
-    idempotencyKey: `conversation:${conversation.id}`,
+    idempotencyKey,
     cliente: {
       nombre: draft.customerName,
       direccion: draft.address,
@@ -321,7 +348,10 @@ export async function confirmConversationSale(
     zonaId: draft.zoneId,
     cuponCode: null,
     metodoPago: draft.paymentMethod,
-    attribution: { utm_source: conversation.channel, utm_medium: 'manual_conversation_confirmed' },
+    attribution: {
+      utm_source: conversation.channel,
+      utm_medium: options.attributionMedium || 'manual_conversation_confirmed',
+    },
   };
 
   const calculation = await calcularPedido(request, business.id);
@@ -336,10 +366,11 @@ export async function confirmConversationSale(
     phone: draft.phone,
     nombre: draft.customerName,
     direccion: draft.address,
-  });
+    comuna: draft.comuna,
+  }, conversation.customer_id || conversation.contact_id || null);
   const orderRepository = new OrderRepository(db, capabilities);
   const order = await orderRepository.createTransactionalCheckout({
-    idempotencyKey: `conversation:${conversation.id}`,
+    idempotencyKey,
     businessUnitId: business.id,
     customerId: customer.id,
     customerEmail: customer.email || null,
@@ -372,6 +403,14 @@ export async function confirmConversationSale(
     fecha_entrega: draft.deliveryDate,
     comuna: draft.comuna,
   }).eq('id', order.numeric_id);
+
+  if (options.linkUnassignedMessages) {
+    const { error: messageLinkError } = await db.from('omnichannel_messages')
+      .update({ order_id: order.numeric_id })
+      .eq('conversation_id', conversation.id)
+      .is('order_id', null);
+    if (messageLinkError) throw messageLinkError;
+  }
 
   const labels = Array.from(new Set([
     ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
