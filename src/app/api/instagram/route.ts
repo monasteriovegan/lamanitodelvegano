@@ -1,7 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
-import { verifyHmac } from '@/lib/messaging/signature';
+import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
@@ -30,7 +30,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const raw = await request.text();
-  if (!verifyHmac(raw, request.headers.get('x-hub-signature-256'), process.env.META_APP_SECRET)) {
+  const validSignature = verifyHmacAny(raw, request.headers.get('x-hub-signature-256'), [
+    process.env.META_APP_SECRET,
+    process.env.META_BRIDGE_APP_SECRET,
+  ]);
+  if (!validSignature) {
+    console.error('instagram_webhook_invalid_signature', {
+      has_primary_secret: Boolean(process.env.META_APP_SECRET),
+      has_bridge_secret: Boolean(process.env.META_BRIDGE_APP_SECRET),
+    });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }
 
@@ -76,7 +84,6 @@ export async function POST(request: Request) {
           const synced = await autoRegisterInstagramConversationSale(db, result.conversationId);
           if (synced.status === 'synced') ordersSynced += 1;
         } catch (error) {
-          // Order recognition must never make Meta retry an otherwise valid webhook.
           console.error('instagram_order_auto_sync_failed', {
             conversationId: result.conversationId,
             messageId: result.messageId,

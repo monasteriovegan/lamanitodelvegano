@@ -77,3 +77,23 @@ test('confirmación humana de pago posterior actualiza el pedido existente y no 
   assert.match(autoSale, /conversation\.order_id/);
   assert.match(autoSale, /hasCustomerNewOrderSignal/);
 });
+
+test('backfill de Instagram consulta conversaciones desde Page ID y reutiliza persistencia canónica', () => {
+  const relativePath = 'src/lib/meta/instagram-backfill.ts';
+  assert.equal(existsSync(join(root, relativePath)), true, 'debe existir sincronizador histórico de Instagram');
+  const source = read(relativePath);
+  assert.match(source, /PAGE_ID|pageId/);
+  assert.match(source, /platform=instagram/);
+  assert.match(source, /persistMessage/);
+  assert.match(source, /autoRegisterInstagramConversationSale/);
+  assert.doesNotMatch(source, /instagramBusinessId\}\/conversations/);
+});
+
+test('webhook puede validar una rotación controlada de secretos sin desactivar HMAC', () => {
+  const route = read('src/app/api/instagram/route.ts');
+  const signature = read('src/lib/messaging/signature.ts');
+  assert.match(signature, /verifyHmacAny/);
+  assert.match(route, /META_BRIDGE_APP_SECRET/);
+  assert.match(route, /verifyHmacAny/);
+  assert.doesNotMatch(route, /invalid_signature[^\n]*200/);
+});
