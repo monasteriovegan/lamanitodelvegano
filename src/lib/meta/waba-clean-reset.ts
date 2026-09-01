@@ -128,6 +128,37 @@ export async function readWabaSubscriptionWithHeaders(input: {
   });
 }
 
+export async function subscribeWabaOnce(input: {
+  version: string;
+  wabaId: string;
+  appId: string;
+  token: string;
+  fetchImpl?: typeof fetch;
+}) {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const mutation = await graphCall({
+    operation: `post_single_${input.version}`,
+    version: input.version,
+    method: 'POST',
+    wabaId: input.wabaId,
+    token: input.token,
+    fetchImpl,
+  });
+  const readback = await graphCall({
+    operation: `get_after_single_${input.version}`,
+    version: input.version,
+    method: 'GET',
+    wabaId: input.wabaId,
+    token: input.token,
+    fetchImpl,
+  });
+  return {
+    status: readback.appIds.includes(input.appId) ? 'subscribed' as const : 'not_subscribed' as const,
+    mutation,
+    readback,
+  };
+}
+
 export async function runCleanWabaSubscriptionReset(input: CleanResetInput): Promise<CleanResetResult> {
   const fetchImpl = input.fetchImpl ?? fetch;
   const calls: CleanResetCall[] = [];
