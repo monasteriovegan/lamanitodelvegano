@@ -195,12 +195,21 @@ test('Instagram marca ecos de la cuenta profesional como salida humana', () => {
   assert.equal(message.sender_type, 'human');
 });
 
-test('envío real permanece bloqueado salvo habilitación explícita', () => {
-  const source = readFileSync(
+test('envío real permanece bloqueado por la política actual salvo habilitación explícita', () => {
+  const transport = readFileSync(
     new URL('../src/lib/messaging/transports/whatsapp-cloud.ts', import.meta.url),
     'utf8',
   );
-  assert.match(source, /META_SEND_MODE !== 'live'/);
+  const policy = readFileSync(
+    new URL('../src/lib/messaging/capability-policy.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(transport, /resolveWhatsAppSendMode/);
+  assert.match(transport, /evaluateMessagingCapability/);
+  assert.match(transport, /createWhatsAppCloudSender/);
+  assert.match(policy, /read_only/);
+  assert.match(policy, /disabled/);
+  assert.match(policy, /live/);
 });
 
 test('migración omnicanal permanece transaccional, aditiva y con IA apagada', () => {
