@@ -43,7 +43,7 @@ function graphError(body: any, fallback: string) {
   return String(body?.error?.message || body?.message || fallback);
 }
 
-async function configureInstagramAppCallback(version: string, verifyToken?: string | null) {
+export async function configureInstagramAppCallback(version: string, verifyToken?: string | null) {
   if (!process.env.META_APP_SECRET || !verifyToken) {
     return { ok: false, status: 0, error: 'Falta META_APP_SECRET o verify token' };
   }
