@@ -4,6 +4,7 @@ import { configureInstagramAppCallback } from '@/lib/meta/setup-messaging';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 
 const DEFAULT_APP_ID = '1691394752113175';
+const DEFAULT_BRIDGE_APP_ID = '1388581679803769';
 const DEFAULT_PAGE_ID = '1210803402107834';
 const DEFAULT_BUSINESS_UNIT_ID = 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
 
@@ -40,6 +41,22 @@ function graphMessage(body: any, fallback: string) {
   return String(body?.error?.message || body?.message || fallback);
 }
 
+async function validateAppSecret(appId: string, secret: string | undefined, version: string) {
+  if (!secret) return { present: false, valid: false, status: 0 };
+  const url = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
+  url.searchParams.set('client_id', appId);
+  url.searchParams.set('client_secret', secret);
+  url.searchParams.set('grant_type', 'client_credentials');
+  const response = await fetch(url, { cache: 'no-store' });
+  const body = await response.json().catch(() => ({}));
+  return {
+    present: true,
+    valid: Boolean(response.ok && body?.access_token),
+    status: response.status,
+    error: response.ok ? null : graphMessage(body, 'app_secret_invalid'),
+  };
+}
+
 async function resolvePageAccessToken(token: string, pageId: string, version: string) {
   const accountsUrl = new URL(`https://graph.facebook.com/${version}/me/accounts`);
   accountsUrl.searchParams.set('fields', 'id,access_token');
@@ -55,6 +72,24 @@ async function resolvePageAccessToken(token: string, pageId: string, version: st
   const direct = await graphJson(pageUrl, token);
   if (direct.response.ok && String(direct.body?.id || '') === pageId) return token;
   return null;
+}
+
+async function inspectSubscribedApps(token: string, pageId: string, version: string) {
+  const pageToken = await resolvePageAccessToken(token, pageId, version);
+  if (!pageToken) return { status: 0, apps: [] as Array<{ id: string; name: string | null; fields: string[] }> };
+  const url = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}/subscribed_apps`);
+  url.searchParams.set('fields', 'id,name,subscribed_fields');
+  const result = await graphJson(url, pageToken);
+  const apps = result.response.ok && Array.isArray(result.body?.data)
+    ? result.body.data.map((item: any) => ({
+        id: String(item?.id || ''),
+        name: item?.name ? String(item.name) : null,
+        fields: Array.isArray(item?.subscribed_fields)
+          ? item.subscribed_fields.map((field: unknown) => String(field))
+          : [],
+      })).filter((item: { id: string }) => Boolean(item.id))
+    : [];
+  return { status: result.response.status, apps };
 }
 
 async function subscribeAndVerify(input: {
@@ -116,6 +151,7 @@ export async function rewireInstagramWebhook(
   },
 ) {
   const appId = process.env.META_APP_ID || DEFAULT_APP_ID;
+  const bridgeAppId = process.env.META_BRIDGE_APP_ID || DEFAULT_BRIDGE_APP_ID;
   const businessUnitId = input.businessUnitId || process.env.MANITO_BUSINESS_UNIT_ID || DEFAULT_BUSINESS_UNIT_ID;
   const credential = await new MetaConnectionsRepository(db).getActiveCredential(
     businessUnitId,
@@ -127,6 +163,17 @@ export async function rewireInstagramWebhook(
     'v25.0',
     'v24.0',
   ]));
+
+  const bridgeSecretCheck = await validateAppSecret(
+    bridgeAppId,
+    process.env.META_BRIDGE_APP_SECRET,
+    versions[0],
+  );
+  const subscriptionInspection = await inspectSubscribedApps(
+    credential.accessToken,
+    pageId,
+    versions[0],
+  );
 
   let callback: Awaited<ReturnType<typeof configureInstagramAppCallback>> | null = null;
   let callbackVersion: string | null = null;
@@ -169,7 +216,14 @@ export async function rewireInstagramWebhook(
   return {
     ok: Boolean(callback?.ok) && primaryAppSubscribed,
     appId,
+    bridgeAppId,
     pageId,
+    bridgeSecretPresent: bridgeSecretCheck.present,
+    bridgeSecretValid: bridgeSecretCheck.valid,
+    bridgeSecretStatus: bridgeSecretCheck.status,
+    bridgeSecretError: bridgeSecretCheck.error || null,
+    subscribedAppsStatus: subscriptionInspection.status,
+    subscribedApps: subscriptionInspection.apps,
     callback: callback
       ? {
           ok: callback.ok,
