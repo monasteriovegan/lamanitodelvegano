@@ -87,8 +87,9 @@ test('durable observation merges existing metadata and writes only enumerated sa
     errorCode: null,
   });
 
-  assert.ok(upserted);
-  const metadata = upserted.metadata as Record<string, any>;
+  const persisted = upserted as Record<string, any> | null;
+  assert.ok(persisted);
+  const metadata = persisted.metadata as Record<string, any>;
   assert.equal(metadata.retained, 'yes');
   assert.equal(metadata.webhook.previous, true);
   assert.equal(metadata.webhook.last_outcome, 'persisted');
@@ -96,8 +97,8 @@ test('durable observation merges existing metadata and writes only enumerated sa
   assert.equal(metadata.webhook.message_count, 1);
   assert.equal(metadata.webhook.phone_number_match, true);
   assert.match(metadata.webhook.last_received_at, /^\d{4}-\d{2}-\d{2}T/);
-  assert.equal(upserted.transport, 'cloud_api');
-  assert.doesNotMatch(JSON.stringify(upserted), /body|sender|contact|token/i);
+  assert.equal(persisted.transport, 'cloud_api');
+  assert.doesNotMatch(JSON.stringify(persisted), /body|sender|contact|token/i);
 });
 
 test('observer records mismatch and safe error codes without arbitrary error text', async () => {
@@ -124,6 +125,8 @@ test('observer records mismatch and safe error codes without arbitrary error tex
     errorCode: 'phone_number_mismatch',
   });
 
-  assert.equal(upserted!.metadata.webhook.phone_number_match, false);
-  assert.equal(upserted!.metadata.webhook.error_code, 'phone_number_mismatch');
+  const persisted = upserted as Record<string, any> | null;
+  assert.ok(persisted);
+  assert.equal(persisted.metadata.webhook.phone_number_match, false);
+  assert.equal(persisted.metadata.webhook.error_code, 'phone_number_mismatch');
 });
