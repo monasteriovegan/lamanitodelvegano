@@ -46,6 +46,15 @@ test('diagnóstico identifica la app emisora del token y lee suscripciones Core 
   assert.doesNotMatch(source, /appAccessToken\s*:/);
 });
 
+test('diagnóstico enumera apps owned/client del Business sin devolver tokens', () => {
+  const source = read('src/lib/meta/instagram-webhook-rewire.ts');
+  assert.match(source, /owned_apps/);
+  assert.match(source, /client_apps/);
+  assert.match(source, /businessApps/);
+  assert.match(source, /META_BUSINESS_ID/);
+  assert.doesNotMatch(source, /businessAccessToken\s*:/);
+});
+
 test('trigger interno de rewire usa la misma llave derivada y no es público', () => {
   const routePath = 'src/app/api/internal/instagram-webhook-rewire/route.ts';
   assert.equal(existsSync(join(root, routePath)), true);

@@ -6,6 +6,7 @@ import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-r
 const DEFAULT_APP_ID = '1691394752113175';
 const DEFAULT_BRIDGE_APP_ID = '1388581679803769';
 const DEFAULT_PAGE_ID = '1210803402107834';
+const DEFAULT_META_BUSINESS_ID = '1210930218761819';
 const DEFAULT_BUSINESS_UNIT_ID = 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
 
 type GraphResult = {
@@ -109,6 +110,30 @@ async function inspectAppSubscriptions(appId: string, appToken: string | null, v
   };
 }
 
+async function inspectBusinessApps(businessId: string, token: string, version: string) {
+  const inspectEdge = async (edge: 'owned_apps' | 'client_apps') => {
+    const url = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(businessId)}/${edge}`);
+    url.searchParams.set('fields', 'id,name');
+    url.searchParams.set('limit', '100');
+    const result = await graphJson(url, token);
+    const apps = result.response.ok && Array.isArray(result.body?.data)
+      ? result.body.data.map((item: any) => ({
+          id: String(item?.id || ''),
+          name: item?.name ? String(item.name) : null,
+        })).filter((item: { id: string }) => Boolean(item.id))
+      : [];
+    return {
+      status: result.response.status,
+      apps,
+      error: result.response.ok ? null : graphMessage(result.body, `${edge}_failed`),
+    };
+  };
+  return {
+    owned: await inspectEdge('owned_apps'),
+    client: await inspectEdge('client_apps'),
+  };
+}
+
 async function resolvePageAccessToken(token: string, pageId: string, version: string) {
   const accountsUrl = new URL(`https://graph.facebook.com/${version}/me/accounts`);
   accountsUrl.searchParams.set('fields', 'id,access_token');
@@ -204,6 +229,7 @@ export async function rewireInstagramWebhook(
 ) {
   const appId = process.env.META_APP_ID || DEFAULT_APP_ID;
   const bridgeAppId = process.env.META_BRIDGE_APP_ID || DEFAULT_BRIDGE_APP_ID;
+  const metaBusinessId = process.env.META_BUSINESS_ID || DEFAULT_META_BUSINESS_ID;
   const businessUnitId = input.businessUnitId || process.env.MANITO_BUSINESS_UNIT_ID || DEFAULT_BUSINESS_UNIT_ID;
   const credential = await new MetaConnectionsRepository(db).getActiveCredential(
     businessUnitId,
@@ -227,6 +253,7 @@ export async function rewireInstagramWebhook(
     primary: await inspectAppSubscriptions(appId, primaryAccess.token, versions[0]),
     bridge: await inspectAppSubscriptions(bridgeAppId, bridgeAccess.token, versions[0]),
   };
+  const businessApps = await inspectBusinessApps(metaBusinessId, credential.accessToken, versions[0]);
   const subscriptionInspection = await inspectSubscribedApps(
     credential.accessToken,
     pageId,
@@ -275,6 +302,7 @@ export async function rewireInstagramWebhook(
     ok: Boolean(callback?.ok) && primaryAppSubscribed,
     appId,
     bridgeAppId,
+    metaBusinessId,
     pageId,
     primarySecretPresent: primaryAccess.present,
     primarySecretValid: primaryAccess.valid,
@@ -290,6 +318,7 @@ export async function rewireInstagramWebhook(
       bridge: bridgeTokenDebug,
     },
     appSubscriptions,
+    businessApps,
     subscribedAppsStatus: subscriptionInspection.status,
     subscribedApps: subscriptionInspection.apps,
     callback: callback
