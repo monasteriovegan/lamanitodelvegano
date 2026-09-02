@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Worker syntax
+        run: npm run check:worker
+
+      - name: Lint (advisory while legacy debt is cleaned up)
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Build without production secrets (advisory)
+        continue-on-error: true
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

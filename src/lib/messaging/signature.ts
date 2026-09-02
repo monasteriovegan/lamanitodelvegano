@@ -11,3 +11,12 @@ export function verifyHmac(
   const expected = createHmac('sha256', secret).update(raw).digest('hex');
   return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
 }
+
+export function verifyHmacAny(
+  raw: string | Buffer,
+  header: string | null,
+  secrets: Array<string | undefined | null>,
+) {
+  const unique = [...new Set(secrets.map((secret) => String(secret || '').trim()).filter(Boolean))];
+  return unique.some((secret) => verifyHmac(raw, header, secret));
+}

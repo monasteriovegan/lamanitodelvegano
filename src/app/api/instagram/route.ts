@@ -1,8 +1,9 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
-import { verifyHmac } from '@/lib/messaging/signature';
+import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
+import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +31,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const raw = await request.text();
   const signature256 = request.headers.get('x-hub-signature-256');
-  if (!verifyHmac(raw, signature256, process.env.META_APP_SECRET)) {
+  const validSignature = verifyHmacAny(raw, signature256, [
+    process.env.META_APP_SECRET,
+    process.env.META_BRIDGE_APP_SECRET,
+  ]);
+  if (!validSignature) {
     console.warn('instagram_webhook_signature_rejected', {
       signature256Present: Boolean(signature256),
       signatureLegacyPresent: Boolean(request.headers.get('x-hub-signature')),
-      appSecretPresent: Boolean(process.env.META_APP_SECRET),
+      primarySecretPresent: Boolean(process.env.META_APP_SECRET),
+      bridgeSecretPresent: Boolean(process.env.META_BRIDGE_APP_SECRET),
       bodyBytes: Buffer.byteLength(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
@@ -48,7 +54,7 @@ export async function POST(request: Request) {
   }
 
   if (payload?.object !== 'instagram') {
-    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false, ai_replied: false });
+    return Response.json({ ok: true, ignored: true, stored: 0, duplicates: 0, ai_called: false, ai_replied: false, orders_synced: 0 });
   }
 
   const db = createSupabaseServiceClient();
@@ -56,6 +62,7 @@ export async function POST(request: Request) {
   let duplicates = 0;
   let aiCalled = 0;
   let aiReplied = 0;
+  let ordersSynced = 0;
 
   try {
     for (const message of normalizeMetaInstagram(payload)) {
@@ -75,6 +82,19 @@ export async function POST(request: Request) {
           });
         }
       }
+
+      if (!result.duplicate && shouldAttemptInstagramAutoSale(message)) {
+        try {
+          const synced = await autoRegisterInstagramConversationSale(db, result.conversationId);
+          if (synced.status === 'synced') ordersSynced += 1;
+        } catch (error) {
+          console.error('instagram_order_auto_sync_failed', {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }
     }
 
     return Response.json({
@@ -83,9 +103,10 @@ export async function POST(request: Request) {
       duplicates,
       ai_called: aiCalled > 0,
       ai_replied: aiReplied > 0,
+      orders_synced: ordersSynced,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'meta_asset_not_connected') {
+    if (error instanceof Error && error.message.startsWith('meta_asset_not_connected')) {
       return Response.json({ ok: true, ignored: true, reason: 'asset_not_connected' }, { status: 200 });
     }
     console.error('instagram_webhook_persist_failed', {

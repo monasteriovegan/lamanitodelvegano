@@ -2,31 +2,64 @@ import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 
-async function resolvePageAccessToken(userAccessToken: string, instagramBusinessId: string) {
+async function resolvePageAccessToken(
+  userAccessToken: string,
+  instagramBusinessId: string,
+  configuredPageId?: string,
+) {
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
-  const response = await fetch(
-    `https://graph.facebook.com/${version}/me/accounts?fields=id,name,access_token,instagram_business_account&limit=100`,
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${version}/me/accounts?fields=id,name,access_token,instagram_business_account&limit=100`,
+      {
+        headers: { Authorization: `Bearer ${userAccessToken}` },
+        cache: 'no-store',
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) {
+      const pages = Array.isArray(body.data)
+        ? body.data as Array<{ id?: string; access_token?: string; instagram_business_account?: { id?: string } }>
+        : [];
+      const page = pages.find(
+        (item) => String(item?.instagram_business_account?.id || '') === instagramBusinessId,
+      );
+      if (page?.id && page?.access_token) {
+        return { pageId: String(page.id), pageAccessToken: String(page.access_token) };
+      }
+    }
+  } catch {}
+
+  const pageId = String(configuredPageId || '');
+  if (!pageId) throw new Error('instagram_page_token_not_found');
+  const probe = await fetch(
+    `https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}?fields=id`,
     {
       headers: { Authorization: `Bearer ${userAccessToken}` },
       cache: 'no-store',
     },
   );
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`instagram_page_token_failed:${response.status}`);
-
-  const pages = Array.isArray(body.data) ? body.data as Array<{ access_token?: string; instagram_business_account?: { id?: string } }> : [];
-  const page = pages.find(
-    (item) => String(item?.instagram_business_account?.id || '') === instagramBusinessId,
-  );
-  if (!page?.access_token) throw new Error('instagram_page_token_not_found');
-  return String(page.access_token);
+  const probeBody = await probe.json().catch(() => ({}));
+  if (!probe.ok || String(probeBody?.id || '') !== pageId) {
+    throw new Error('instagram_page_token_not_found');
+  }
+  return { pageId, pageAccessToken: userAccessToken };
 }
 
-async function sendWithFacebookLogin(input: { to: string; text: string }, userAccessToken: string, instagramBusinessId: string) {
-  const pageAccessToken = await resolvePageAccessToken(userAccessToken, instagramBusinessId);
+async function sendWithFacebookLogin(
+  input: { to: string; text: string },
+  userAccessToken: string,
+  instagramBusinessId: string,
+  configuredPageId?: string,
+) {
+  const { pageId, pageAccessToken } = await resolvePageAccessToken(
+    userAccessToken,
+    instagramBusinessId,
+    configuredPageId,
+  );
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
   const response = await fetch(
-    `https://graph.facebook.com/${version}/${encodeURIComponent(instagramBusinessId)}/messages`,
+    `https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}/messages`,
     {
       method: 'POST',
       headers: {
@@ -58,7 +91,12 @@ export async function sendInstagramMeta(
     'instagram_account',
   );
 
-  const result = await sendWithFacebookLogin(input, credential.accessToken, credential.externalId);
+  const result = await sendWithFacebookLogin(
+    input,
+    credential.accessToken,
+    credential.externalId,
+    credential.metadata?.page_id,
+  );
   const transportMode = 'facebook_login' as const;
 
   const { response, body } = result as { response: Response; body: { message_id?: string; messages?: Array<{ id?: string }> } };
