@@ -1,7 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
-import { verifyHmacAny } from '@/lib/messaging/signature';
+import { verifyHmacAny, verifyHmacSha1 } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
@@ -55,16 +55,27 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const raw = await request.text();
   const signature256 = request.headers.get('x-hub-signature-256');
+  const signatureLegacy = request.headers.get('x-hub-signature');
+  const primarySecret = process.env.META_APP_SECRET;
+  const bridgeSecret = process.env.META_BRIDGE_APP_SECRET;
   const validSignature = verifyHmacAny(raw, signature256, [
-    process.env.META_APP_SECRET,
-    process.env.META_BRIDGE_APP_SECRET,
+    primarySecret,
+    bridgeSecret,
   ]);
   if (!validSignature) {
     console.warn('instagram_webhook_signature_rejected', {
       signature256Present: Boolean(signature256),
-      signatureLegacyPresent: Boolean(request.headers.get('x-hub-signature')),
-      primarySecretPresent: Boolean(process.env.META_APP_SECRET),
-      bridgeSecretPresent: Boolean(process.env.META_BRIDGE_APP_SECRET),
+      signatureLegacyPresent: Boolean(signatureLegacy),
+      signature256Length: signature256?.length || 0,
+      signatureLegacyLength: signatureLegacy?.length || 0,
+      signature256FormatOk: /^sha256=[a-f0-9]{64}$/i.test(signature256 || ''),
+      signatureLegacyFormatOk: /^sha1=[a-f0-9]{40}$/i.test(signatureLegacy || ''),
+      primaryLegacyMatch: verifyHmacSha1(raw, signatureLegacy, primarySecret),
+      bridgeLegacyMatch: verifyHmacSha1(raw, signatureLegacy, bridgeSecret),
+      contentEncoding: request.headers.get('content-encoding') || null,
+      declaredContentLength: request.headers.get('content-length') || null,
+      primarySecretPresent: Boolean(primarySecret),
+      bridgeSecretPresent: Boolean(bridgeSecret),
       bodyBytes: Buffer.byteLength(raw),
       ...unverifiedEnvelopeForDiagnostics(raw),
     });
