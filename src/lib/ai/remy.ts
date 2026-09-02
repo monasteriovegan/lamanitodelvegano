@@ -208,7 +208,7 @@ export async function generateRemyReply(
   const delivery = compactText(deliveryContext, budget.maxBusinessContextChars);
   const payment = compactText(paymentContext, budget.maxBusinessContextChars);
   const customPrompt = compactText(config?.ai_system_prompt || '', budget.maxBusinessContextChars);
-  const systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${payment ? `\n\nDATOS DE PAGO VERIFICADOS:\n${payment}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
+  let systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${payment ? `\n\nDATOS DE PAGO VERIFICADOS:\n${payment}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
 
   // La selección de tools usa la misma ventana corta ya cargada, sin aumentar
   // el prompt. Esto permite continuar correctamente con “sí”, “dale”, una
@@ -225,6 +225,14 @@ export async function generateRemyReply(
     userText: input.userText,
     previousAssistantText,
   };
+
+  if (tools.some((tool) => tool.name === 'catalog_search')) {
+    const [{ catalogLookupInstruction }, result] = await Promise.all([
+      import('@/lib/catalog/remy-catalog'),
+      executeRemyTool(db, toolContext, 'catalog_search', { query: input.userText }),
+    ]);
+    systemPrompt += `\n\n${catalogLookupInstruction(result)}`;
+  }
 
   let provider = runtime.provider;
   let model = runtime.model || DEFAULT_MODEL;

@@ -87,6 +87,10 @@ export function buildRemyCartAddition(
   };
 }
 
+export function catalogLookupInstruction(result: unknown) {
+  return `CATÁLOGO MASTER VERIFICADO PARA ESTA CONSULTA:\n${JSON.stringify(result)}\nResponde usando exclusivamente estos datos comerciales. No inventes productos, contexto, precios, sabores ni disponibilidad. Si products está vacío, dilo con claridad.`;
+}
+
 const CHANNEL_COLUMN: Record<Exclude<CatalogChannel, 'remy'>, string> = {
   web: 'visible_web',
   whatsapp: 'visible_whatsapp',

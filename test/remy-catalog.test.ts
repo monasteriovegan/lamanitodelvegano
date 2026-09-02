@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildRemyCartAddition, matchesCatalogQuery, toRemyCatalogProduct } from '../src/lib/catalog/remy-catalog.ts';
+import { buildRemyCartAddition, catalogLookupInstruction, matchesCatalogQuery, toRemyCatalogProduct } from '../src/lib/catalog/remy-catalog.ts';
 import type { CatalogProduct } from '../src/lib/catalog/types.ts';
 
 const pack: CatalogProduct = {
@@ -17,6 +17,13 @@ test('Remy encuentra por campaña o componente y devuelve precio desde la varian
   assert.equal(dto.variants[0].price, 15000);
   assert.equal(dto.components[0].name, 'Le Kostilles al vacío');
   assert.deepEqual(dto.deliveryDates, ['2026-09-15']);
+});
+
+test('la respuesta comercial obliga a usar el resultado verificado', () => {
+  const instruction = catalogLookupInstruction({ products: [{ name: 'La Empanada del 18' }] });
+  assert.match(instruction, /CATÁLOGO MASTER VERIFICADO/);
+  assert.match(instruction, /La Empanada del 18/);
+  assert.match(instruction, /No inventes/);
 });
 
 test('Remy agrega la variante usando el precio canónico del catálogo', () => {
