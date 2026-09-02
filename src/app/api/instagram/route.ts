@@ -60,9 +60,11 @@ export async function POST(request: Request) {
   const signatureLegacy = request.headers.get('x-hub-signature');
   const primarySecret = process.env.META_APP_SECRET;
   const bridgeSecret = process.env.META_BRIDGE_APP_SECRET;
+  const instagramSecret = process.env.META_INSTAGRAM_APP_SECRET;
   const validSignature = verifyHmacAny(rawBody, signature256, [
     primarySecret,
     bridgeSecret,
+    instagramSecret,
   ]);
   if (!validSignature) {
     console.warn('instagram_webhook_signature_rejected', {
@@ -74,10 +76,12 @@ export async function POST(request: Request) {
       signatureLegacyFormatOk: /^sha1=[a-f0-9]{40}$/i.test(signatureLegacy || ''),
       primaryLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, primarySecret),
       bridgeLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, bridgeSecret),
+      instagramLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, instagramSecret),
       contentEncoding: request.headers.get('content-encoding') || null,
       declaredContentLength: request.headers.get('content-length') || null,
       primarySecretPresent: Boolean(primarySecret),
       bridgeSecretPresent: Boolean(bridgeSecret),
+      instagramSecretPresent: Boolean(instagramSecret),
       bodyBytes: rawBody.length,
       ...unverifiedEnvelopeForDiagnostics(raw),
     });
