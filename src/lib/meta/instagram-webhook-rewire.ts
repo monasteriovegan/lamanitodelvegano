@@ -50,6 +50,38 @@ function graphMessage(body: any, fallback: string) {
   return String(body?.error?.message || body?.message || fallback);
 }
 
+function safeSubscriptionData(body: any) {
+  return Array.isArray(body?.data)
+    ? body.data.map((item: any) => ({
+        id: item?.id ? String(item.id) : null,
+        name: item?.name ? String(item.name) : null,
+        fields: Array.isArray(item?.subscribed_fields)
+          ? item.subscribed_fields.map((field: unknown) => String(field))
+          : [],
+      }))
+    : [];
+}
+
+async function inspectDirectInstagramSubscription(igId: string, token: string, version: string) {
+  const inspect = async (host: 'graph.instagram.com' | 'graph.facebook.com') => {
+    const url = new URL(`https://${host}/${version}/${encodeURIComponent(igId)}/subscribed_apps`);
+    const result = await graphJson(url, token);
+    return {
+      host,
+      status: result.response.status,
+      ok: result.response.ok,
+      data: result.response.ok ? safeSubscriptionData(result.body) : [],
+      errorCode: result.body?.error?.code ?? null,
+      errorSubcode: result.body?.error?.error_subcode ?? null,
+      error: result.response.ok ? null : graphMessage(result.body, 'direct_instagram_subscription_failed'),
+    };
+  };
+  return {
+    instagramHost: await inspect('graph.instagram.com'),
+    facebookHost: await inspect('graph.facebook.com'),
+  };
+}
+
 async function getAppAccessToken(appId: string, secret: string | undefined, version: string): Promise<AppAccess> {
   if (!secret) return { present: false, valid: false, status: 0, token: null, error: null };
   const url = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
@@ -235,6 +267,7 @@ export async function rewireInstagramWebhook(
     businessUnitId,
     'instagram_account',
   );
+  const igId = String(credential.externalId || process.env.META_INSTAGRAM_BUSINESS_ID || '');
   const pageId = String(credential.metadata?.page_id || process.env.META_PAGE_ID || DEFAULT_PAGE_ID);
   const versions = Array.from(new Set([
     process.env.META_GRAPH_VERSION || 'v26.0',
@@ -254,6 +287,9 @@ export async function rewireInstagramWebhook(
     bridge: await inspectAppSubscriptions(bridgeAppId, bridgeAccess.token, versions[0]),
   };
   const businessApps = await inspectBusinessApps(metaBusinessId, credential.accessToken, versions[0]);
+  const directInstagramSubscription = igId
+    ? await inspectDirectInstagramSubscription(igId, credential.accessToken, versions[0])
+    : null;
   const subscriptionInspection = await inspectSubscribedApps(
     credential.accessToken,
     pageId,
@@ -304,6 +340,7 @@ export async function rewireInstagramWebhook(
     bridgeAppId,
     metaBusinessId,
     pageId,
+    igId,
     primarySecretPresent: primaryAccess.present,
     primarySecretValid: primaryAccess.valid,
     primarySecretStatus: primaryAccess.status,
@@ -319,6 +356,7 @@ export async function rewireInstagramWebhook(
     },
     appSubscriptions,
     businessApps,
+    directInstagramSubscription,
     subscribedAppsStatus: subscriptionInspection.status,
     subscribedApps: subscriptionInspection.apps,
     callback: callback
