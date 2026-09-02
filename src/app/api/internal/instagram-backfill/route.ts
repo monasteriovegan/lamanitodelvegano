@@ -27,8 +27,16 @@ async function runBackfill(request: Request) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
+  const userId = url.searchParams.get('user_id') || undefined;
+  if (userId && !/^\d+$/.test(userId)) {
+    return Response.json({ error: 'invalid_user_id' }, { status: 400 });
+  }
+
   try {
-    const result = await backfillInstagramConversations(db, { limit: 3 });
+    const result = await backfillInstagramConversations(db, {
+      limit: 3,
+      ...(userId ? { userId } : {}),
+    });
     return Response.json({ ok: true, ...result });
   } catch (error) {
     console.error('instagram_backfill_failed', {
