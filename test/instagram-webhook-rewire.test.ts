@@ -25,6 +25,16 @@ test('rewire intenta credencial multitenant y token legado sin exponerlos', () =
   assert.doesNotMatch(source, /console\.(?:log|warn|error)\([^\n]*(?:accessToken|legacyPageToken)/);
 });
 
+test('rewire valida Bridge secret y enumera apps suscritas sin exponer secretos', () => {
+  const source = read('src/lib/meta/instagram-webhook-rewire.ts');
+  assert.match(source, /META_BRIDGE_APP_SECRET/);
+  assert.match(source, /1388581679803769/);
+  assert.match(source, /bridgeSecretValid/);
+  assert.match(source, /subscribedApps/);
+  assert.match(source, /oauth\/access_token/);
+  assert.doesNotMatch(source, /bridgeSecret:\s*process\.env/);
+});
+
 test('trigger interno de rewire usa la misma llave derivada y no es público', () => {
   const routePath = 'src/app/api/internal/instagram-webhook-rewire/route.ts';
   assert.equal(existsSync(join(root, routePath)), true);
