@@ -7,19 +7,28 @@ import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale }
 
 export const dynamic = 'force-dynamic';
 
-function unverifiedSenderIdForDiagnostics(raw: string) {
+function unverifiedEnvelopeForDiagnostics(raw: string) {
   try {
     const payload = JSON.parse(raw);
-    if (payload?.object !== 'instagram') return null;
     for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
       for (const event of Array.isArray(entry?.messaging) ? entry.messaging : []) {
         const senderId = String(event?.sender?.id || '');
         const recipientId = String(event?.recipient?.id || '');
-        if (/^\d+$/.test(senderId) && recipientId === '17841419477422736') return senderId;
+        return {
+          unverifiedObject: typeof payload?.object === 'string' ? payload.object : null,
+          unverifiedSenderId: /^\d+$/.test(senderId) ? senderId : null,
+          unverifiedRecipientId: /^\d+$/.test(recipientId) ? recipientId : null,
+        };
       }
     }
-  } catch {}
-  return null;
+    return {
+      unverifiedObject: typeof payload?.object === 'string' ? payload.object : null,
+      unverifiedSenderId: null,
+      unverifiedRecipientId: null,
+    };
+  } catch {
+    return { unverifiedObject: null, unverifiedSenderId: null, unverifiedRecipientId: null };
+  }
 }
 
 export async function GET(request: Request) {
@@ -57,7 +66,7 @@ export async function POST(request: Request) {
       primarySecretPresent: Boolean(process.env.META_APP_SECRET),
       bridgeSecretPresent: Boolean(process.env.META_BRIDGE_APP_SECRET),
       bodyBytes: Buffer.byteLength(raw),
-      unverifiedSenderId: unverifiedSenderIdForDiagnostics(raw),
+      ...unverifiedEnvelopeForDiagnostics(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }

@@ -24,10 +24,13 @@ test('endpoint protegido acepta user_id numérico sin quitar autorización', () 
   assert.match(route, /userId/);
 });
 
-test('webhook inválido solo expone ID candidato y sigue respondiendo 401', () => {
+test('webhook inválido solo expone envoltorio numérico y sigue respondiendo 401', () => {
   const route = read('src/app/api/instagram/route.ts');
   assert.match(route, /unverifiedSenderId/);
+  assert.match(route, /unverifiedRecipientId/);
+  assert.match(route, /unverifiedObject/);
   assert.match(route, /instagram_webhook_signature_rejected/);
   assert.match(route, /invalid_signature/);
   assert.match(route, /status:\s*401/);
+  assert.doesNotMatch(route, /unverifiedMessageText/);
 });
