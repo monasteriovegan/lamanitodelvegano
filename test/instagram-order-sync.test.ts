@@ -91,8 +91,8 @@ test('Facebook Login de Instagram envía por Page ID y no por Instagram Business
   const transport = read('src/lib/messaging/transports/instagram-meta.ts');
   assert.match(transport, /pageId/);
   assert.match(transport, /pageAccessToken/);
-  assert.match(transport, /encodeURIComponent\(pageId\).*\/messages/s);
-  assert.doesNotMatch(transport, /encodeURIComponent\(instagramBusinessId\).*\/messages/s);
+  assert.match(transport, /encodeURIComponent\(pageId\)[\s\S]*\/messages/);
+  assert.doesNotMatch(transport, /encodeURIComponent\(instagramBusinessId\)[\s\S]*\/messages/);
 });
 
 test('webhook puede validar una rotación controlada de secretos sin desactivar HMAC', () => {
