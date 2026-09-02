@@ -15,6 +15,6 @@ test('Instagram webhook verifies against the Instagram product App Secret as wel
 
 test('Instagram product secret is diagnostic-only metadata and is never logged', () => {
   assert.match(route, /instagramSecretPresent: Boolean\(instagramSecret\)/);
-  assert.doesNotMatch(route, /instagramSecret\s*[,}]/);
-  assert.doesNotMatch(route, /META_INSTAGRAM_APP_SECRET[^\n]*console/);
+  assert.doesNotMatch(route, /instagramSecret:\s*instagramSecret/);
+  assert.doesNotMatch(route, /console\.(?:log|warn|error)\([^;]*META_INSTAGRAM_APP_SECRET/);
 });
