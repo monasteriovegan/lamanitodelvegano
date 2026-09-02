@@ -23,6 +23,14 @@ type TokenAttempt = {
   error?: string;
 };
 
+type AppAccess = {
+  present: boolean;
+  valid: boolean;
+  status: number;
+  token: string | null;
+  error: string | null;
+};
+
 async function graphJson(url: URL, token: string, init: RequestInit = {}): Promise<GraphResult> {
   const response = await fetch(url, {
     ...init,
@@ -41,19 +49,63 @@ function graphMessage(body: any, fallback: string) {
   return String(body?.error?.message || body?.message || fallback);
 }
 
-async function validateAppSecret(appId: string, secret: string | undefined, version: string) {
-  if (!secret) return { present: false, valid: false, status: 0 };
+async function getAppAccessToken(appId: string, secret: string | undefined, version: string): Promise<AppAccess> {
+  if (!secret) return { present: false, valid: false, status: 0, token: null, error: null };
   const url = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
   url.searchParams.set('client_id', appId);
   url.searchParams.set('client_secret', secret);
   url.searchParams.set('grant_type', 'client_credentials');
   const response = await fetch(url, { cache: 'no-store' });
   const body = await response.json().catch(() => ({}));
+  const token = response.ok && body?.access_token ? String(body.access_token) : null;
   return {
     present: true,
-    valid: Boolean(response.ok && body?.access_token),
+    valid: Boolean(token),
     status: response.status,
+    token,
     error: response.ok ? null : graphMessage(body, 'app_secret_invalid'),
+  };
+}
+
+async function debugTenantToken(inputToken: string, appToken: string | null, version: string) {
+  if (!appToken) {
+    return { status: 0, ok: false, appId: null as string | null, isValid: null as boolean | null, type: null as string | null, scopes: [] as string[], error: 'app_access_token_unavailable' };
+  }
+  const url = new URL(`https://graph.facebook.com/${version}/debug_token`);
+  url.searchParams.set('input_token', inputToken);
+  const result = await graphJson(url, appToken);
+  const data = result.body?.data || {};
+  return {
+    status: result.response.status,
+    ok: result.response.ok,
+    appId: data?.app_id ? String(data.app_id) : null,
+    isValid: typeof data?.is_valid === 'boolean' ? data.is_valid : null,
+    type: data?.type ? String(data.type) : null,
+    scopes: Array.isArray(data?.scopes) ? data.scopes.map((scope: unknown) => String(scope)) : [],
+    error: result.response.ok ? null : graphMessage(result.body, 'debug_token_failed'),
+  };
+}
+
+async function inspectAppSubscriptions(appId: string, appToken: string | null, version: string) {
+  if (!appToken) {
+    return { status: 0, subscriptions: [] as Array<{ object: string | null; callbackUrl: string | null; active: boolean | null; fields: string[] }>, error: 'app_access_token_unavailable' };
+  }
+  const url = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(appId)}/subscriptions`);
+  const result = await graphJson(url, appToken);
+  const subscriptions = result.response.ok && Array.isArray(result.body?.data)
+    ? result.body.data.map((item: any) => ({
+        object: item?.object ? String(item.object) : null,
+        callbackUrl: item?.callback_url ? String(item.callback_url) : null,
+        active: typeof item?.active === 'boolean' ? item.active : null,
+        fields: Array.isArray(item?.fields)
+          ? item.fields.map((field: any) => String(typeof field === 'string' ? field : field?.name || '')).filter(Boolean)
+          : [],
+      }))
+    : [];
+  return {
+    status: result.response.status,
+    subscriptions,
+    error: result.response.ok ? null : graphMessage(result.body, 'app_subscriptions_failed'),
   };
 }
 
@@ -164,11 +216,17 @@ export async function rewireInstagramWebhook(
     'v24.0',
   ]));
 
-  const bridgeSecretCheck = await validateAppSecret(
-    bridgeAppId,
-    process.env.META_BRIDGE_APP_SECRET,
-    versions[0],
-  );
+  const primaryAccess = await getAppAccessToken(appId, process.env.META_APP_SECRET, versions[0]);
+  const bridgeAccess = await getAppAccessToken(bridgeAppId, process.env.META_BRIDGE_APP_SECRET, versions[0]);
+  const primaryTokenDebug = await debugTenantToken(credential.accessToken, primaryAccess.token, versions[0]);
+  const bridgeTokenDebug = await debugTenantToken(credential.accessToken, bridgeAccess.token, versions[0]);
+  const observedTokenAppIds = [...new Set([primaryTokenDebug.appId, bridgeTokenDebug.appId].filter(Boolean) as string[])];
+  const validTokenDebug = [primaryTokenDebug, bridgeTokenDebug].find((item) => item.isValid && item.appId);
+  const tenantTokenAppId = validTokenDebug?.appId || (observedTokenAppIds.length === 1 ? observedTokenAppIds[0] : null);
+  const appSubscriptions = {
+    primary: await inspectAppSubscriptions(appId, primaryAccess.token, versions[0]),
+    bridge: await inspectAppSubscriptions(bridgeAppId, bridgeAccess.token, versions[0]),
+  };
   const subscriptionInspection = await inspectSubscribedApps(
     credential.accessToken,
     pageId,
@@ -218,10 +276,20 @@ export async function rewireInstagramWebhook(
     appId,
     bridgeAppId,
     pageId,
-    bridgeSecretPresent: bridgeSecretCheck.present,
-    bridgeSecretValid: bridgeSecretCheck.valid,
-    bridgeSecretStatus: bridgeSecretCheck.status,
-    bridgeSecretError: bridgeSecretCheck.error || null,
+    primarySecretPresent: primaryAccess.present,
+    primarySecretValid: primaryAccess.valid,
+    primarySecretStatus: primaryAccess.status,
+    primarySecretError: primaryAccess.error,
+    bridgeSecretPresent: bridgeAccess.present,
+    bridgeSecretValid: bridgeAccess.valid,
+    bridgeSecretStatus: bridgeAccess.status,
+    bridgeSecretError: bridgeAccess.error,
+    tenantTokenAppId,
+    tenantTokenDebug: {
+      primary: primaryTokenDebug,
+      bridge: bridgeTokenDebug,
+    },
+    appSubscriptions,
     subscribedAppsStatus: subscriptionInspection.status,
     subscribedApps: subscriptionInspection.apps,
     callback: callback

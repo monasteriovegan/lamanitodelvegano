@@ -35,6 +35,17 @@ test('rewire valida Bridge secret y enumera apps suscritas sin exponer secretos'
   assert.doesNotMatch(source, /bridgeSecret:\s*process\.env/);
 });
 
+test('diagnóstico identifica la app emisora del token y lee suscripciones Core y Bridge sin exponer tokens', () => {
+  const source = read('src/lib/meta/instagram-webhook-rewire.ts');
+  assert.match(source, /debug_token/);
+  assert.match(source, /tenantTokenAppId/);
+  assert.match(source, /appSubscriptions/);
+  assert.match(source, /primary/);
+  assert.match(source, /bridge/);
+  assert.doesNotMatch(source, /credentialAccessToken\s*:/);
+  assert.doesNotMatch(source, /appAccessToken\s*:/);
+});
+
 test('trigger interno de rewire usa la misma llave derivada y no es público', () => {
   const routePath = 'src/app/api/internal/instagram-webhook-rewire/route.ts';
   assert.equal(existsSync(join(root, routePath)), true);
