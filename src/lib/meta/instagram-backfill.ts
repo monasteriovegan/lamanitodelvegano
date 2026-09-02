@@ -25,7 +25,7 @@ async function resolvePageAccessToken(storedToken: string, pageId: string) {
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
   try {
     const body = await graphJson<any>(
-      `https://graph.facebook.com/${version}/me/accounts?fields=id,access_token&limit=100`,
+      `https://graph.facebook.com/${version}/me/accounts?fields=id,access_token&limit=25`,
       storedToken,
     );
     const page = (body.data || []).find((item: any) => String(item?.id || '') === pageId);
@@ -58,7 +58,7 @@ function normalizeHistoryMessage(message: any, businessInstagramId: string, page
     direction: outbound ? 'outbound' : 'inbound',
     sender_type: outbound ? 'human' : 'customer',
     text: message?.message ? String(message.message) : null,
-    message_type: Array.isArray(message?.attachments?.data) && message.attachments.data.length ? 'attachment' : 'text',
+    message_type: 'text',
     sent_at: new Date(message?.created_time || Date.now()).toISOString(),
     raw_payload: { source: 'instagram_history_backfill', message },
     display_name: outbound ? null : (message?.from?.name ? String(message.from.name) : null),
@@ -96,7 +96,7 @@ export async function backfillInstagramConversations(
   const pageId = process.env.META_PAGE_ID || DEFAULT_PAGE_ID;
   const businessInstagramId = process.env.META_INSTAGRAM_BUSINESS_ID || DEFAULT_IG_BUSINESS_ID;
   const pageToken = await resolvePageAccessToken(storedToken, pageId);
-  const requestedLimit = Math.max(1, Math.min(Number(options.limit || 25), 50));
+  const requestedLimit = Math.max(1, Math.min(Number(options.limit || 10), 10));
 
   const conversations = await graphJson<any>(
     `https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}/conversations?platform=instagram&fields=id,updated_time&limit=${requestedLimit}`,
@@ -114,7 +114,7 @@ export async function backfillInstagramConversations(
     conversationsScanned += 1;
 
     const detail = await graphJson<any>(
-      `https://graph.facebook.com/${version}/${encodeURIComponent(conversationId)}?fields=messages.limit(100){id,created_time,from,to,message,attachments}`,
+      `https://graph.facebook.com/${version}/${encodeURIComponent(conversationId)}?fields=messages.limit(25){id,created_time,from,to,message}`,
       pageToken,
     ) as any;
     const rows = Array.isArray(detail?.messages?.data) ? detail.messages.data : [];
