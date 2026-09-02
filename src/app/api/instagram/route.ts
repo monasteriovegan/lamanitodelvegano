@@ -53,12 +53,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const raw = await request.text();
+  const arrayBuffer = await request.arrayBuffer();
+  const rawBody = Buffer.from(arrayBuffer);
+  const raw = rawBody.toString('utf8');
   const signature256 = request.headers.get('x-hub-signature-256');
   const signatureLegacy = request.headers.get('x-hub-signature');
   const primarySecret = process.env.META_APP_SECRET;
   const bridgeSecret = process.env.META_BRIDGE_APP_SECRET;
-  const validSignature = verifyHmacAny(raw, signature256, [
+  const validSignature = verifyHmacAny(rawBody, signature256, [
     primarySecret,
     bridgeSecret,
   ]);
@@ -70,13 +72,13 @@ export async function POST(request: Request) {
       signatureLegacyLength: signatureLegacy?.length || 0,
       signature256FormatOk: /^sha256=[a-f0-9]{64}$/i.test(signature256 || ''),
       signatureLegacyFormatOk: /^sha1=[a-f0-9]{40}$/i.test(signatureLegacy || ''),
-      primaryLegacyMatch: verifyHmacSha1(raw, signatureLegacy, primarySecret),
-      bridgeLegacyMatch: verifyHmacSha1(raw, signatureLegacy, bridgeSecret),
+      primaryLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, primarySecret),
+      bridgeLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, bridgeSecret),
       contentEncoding: request.headers.get('content-encoding') || null,
       declaredContentLength: request.headers.get('content-length') || null,
       primarySecretPresent: Boolean(primarySecret),
       bridgeSecretPresent: Boolean(bridgeSecret),
-      bodyBytes: Buffer.byteLength(raw),
+      bodyBytes: rawBody.length,
       ...unverifiedEnvelopeForDiagnostics(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
