@@ -104,6 +104,7 @@ export async function backfillInstagramConversations(
   );
 
   let conversationsScanned = 0;
+  let conversationsFailed = 0;
   let messagesStored = 0;
   let duplicates = 0;
   let ordersSynced = 0;
@@ -113,26 +114,34 @@ export async function backfillInstagramConversations(
     if (!conversationId) continue;
     conversationsScanned += 1;
 
-    const detail = await graphJson<any>(
-      `https://graph.facebook.com/${version}/${encodeURIComponent(conversationId)}?fields=messages.limit(25){id,created_time,from,to,message}`,
-      pageToken,
-    ) as any;
-    const rows = Array.isArray(detail?.messages?.data) ? detail.messages.data : [];
-    let localConversationId: string | null = null;
+    try {
+      const detail = await graphJson<any>(
+        `https://graph.facebook.com/${version}/${encodeURIComponent(conversationId)}?fields=messages.limit(25){id,created_time,from,to,message}`,
+        pageToken,
+      ) as any;
+      const rows = Array.isArray(detail?.messages?.data) ? detail.messages.data : [];
+      let localConversationId: string | null = null;
 
-    for (const row of [...rows].reverse()) {
-      const normalized = normalizeHistoryMessage(row, businessInstagramId, pageId);
-      if (!normalized) continue;
-      const persisted = await persistMessage(db, normalized);
-      localConversationId = persisted.conversationId || localConversationId;
-      persisted.duplicate ? (duplicates += 1) : (messagesStored += 1);
-    }
+      for (const row of [...rows].reverse()) {
+        const normalized = normalizeHistoryMessage(row, businessInstagramId, pageId);
+        if (!normalized) continue;
+        const persisted = await persistMessage(db, normalized);
+        localConversationId = persisted.conversationId || localConversationId;
+        persisted.duplicate ? (duplicates += 1) : (messagesStored += 1);
+      }
 
-    if (localConversationId) {
-      const synced = await autoRegisterInstagramConversationSale(db, localConversationId);
-      if (synced.status === 'synced') ordersSynced += 1;
+      if (localConversationId) {
+        const synced = await autoRegisterInstagramConversationSale(db, localConversationId);
+        if (synced.status === 'synced') ordersSynced += 1;
+      }
+    } catch (error) {
+      conversationsFailed += 1;
+      console.warn('instagram_backfill_conversation_failed', {
+        conversationId,
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
     }
   }
 
-  return { conversationsScanned, messagesStored, duplicates, ordersSynced };
+  return { conversationsScanned, conversationsFailed, messagesStored, duplicates, ordersSynced };
 }
