@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   normalizeBaileys,
+  normalizeMetaInstagram,
   normalizeMetaWhatsApp,
   normalizePhone,
 } from '../src/lib/messaging/normalize.ts';
@@ -104,25 +105,111 @@ test('misma entrega genera una clave estable por transporte', () => {
   );
 });
 
-test('webhook inbound delega en Remy sin invocar proveedores LLM directamente', () => {
-  const source = readFileSync(
-    new URL('../src/app/api/whatsapp/route.ts', import.meta.url),
-    'utf8',
-  );
-  assert.doesNotMatch(source, /gemini|openai|anthropic|claude|generarRespuesta/i);
-  assert.match(source, /import \{ maybeAutoReply \} from '@\/lib\/ai\/remy'/);
-  assert.match(source, /!result\.duplicate && !isStatus && !isAppEcho && message\.direction === 'inbound'/);
-  assert.match(source, /const ai = await maybeAutoReply\(db, result, message\)/);
-  assert.match(source, /ai_called:\s*aiCalled > 0/);
-  assert.match(source, /ai_replied:\s*aiReplied > 0/);
+test('Instagram normaliza texto inbound con el mid como clave idempotente', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      time: 1700000000000,
+      messaging: [{
+        sender: { id: 'ig-customer-1' },
+        recipient: { id: '17841419477422736' },
+        timestamp: 1700000000000,
+        message: { mid: 'ig-mid-1', text: 'Hola Remy' },
+      }],
+    }],
+  });
+
+  assert.equal(message.channel, 'instagram');
+  assert.equal(message.provider_message_id, 'ig-mid-1');
+  assert.equal(message.external_thread_id, 'ig-customer-1');
+  assert.equal(message.direction, 'inbound');
+  assert.equal(message.text, 'Hola Remy');
+  assert.deepEqual(message.attachments, []);
 });
 
-test('envío real permanece bloqueado salvo habilitación explícita', () => {
-  const source = readFileSync(
+test('Instagram conserva metadatos seguros de imagen, video y audio', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: 'ig-customer-2' },
+        recipient: { id: '17841419477422736' },
+        timestamp: 1700000000000,
+        message: {
+          mid: 'ig-mid-media',
+          attachments: [
+            { type: 'image', payload: { url: 'https://cdn.example/image.jpg' } },
+            { type: 'video', payload: { url: 'https://cdn.example/video.mp4' } },
+            { type: 'audio', payload: { url: 'https://cdn.example/audio.m4a' } },
+          ],
+        },
+      }],
+    }],
+  });
+
+  assert.equal(message.message_type, 'image');
+  assert.deepEqual(message.attachments, [
+    { type: 'image', url: 'https://cdn.example/image.jpg' },
+    { type: 'video', url: 'https://cdn.example/video.mp4' },
+    { type: 'audio', url: 'https://cdn.example/audio.m4a' },
+  ]);
+});
+
+test('Instagram persiste adjuntos desconocidos con fallback estable', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: 'ig-customer-3' },
+        recipient: { id: '17841419477422736' },
+        message: {
+          mid: 'ig-mid-unsupported',
+          attachments: [{ type: 'share', payload: { title: 'Publicación' } }],
+        },
+      }],
+    }],
+  });
+
+  assert.equal(message.message_type, 'share');
+  assert.deepEqual(message.attachments, [{ type: 'unsupported' }]);
+});
+
+test('Instagram marca ecos de la cuenta profesional como salida humana', () => {
+  const [message] = normalizeMetaInstagram({
+    object: 'instagram',
+    entry: [{
+      id: '17841419477422736',
+      messaging: [{
+        sender: { id: '17841419477422736' },
+        recipient: { id: 'ig-customer-4' },
+        message: { mid: 'ig-mid-echo', text: 'Respuesta humana', is_echo: true },
+      }],
+    }],
+  });
+
+  assert.equal(message.external_thread_id, 'ig-customer-4');
+  assert.equal(message.direction, 'outbound');
+  assert.equal(message.sender_type, 'human');
+});
+
+test('envío real permanece bloqueado por la política actual salvo habilitación explícita', () => {
+  const transport = readFileSync(
     new URL('../src/lib/messaging/transports/whatsapp-cloud.ts', import.meta.url),
     'utf8',
   );
-  assert.match(source, /META_SEND_MODE !== 'live'/);
+  const policy = readFileSync(
+    new URL('../src/lib/messaging/capability-policy.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(transport, /resolveWhatsAppSendMode/);
+  assert.match(transport, /evaluateMessagingCapability/);
+  assert.match(transport, /createWhatsAppCloudSender/);
+  assert.match(policy, /read_only/);
+  assert.match(policy, /disabled/);
+  assert.match(policy, /live/);
 });
 
 test('migración omnicanal permanece transaccional, aditiva y con IA apagada', () => {

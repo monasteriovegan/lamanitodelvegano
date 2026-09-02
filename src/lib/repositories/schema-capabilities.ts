@@ -31,9 +31,9 @@ export function getSchemaCapabilities(
   const source = env || process.env;
   const configuredVersion = source.SUPABASE_SCHEMA_VERSION?.trim();
 
-  // V2 is installed and verified in the canonical Supabase project. Deployments
-  // without a version flag therefore use the reconciled schema. An explicitly
-  // different version still fails closed.
+  // V2 is already installed in the canonical Supabase project. Older deployments
+  // that do not carry the version flag must therefore use the reconciled schema,
+  // while an explicitly different version still fails closed.
   const reconciled = !configuredVersion || configuredVersion === RECONCILED_SCHEMA_VERSION;
 
   return {
@@ -45,9 +45,8 @@ export function getSchemaCapabilities(
     persistentCart: reconciled,
     conversionHub: reconciled,
     messagingExtensions: reconciled,
-    // The canonical V2 schema is production-ready. Keep an explicit false value
-    // as an emergency kill switch without requiring a second positive flag.
-    checkoutWrites: reconciled && source.SUPABASE_CHECKOUT_SCHEMA_READY !== 'false',
+    // Checkout writes remain independently gated. This does not enable Production checkout.
+    checkoutWrites: reconciled && source.SUPABASE_CHECKOUT_SCHEMA_READY === 'true',
   };
 }
 

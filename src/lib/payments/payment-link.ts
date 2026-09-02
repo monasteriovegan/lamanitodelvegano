@@ -2,6 +2,7 @@ import 'server-only';
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMercadoPagoAccessToken } from './mercadopago';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 export type PaymentProvider = 'mercadopago' | 'flow';
 
@@ -14,14 +15,10 @@ type PedidoPago = {
   total: number | null;
   costo_envio: number | null;
   shipping_zone_name: string | null;
-  tracking_number: string | null;
 };
 
 function defaultOrigin() {
-  const configured = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
-  if (configured) return configured;
-  const vercel = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-  return vercel ? `https://${vercel}` : 'https://lamanitodelvegano.vercel.app';
+  return runtimeSiteUrl();
 }
 
 async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise<PedidoPago> {
@@ -29,7 +26,7 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
   const { data, error } = await db
     .from('pedidos')
-    .select('id,nombre_cliente,telefono,customer_email,items,total,costo_envio,shipping_zone_name,tracking_number')
+    .select('id,nombre_cliente,telefono,customer_email,items,total,costo_envio,shipping_zone_name')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -44,9 +41,6 @@ export async function createPaymentLink(
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
   const items = Array.isArray(pedido.items) ? pedido.items : [];
-  const trackingParam = pedido.tracking_number
-    ? `&tracking=${encodeURIComponent(pedido.tracking_number)}`
-    : '';
 
   if (input.provider === 'mercadopago') {
     const token = await resolveMercadoPagoAccessToken(db);
@@ -78,9 +72,9 @@ export async function createPaymentLink(
           phone: pedido.telefono ? { number: pedido.telefono } : undefined,
         },
         back_urls: {
-          success: `${origin}/pedido/${pedido.id}?status=success${trackingParam}`,
-          failure: `${origin}/pedido/${pedido.id}?status=failure${trackingParam}`,
-          pending: `${origin}/pedido/${pedido.id}?status=pending${trackingParam}`,
+          success: `${origin}/pedido/${pedido.id}?status=success`,
+          failure: `${origin}/pedido/${pedido.id}?status=failure`,
+          pending: `${origin}/pedido/${pedido.id}?status=pending`,
         },
         notification_url: `${origin}/api/pagos/mercadopago-webhook`,
         auto_return: 'approved',
@@ -107,7 +101,7 @@ export async function createPaymentLink(
     email: pedido.customer_email || 'cliente@lamanitodelvegano.cl',
     subject: `Pedido #${String(pedido.id)} - La Manito Del Vegano`,
     urlConfirmation: `${origin}/api/pagos/flow-confirm`,
-    urlReturn: `${origin}/pedido/${pedido.id}?status=success${trackingParam}`,
+    urlReturn: `${origin}/pedido/${pedido.id}?status=success`,
   };
   const signatureBase = Object.keys(params).sort().map((key) => key + params[key]).join('');
   params.s = crypto.createHmac('sha256', String(config.flow_secret_key).trim()).update(signatureBase).digest('hex');

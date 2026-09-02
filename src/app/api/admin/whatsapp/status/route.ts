@@ -1,7 +1,9 @@
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { SettingsRepository } from '@/lib/repositories/settings-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
+import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
+import { buildWhatsAppStatus } from '@/lib/messaging/whatsapp-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,32 +13,37 @@ export async function GET() {
 
   const db = createSupabaseServiceClient();
   const capabilities = getSchemaCapabilities();
-  const transportsPromise = capabilities.supportTables
-    ? db.from('messaging_transport_status').select('transport,status,last_inbound_at,last_outbound_at,last_error,updated_at')
-    : Promise.resolve({ data: [], error: null });
-  const [{ data: transports }, ai, { data: integration }] = await Promise.all([
-    transportsPromise,
-    new SettingsRepository(db).getAiSettings(),
+  const business = await new BusinessRepository(db).getDefault();
+  const transportPromise = capabilities.supportTables
+    ? db.from('messaging_transport_status')
+      .select('transport,status,last_inbound_at,last_outbound_at,last_error,updated_at,metadata')
+      .eq('transport', 'cloud_api')
+      .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const assetPromise = business
+    ? db.from('meta_connection_assets')
+      .select('external_id,metadata')
+      .eq('business_unit_id', business.id)
+      .eq('asset_type', 'whatsapp_phone_number')
+      .eq('selected', true)
+      .limit(1)
+      .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const [{ data: transport }, { data: asset }, { data: integration }] = await Promise.all([
+    transportPromise,
+    assetPromise,
     db
       .from('integraciones_secretas')
-      .select('wa_phone_number_id')
+      .select('wa_phone_number_id,ai_enabled')
       .eq('id', 'global')
       .maybeSingle(),
   ]);
 
-  return Response.json({
-    number: '+56 9 9081 6124',
-    business_app: 'not_verified',
-    cloud_api:
-      integration?.wa_phone_number_id === '1022209807648757'
-        ? 'connected'
-        : 'configuration_mismatch',
-    waba_id: '1129249369256097',
-    phone_number_id: '1022209807648757',
-    quality: 'GREEN',
-    transports: transports ?? [],
-    crm_sync: 'configured',
-    automatic_ai: 'OFF',
-    real_sends: process.env.META_SEND_MODE === 'live' ? 'ENABLED' : 'DISABLED',
-  });
+  return Response.json(buildWhatsAppStatus({
+    transport: transport ?? null,
+    integration: integration ?? null,
+    asset: asset ?? null,
+    callbackUrl: process.env.META_WHATSAPP_CALLBACK_URL,
+    sendMode: resolveWhatsAppSendMode(),
+  }));
 }

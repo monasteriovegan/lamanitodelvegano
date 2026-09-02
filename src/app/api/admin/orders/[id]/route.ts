@@ -4,6 +4,7 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { SchemaCapabilityError } from '@/lib/repositories/schema-capabilities';
 import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
+import { sendPaidPurchaseToMeta } from '@/lib/meta/conversions-api';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -76,6 +77,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
         orderId: updatedOrder.numeric_id,
         reason: notificationError instanceof Error ? notificationError.message : 'unknown',
       });
+    }
+
+    if (before.payment_status !== 'paid' && updatedOrder.payment_status === 'paid') {
+      await sendPaidPurchaseToMeta(db, updatedOrder.numeric_id);
     }
 
     return NextResponse.json({ ok: true, data: updatedOrder, notifications });

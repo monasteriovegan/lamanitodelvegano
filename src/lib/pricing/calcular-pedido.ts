@@ -2,12 +2,19 @@ import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { parseFormatos } from './formatos';
-import type { CheckoutRequest, ItemCarrito } from '@/types/domain';
+import type { CheckoutRequest } from '@/types/domain';
+import { CatalogRepository } from '@/lib/catalog/catalog-repository';
+import { resolveCatalogCheckoutItem, type CatalogCheckoutItemIntent } from '@/lib/catalog/catalog-checkout';
+import type { CatalogCartItem } from '@/lib/catalog/catalog-cart';
+
+export type CatalogCheckoutRequest = Omit<CheckoutRequest, 'items'> & {
+  items: CatalogCheckoutItemIntent[];
+};
 
 export interface ResultadoCalculo {
   ok: boolean;
   error?: string;
-  itemsResueltos?: ItemCarrito[];
+  itemsResueltos?: CatalogCartItem[];
   subtotal?: number;
   costoEnvio?: number;
   descuentoCupon?: number;
@@ -24,7 +31,7 @@ export interface ResultadoCalculo {
  * El catálogo se filtra por business_unit_id. Mientras la tienda pública siga
  * siendo La Manito, businessUnitId puede omitirse y se resuelve la unidad canónica.
  */
-export async function calcularPedido(req: CheckoutRequest, businessUnitId?: string | null): Promise<ResultadoCalculo> {
+export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId?: string | null): Promise<ResultadoCalculo> {
   const supabase = createSupabaseServiceClient();
 
   if (!req.items || req.items.length === 0) {
@@ -45,12 +52,23 @@ export async function calcularPedido(req: CheckoutRequest, businessUnitId?: stri
     return { ok: false, error: 'Ninguno de los productos del carrito está disponible.' };
   }
 
-  const itemsResueltos: ItemCarrito[] = [];
+  const itemsResueltos: CatalogCartItem[] = [];
+  const catalogProducts = await new CatalogRepository(supabase).listActive(businessId);
+  const catalogById = new Map(catalogProducts.map((product) => [product.id, product]));
 
   for (const reqItem of req.items) {
     const prod = productos.find((p) => p.id === reqItem.productoId);
     if (!prod) {
       return { ok: false, error: `Producto no disponible: ${reqItem.productoId}` };
+    }
+
+    if (reqItem.variantId) {
+      const catalogProduct = catalogById.get(reqItem.productoId);
+      if (!catalogProduct) return { ok: false, error: `Producto no disponible: ${reqItem.productoId}` };
+      const resolved = resolveCatalogCheckoutItem(catalogProduct, reqItem);
+      if (!resolved.ok) return { ok: false, error: `Selección inválida para "${prod.nombre}": ${resolved.error}.` };
+      itemsResueltos.push(resolved.item);
+      continue;
     }
 
     if (reqItem.qty <= 0 || !Number.isInteger(reqItem.qty)) {

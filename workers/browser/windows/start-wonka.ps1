@@ -70,7 +70,7 @@ for ($i = 0; $i -lt 40; $i++) {
 }
 if (-not $Ready) { throw 'Chrome Wonka no abrió correctamente el puerto local 9222.' }
 
-$env:SYNTHETIQ_API_URL = 'https://lamanitodelvegano.vercel.app'
+$env:SYNTHETIQ_API_URL = 'https://lamanitodelvegano.cl'
 $env:SYNTHETIQ_WORKER_TOKEN = $Token
 $env:SYNTHETIQ_WORKER_ID = "local-windows-$env:COMPUTERNAME"
 $env:BROWSER_CDP_URL = "http://127.0.0.1:$Port"

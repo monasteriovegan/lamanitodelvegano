@@ -1,5 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sanitizeGeminiSchema } from './schema';
+export { sanitizeGeminiSchema } from './schema';
 
 export type ProviderToolDefinition = {
   name: string;
@@ -165,7 +167,7 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
     payload.tools = [{ functionDeclarations: input.tools.map((tool) => ({
       name: tool.name,
       description: tool.description,
-      parameters: sanitizeSchema(tool.inputSchema),
+      parameters: sanitizeGeminiSchema(tool.inputSchema),
     })) }];
   }
 

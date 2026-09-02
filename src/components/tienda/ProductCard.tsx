@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import type { Producto } from '@/types/domain';
 import { useCart } from '@/lib/cart/CartContext';
 import { itemKey } from '@/lib/cart/CartContext';
+import { trackAddToCart } from '@/lib/analytics/client';
 
 const TAG_STYLES: Record<string, string> = {
   nuevo: 'bg-v3 text-white',
@@ -40,16 +40,7 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
       emoji: producto.emoji || '🌱',
     });
 
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'AddToCart', { content_name: producto.nombre, value: producto.precio, currency: 'CLP' });
-    }
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'add_to_cart', {
-        currency: 'CLP',
-        value: producto.precio,
-        items: [{ item_id: producto.id, item_name: producto.nombre }],
-      });
-    }
+    trackAddToCart({ items: [{ id: producto.id, name: producto.nombre, price: producto.precio }], value: producto.precio });
   }
 
   return (

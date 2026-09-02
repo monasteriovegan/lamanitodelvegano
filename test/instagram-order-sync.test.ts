@@ -74,14 +74,25 @@ test('backfill de Instagram consulta conversaciones desde Page ID y reutiliza pe
   assert.match(source, /autoRegisterInstagramConversationSale/);
 });
 
-test('backfill prefiere la conexión Meta activa cifrada antes del token global heredado', () => {
+test('backfill usa la conexión Meta activa cifrada del tenant', () => {
   const backfill = read('src/lib/meta/instagram-backfill.ts');
-  const tokenSource = read('src/lib/meta/connection-token.ts');
-  assert.match(backfill, /loadActiveMetaConnectionToken/);
-  assert.match(tokenSource, /meta_connections/);
-  assert.match(tokenSource, /aes-256-gcm/);
-  assert.match(tokenSource, /access_token_ciphertext/);
-  assert.doesNotMatch(tokenSource, /console\.log\([^)]*token/);
+  const repository = read('src/lib/repositories/meta-connections-repository.ts');
+  const crypto = read('src/lib/meta/token-crypto.ts');
+  assert.match(backfill, /MetaConnectionsRepository/);
+  assert.match(backfill, /getActiveCredential/);
+  assert.match(repository, /meta_connections/);
+  assert.match(repository, /access_token_ciphertext/);
+  assert.match(repository, /decryptMetaToken/);
+  assert.match(crypto, /aes-256-gcm/);
+  assert.doesNotMatch(backfill, /wa_access_token/);
+});
+
+test('Facebook Login de Instagram envía por Page ID y no por Instagram Business ID', () => {
+  const transport = read('src/lib/messaging/transports/instagram-meta.ts');
+  assert.match(transport, /pageId/);
+  assert.match(transport, /pageAccessToken/);
+  assert.match(transport, /encodeURIComponent\(pageId\)[\s\S]*\/messages/);
+  assert.doesNotMatch(transport, /encodeURIComponent\(instagramBusinessId\)[\s\S]*\/messages/);
 });
 
 test('webhook puede validar una rotación controlada de secretos sin desactivar HMAC', () => {

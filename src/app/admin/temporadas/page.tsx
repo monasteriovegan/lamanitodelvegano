@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { PageHeader, Badge, EmptyState } from '../_ui/AdminUI';
 
@@ -166,12 +167,12 @@ export default function TemporadasPage() {
         eyebrow="🌱 Catálogo"
         title="Temporadas & Colecciones"
         action={
-          <button
+          <div className="flex gap-2"><Link href="/admin/catalogo-master" className="border border-neon/30 text-neon px-4 py-2 rounded-xl font-bold text-sm">Catálogo Master</Link><button
             onClick={openNew}
             className="bg-neon hover:bg-neon/90 text-black px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-[0_0_15px_rgba(0,255,179,0.2)]"
           >
             + Nueva Temporada
-          </button>
+          </button></div>
         }
       />
 

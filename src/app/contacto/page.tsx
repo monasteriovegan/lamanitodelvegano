@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SiteShell } from '@/components/layout/SiteShell';
+import { trackContact } from '@/lib/analytics/client';
 
 const FAQS = [
   {
@@ -50,6 +51,7 @@ export default function ContactoPage() {
             target="_blank"
             rel="noopener noreferrer"
             className="cc"
+            onClick={() => trackContact('whatsapp')}
           >
             <div className="cci">💬</div>
             <div>
@@ -63,6 +65,7 @@ export default function ContactoPage() {
             target="_blank"
             rel="noopener noreferrer"
             className="cc"
+            onClick={() => trackContact('instagram')}
           >
             <div className="cci">📸</div>
             <div>
