@@ -49,10 +49,13 @@ function harness(options: {
   mode?: 'disabled' | 'read_only' | 'live';
   normalized?: any[];
   persist?: (db: any, message: any) => Promise<any>;
+  autoReplyResult?: { called: boolean; replied: boolean };
+  autoSale?: (db: any, result: any, message: any) => Promise<void>;
 } = {}) {
   const observations: string[] = [];
   let persistCalls = 0;
   let autoReplyCalls = 0;
+  let autoSaleCalls = 0;
   const normalized = options.normalized ?? [{
     direction: 'inbound',
     message_type: 'text',
@@ -82,8 +85,14 @@ function harness(options: {
     },
     autoReply: async () => {
       autoReplyCalls += 1;
-      return { called: true, replied: true };
+      return options.autoReplyResult ?? { called: true, replied: true };
     },
+    autoSale: options.autoSale
+      ? async (db, result, message) => {
+          autoSaleCalls += 1;
+          await options.autoSale!(db, result, message);
+        }
+      : async () => { autoSaleCalls += 1; },
     appSecret: 'app-secret',
     verifyToken: 'verify-me',
     configuredPhoneNumberId: PHONE_ID,
@@ -93,7 +102,7 @@ function harness(options: {
   return {
     ...handlers,
     observations,
-    calls: () => ({ persist: persistCalls, autoReply: autoReplyCalls }),
+    calls: () => ({ persist: persistCalls, autoReply: autoReplyCalls, autoSale: autoSaleCalls }),
   };
 }
 
@@ -116,7 +125,7 @@ test('invalid signature is observed and rejected before parsing or persistence',
   const response = await h.POST(request('{not-json', 'invalid'));
   assert.equal(response.status, 401);
   assert.deepEqual(h.observations, ['received', 'signature_invalid']);
-  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0 });
+  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0, autoSale: 0 });
 });
 
 test('invalid JSON is observed after a valid signature', async () => {
@@ -124,7 +133,7 @@ test('invalid JSON is observed after a valid signature', async () => {
   const response = await h.POST(request('{not-json'));
   assert.equal(response.status, 400);
   assert.deepEqual(h.observations, ['received', 'invalid_json']);
-  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0 });
+  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0, autoSale: 0 });
 });
 
 test('irrelevant payload is acknowledged and classified without persistence', async () => {
@@ -141,7 +150,7 @@ test('wrong Phone Number ID is acknowledged but never persisted', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { ok: true, ignored: true, reason: 'phone_number_mismatch' });
   assert.deepEqual(h.observations, ['received', 'phone_number_mismatch']);
-  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0 });
+  assert.deepEqual(h.calls(), { persist: 0, autoReply: 0, autoSale: 0 });
 });
 
 test('read_only persists inbound exactly once and never invokes Remy', async () => {
@@ -158,7 +167,7 @@ test('read_only persists inbound exactly once and never invokes Remy', async () 
     ai_replied: false,
   });
   assert.deepEqual(h.observations, ['received', 'persisted']);
-  assert.deepEqual(h.calls(), { persist: 1, autoReply: 0 });
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 0, autoSale: 1 });
 });
 
 test('duplicate is acknowledged and recorded without Remy', async () => {
@@ -172,7 +181,31 @@ test('duplicate is acknowledged and recorded without Remy', async () => {
   assert.equal(response.status, 200);
   assert.equal((await response.json()).duplicates, 1);
   assert.deepEqual(h.observations, ['received', 'duplicate']);
-  assert.deepEqual(h.calls(), { persist: 1, autoReply: 0 });
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 0, autoSale: 0 });
+});
+
+test('live mode skips the batched auto-sale extractor when Remy already replied this turn', async () => {
+  const h = harness({ mode: 'live', autoReplyResult: { called: true, replied: true } });
+  const response = await h.POST(request(JSON.stringify(envelope())));
+  assert.equal(response.status, 200);
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 0 });
+});
+
+test('live mode still runs the batched auto-sale extractor when Remy did not reply this turn', async () => {
+  const h = harness({ mode: 'live', autoReplyResult: { called: false, replied: false } });
+  const response = await h.POST(request(JSON.stringify(envelope())));
+  assert.equal(response.status, 200);
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 1 });
+});
+
+test('a failing auto-sale extraction is logged but never fails the webhook response', async () => {
+  const h = harness({
+    mode: 'read_only',
+    autoSale: async () => { throw new Error('draft extraction failed'); },
+  });
+  const response = await h.POST(request(JSON.stringify(envelope())));
+  assert.equal(response.status, 200);
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 0, autoSale: 1 });
 });
 
 test('asset-not-connected is acknowledged while database failures return 500', async () => {
@@ -193,6 +226,6 @@ test('live mode may invoke Remy only after successful inbound persistence', asyn
   const h = harness({ mode: 'live' });
   const response = await h.POST(request(JSON.stringify(envelope())));
   assert.equal(response.status, 200);
-  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1 });
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 0 });
   assert.equal((await response.json()).ai_replied, true);
 });
