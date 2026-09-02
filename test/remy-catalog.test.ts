@@ -12,6 +12,7 @@ const pack: CatalogProduct = {
 
 test('Remy encuentra por campaña o componente y devuelve precio desde la variante', () => {
   assert.equal(matchesCatalogQuery(pack, 'qué tienen para el 18'), true);
+  assert.equal(matchesCatalogQuery({ ...pack, description: 'Pack parrillero vegano.' }, 'qué tienen para el 18', ['Fiestas Patrias 2026']), true);
   assert.equal(matchesCatalogQuery(pack, 'incluye kostilles'), true);
   const dto = toRemyCatalogProduct(pack);
   assert.equal(dto.variants[0].price, 15000);

@@ -19,6 +19,9 @@ function usefulTerms(query: string) {
 export function matchesCatalogQuery(product: CatalogProduct, query: string, campaignTerms: string[] = []) {
   const terms = usefulTerms(query);
   if (!terms.length) return true;
+  const normalizedQuery = normalize(query);
+  const seasonalQuery = /\b18\b|fiestas?\s+patrias?/.test(normalizedQuery);
+  if (seasonalQuery && campaignTerms.some((term) => /fiestas?\s+patrias?/.test(normalize(term)))) return true;
   const haystack = normalize([
     product.name,
     product.slug,
