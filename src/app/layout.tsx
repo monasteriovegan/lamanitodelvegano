@@ -4,6 +4,8 @@ import './globals.css';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { AnalyticsScripts } from '@/components/layout/AnalyticsScripts';
 import { CartProvider } from '@/lib/cart/CartContext';
+import { Suspense } from 'react';
+import { OFFICIAL_SITE_URL } from '@/lib/site-url';
 
 const syne = Syne({
   subsets: ['latin'],
@@ -25,7 +27,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lamanitodelvegano.vercel.app'),
+  metadataBase: new URL(OFFICIAL_SITE_URL),
+  alternates: { canonical: '/' },
   title: {
     default: 'La Manito Del Vegano 🌱 | Comida Vegana Artesanal en Santiago y Pucón',
     template: '%s | La Manito Del Vegano',
@@ -36,7 +39,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'La Manito Del Vegano 🌱',
     description: 'Comida vegana que enamora. Elaborada con amor y conciencia en Santiago y Pucón.',
-    url: 'https://lamanitodelvegano.vercel.app',
+    url: OFFICIAL_SITE_URL,
     siteName: 'La Manito Del Vegano',
     locale: 'es_CL',
     type: 'website',
@@ -55,7 +58,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es">
       <body className={`${syne.variable} ${spaceGrotesk.variable} ${fraunces.variable} antialiased`}>
-        <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
+        <Suspense fallback={null}>
+          <AnalyticsScripts metaPixelId={integraciones?.meta_pixel_id} ga4Id={integraciones?.ga4_measurement_id} />
+        </Suspense>
         <CartProvider>{children}</CartProvider>
       </body>
     </html>

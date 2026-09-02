@@ -4,6 +4,7 @@ import type { AdminOrder } from '@/lib/repositories/orders-repository';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import { enviarEmail } from '@/lib/email/resend';
+import { runtimeSiteUrl } from '@/lib/site-url';
 
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -23,13 +24,6 @@ function firstName(order: AdminOrder) {
   return String(order.customer_name || '').trim().split(/\s+/)[0] || '';
 }
 
-function trackingUrl(order: AdminOrder) {
-  const code = String(order.tracking_number || '').trim();
-  return code
-    ? `https://lamanitodelvegano.vercel.app/seguimiento?tracking=${encodeURIComponent(code)}`
-    : 'https://lamanitodelvegano.vercel.app/seguimiento';
-}
-
 function notificationText(order: AdminOrder, event: OrderNotificationEvent) {
   const name = firstName(order);
   const hello = name ? `Hola ${name}. ` : '';
@@ -37,7 +31,7 @@ function notificationText(order: AdminOrder, event: OrderNotificationEvent) {
     return `${hello}¡Pago confirmado! ✅ Recibimos el pago de tu pedido #${order.numeric_id} por ${clp(order.total)}. Quedó registrado correctamente y te avisaremos cuando vaya en camino.`;
   }
   const tracking = order.tracking_number ? ` Seguimiento: ${order.tracking_number}.` : '';
-  return `${hello}¡Tu pedido #${order.numeric_id} va en camino! 🚚${tracking} Puedes revisar su estado aquí: ${trackingUrl(order)}`;
+  return `${hello}¡Tu pedido #${order.numeric_id} va en camino! 🚚${tracking} Puedes revisar su estado en ${runtimeSiteUrl()}/pedido/${order.numeric_id}`;
 }
 
 function escapeHtml(value: unknown) {
@@ -61,7 +55,7 @@ function notificationEmail(order: AdminOrder, event: OrderNotificationEvent) {
     : `<h1 style="font-size:22px;margin:0 0 10px;">Tu pedido va en camino 🚚</h1>
        <p style="font-size:15px;color:#444;line-height:1.55;">${name ? `Hola ${name}. ` : ''}Tu pedido <strong>#${orderId}</strong> ya salió a despacho.</p>
        ${tracking}
-       <p style="margin:18px 0 0;"><a href="${escapeHtml(trackingUrl(order))}" style="display:inline-block;background:#059669;color:white;text-decoration:none;padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;">Ver estado del pedido</a></p>`;
+       <p style="margin:18px 0 0;"><a href="${runtimeSiteUrl()}/pedido/${orderId}" style="display:inline-block;background:#059669;color:white;text-decoration:none;padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;">Ver estado del pedido</a></p>`;
 
   return `<div style="background:#f5f7f5;padding:24px 0;"><div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border-radius:16px;border:1px solid #e5e5e5;"><p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#059669;font-weight:700;margin:0 0 16px;">La Manito Del Vegano</p>${content}<p style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#888;">100% plant-based · Santiago y Pucón</p></div></div>`;
 }

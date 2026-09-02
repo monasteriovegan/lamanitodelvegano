@@ -24,15 +24,6 @@ const STATUS_COLORS: Record<OperationalStatus, { bg: string; text: string; borde
   cancelled: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' },
 };
 
-function paymentMethodLabel(value: string | null | undefined) {
-  const method = String(value || '').toLowerCase();
-  if (method === 'mercadopago') return 'Mercado Pago';
-  if (method === 'flow') return 'Flow';
-  if (method === 'transfer') return 'Transferencia';
-  if (method === 'whatsapp') return 'WhatsApp / coordinación';
-  return value || 'Sin definir';
-}
-
 interface PageProps {
   searchParams: Promise<{ buscar?: string; status?: string }>;
 }
@@ -146,7 +137,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
             <tr className="border-b border-[rgba(0,255,179,0.12)] bg-white/[0.02]">
               <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Número</th>
               <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Cliente</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total / Pago</th>
+              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
               <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Estado</th>
               <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Entrega</th>
               <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Fecha</th>
@@ -168,9 +159,8 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                     <div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div>
                     <div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-bold text-white text-sm font-display">{fmtCLP(o.total || 0)}</div>
-                    <div className="text-[10px] text-purple-200 font-mono mt-0.5">💳 {paymentMethodLabel(o.payment_method)}</div>
+                  <td className="px-4 py-3 font-bold text-white text-sm font-display">
+                    {fmtCLP(o.total || 0)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -254,11 +244,8 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                 <div className="text-xs text-muted">{o.customer_email} · {o.customer_phone}</div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-white/5 gap-3">
-                <div>
-                  <div className="font-bold text-white text-base font-display">{fmtCLP(o.total || 0)}</div>
-                  <div className="text-[10px] text-purple-200 font-mono mt-0.5">💳 {paymentMethodLabel(o.payment_method)}</div>
-                </div>
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <span className="font-bold text-white text-base font-display">{fmtCLP(o.total || 0)}</span>
                 <Link
                   href={`/admin/pedidos/${o.id}`}
                   className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"

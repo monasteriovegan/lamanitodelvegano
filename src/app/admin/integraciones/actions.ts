@@ -117,3 +117,68 @@ export async function guardarIntegraciones(formData: FormData) {
   revalidatePath('/admin/conversaciones');
   revalidatePath('/', 'layout');
 }
+
+async function metaMutation(path: string, token: string, parameters: Record<string, string>) {
+  const version = process.env.META_GRAPH_VERSION || 'v26.0';
+  const body = new URLSearchParams({ ...parameters, access_token: token });
+  const response = await fetch(`https://graph.facebook.com/${version}/${path}`, {
+    method: 'POST',
+    body,
+    cache: 'no-store',
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`meta_pixel_mutation_failed:${response.status}:${result?.error?.message || 'unknown'}`);
+  return result as { id?: string; success?: boolean };
+}
+
+export async function crearMetaPixel() {
+  await requireRole(['admin']);
+  const db = createSupabaseServiceClient();
+  const { data: config } = await db
+    .from('integraciones_secretas')
+    .select('wa_access_token,meta_pixel_id')
+    .eq('id', 'global')
+    .maybeSingle();
+  if (!config?.wa_access_token) throw new Error('meta_token_not_configured');
+  if (config.meta_pixel_id) return;
+
+  const version = process.env.META_GRAPH_VERSION || 'v26.0';
+  const businessesUrl = new URL(`https://graph.facebook.com/${version}/me/businesses`);
+  businessesUrl.searchParams.set('fields', 'id,name,owned_ad_accounts{id,name,account_status}');
+  businessesUrl.searchParams.set('access_token', config.wa_access_token);
+  const businessesResponse = await fetch(businessesUrl, { cache: 'no-store' });
+  const businessesBody = await businessesResponse.json().catch(() => ({}));
+  if (!businessesResponse.ok) throw new Error(`meta_business_lookup_failed:${businessesResponse.status}`);
+  const business = (businessesBody?.data || []).find((entry: { name?: string }) => /manito/i.test(entry.name || ''));
+  if (!business?.id) throw new Error('meta_business_not_found');
+
+  const pixelsUrl = new URL(`https://graph.facebook.com/${version}/${business.id}/owned_pixels`);
+  pixelsUrl.searchParams.set('fields', 'id,name');
+  pixelsUrl.searchParams.set('access_token', config.wa_access_token);
+  const pixelsResponse = await fetch(pixelsUrl, { cache: 'no-store' });
+  const pixelsBody = await pixelsResponse.json().catch(() => ({}));
+  if (!pixelsResponse.ok) throw new Error(`meta_pixel_lookup_failed:${pixelsResponse.status}`);
+
+  let pixelId = pixelsBody?.data?.[0]?.id as string | undefined;
+  if (!pixelId) {
+    const created = await metaMutation(`${business.id}/adspixels`, config.wa_access_token, {
+      name: 'La Manito del Vegano — Web',
+    });
+    pixelId = created.id;
+  }
+  if (!pixelId) throw new Error('meta_pixel_id_missing_after_create');
+
+  const activeAccount = business.owned_ad_accounts?.data?.find((account: { account_status?: number }) => account.account_status === 1);
+  if (activeAccount?.id) {
+    try {
+      await metaMutation(`${pixelId}/shared_accounts`, config.wa_access_token, { account_id: activeAccount.id });
+    } catch (error) {
+      console.warn('meta_pixel_share_failed', { message: error instanceof Error ? error.message : 'unknown' });
+    }
+  }
+
+  const { error } = await db.from('integraciones_secretas').update({ meta_pixel_id: pixelId }).eq('id', 'global');
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/integraciones');
+  revalidatePath('/', 'layout');
+}

@@ -1,9 +1,28 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 import { ConversationRepository } from '@/lib/repositories/conversations-repository';
 import { MessageRepository } from '@/lib/repositories/messages-repository';
 import { resolveCustomer } from './identity';
 import type { NormalizedMessage, PersistedMessage } from './types';
+
+export async function resolveBusinessUnitForMessage(
+  db: SupabaseClient,
+  message: NormalizedMessage,
+): Promise<string> {
+  if (message.provider === 'meta') {
+    const businessUnitId = await new MetaConnectionsRepository(db).resolveBusinessUnitForMessage(message);
+    if (!businessUnitId) throw new Error('meta_asset_not_connected');
+    return businessUnitId;
+  }
+
+  // Temporary compatibility for web/manual/Baileys inputs that do not carry a
+  // Meta recipient asset. Those entry points will receive an explicit tenant
+  // context as their admin routes are migrated.
+  const business = await new BusinessRepository(db).getDefault();
+  if (!business) throw new Error('default_business_not_found');
+  return business.id;
+}
 
 async function updateTransportHealth(db: SupabaseClient, message: NormalizedMessage, failed = false) {
   const now = new Date().toISOString();
@@ -23,17 +42,18 @@ async function applyProviderStatus(
 ): Promise<PersistedMessage | null> {
   if (!message.message_type.startsWith('status:')) return null;
 
-  const raw = message.raw_payload as any;
+  const raw = message.raw_payload as { status?: { id?: unknown } } | null;
   const providerId = String(raw?.status?.id || '');
   if (!providerId) return null;
 
-  let { data: target, error } = await db
+  const { data: initialTarget, error } = await db
     .from('omnichannel_messages')
     .select('id,conversation_id,customer_id')
     .eq('provider_message_id', providerId)
     .maybeSingle();
 
   if (error) throw error;
+  let target = initialTarget;
   if (!target) {
     const fallback = await db
       .from('omnichannel_messages')
@@ -47,7 +67,7 @@ async function applyProviderStatus(
   if (!target) return null;
 
   const status = message.message_type.slice(7);
-  const patch: Record<string, any> = {
+  const patch: Record<string, unknown> = {
     status,
     provider: message.provider,
     transport: message.transport,
@@ -125,8 +145,8 @@ export async function persistMessage(
     };
   }
 
-  const business = await new BusinessRepository(db).requireDefault();
-  const customerId = await resolveCustomer(db, business.id, {
+  const businessUnitId = await resolveBusinessUnitForMessage(db, message);
+  const customerId = await resolveCustomer(db, businessUnitId, {
     channel: message.channel,
     externalId: message.external_user_id,
     phone: message.channel === 'whatsapp' ? message.external_user_id : undefined,
@@ -134,7 +154,7 @@ export async function persistMessage(
   });
 
   const conversation = await new ConversationRepository(db).upsert({
-    businessUnitId: business.id,
+    businessUnitId,
     customerId,
     channel: message.channel,
     externalThreadId: message.external_thread_id,
@@ -164,8 +184,8 @@ export async function persistMessage(
       customerId,
       messageId: created.id,
     };
-  } catch (error: any) {
-    if (error?.code === '23505') {
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
       return {
         duplicate: true,
         conversationId: conversation.id,

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
-import { processPaidPurchaseConversion } from '@/lib/analytics/server-conversions';
 import {
   getMercadoPagoPayment,
   mapMercadoPagoPaymentStatus,
@@ -10,6 +9,7 @@ import {
   resolveMercadoPagoAccessToken,
   validateMercadoPagoWebhookSignature,
 } from '@/lib/payments/mercadopago';
+import { sendPaidPurchaseToMeta } from '@/lib/meta/conversions-api';
 
 function eventDataId(req: NextRequest, body: any) {
   return String(
@@ -78,31 +78,22 @@ export async function POST(req: NextRequest) {
     const effectiveStatus = currentPaymentStatus === 'paid' && (nextPaymentStatus === 'pending' || nextPaymentStatus === 'failed')
       ? 'paid'
       : nextPaymentStatus;
-    // Antes de separar estado operativo y estado financiero, el panel podía dejar
-    // "Pagado" con payment_status pendiente. Si Mercado Pago confirma pending/failed,
-    // corregimos únicamente ese legado. Otros estados operativos se conservan.
-    const stalePaidLegacyState = (effectiveStatus === 'pending' || effectiveStatus === 'failed') && String(pedido.estado || '') === 'Pagado';
 
-    if (effectiveStatus !== currentPaymentStatus || stalePaidLegacyState) {
+    if (effectiveStatus !== currentPaymentStatus) {
       const repo = new OrderRepository(db);
       const beforeOrder = await repo.getById(pedidoId);
-      const nextOperationalStatus = effectiveStatus === 'paid'
-        ? 'Pagado'
-        : stalePaidLegacyState
-          ? 'Pendiente'
-          : String(pedido.estado || 'Pendiente');
       const update: Record<string, any> = {
         payment_status: effectiveStatus,
-        estado: effectiveStatus === 'paid' ? 'Pagado' : stalePaidLegacyState ? 'Pendiente' : String(pedido.estado || 'Pendiente'),
         updated_at: new Date().toISOString(),
       };
+      if (effectiveStatus === 'paid') update.estado = 'Pagado';
       const { error: updateError } = await db.from('pedidos').update(update).eq('id', pedidoId);
       if (updateError) throw updateError;
 
       await db.from('order_status_history').insert({
         pedido_id: pedidoId,
         old_status: String(pedido.estado || 'Pendiente'),
-        new_status: nextOperationalStatus,
+        new_status: effectiveStatus === 'paid' ? 'Pagado' : String(pedido.estado || 'Pendiente'),
         payment_status: effectiveStatus,
         notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
       });
@@ -120,21 +111,8 @@ export async function POST(req: NextRequest) {
           });
         }
       }
-    }
 
-    // CAPI es best-effort respecto del webhook financiero: un fallo de analítica
-    // nunca revierte ni hace reintentar un pago ya verificado por Mercado Pago.
-    // También se ejecuta en webhooks duplicados de un pedido ya pagado para poder
-    // recuperar eventos pendientes; el procesador es idempotente por event_id.
-    if (effectiveStatus === 'paid') {
-      try {
-        await processPaidPurchaseConversion(db, pedidoId);
-      } catch (conversionError) {
-        console.error('purchase_conversion_processing_failed', {
-          pedidoId,
-          reason: conversionError instanceof Error ? conversionError.message : 'unknown',
-        });
-      }
+      if (effectiveStatus === 'paid') await sendPaidPurchaseToMeta(db, pedidoId);
     }
 
     return NextResponse.json({ ok: true });

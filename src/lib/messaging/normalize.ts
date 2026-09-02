@@ -1,4 +1,4 @@
-import type { NormalizedMessage } from './types';
+import type { NormalizedAttachment, NormalizedMessage } from './types';
 
 export function normalizePhone(value: string) {
   const digits = value.replace(/\D/g, '');
@@ -25,6 +25,18 @@ function messageType(message: any): string {
   if (message?.postback || message?.payload) return 'postback';
   if (message?.text) return 'text';
   return 'unknown';
+}
+
+function instagramAttachments(message: any): NormalizedAttachment[] {
+  const supported = new Set<NormalizedAttachment['type']>(['image', 'video', 'audio', 'file']);
+  return (message?.attachments ?? []).map((attachment: any) => {
+    const rawType = String(attachment?.type || '').toLowerCase();
+    if (!supported.has(rawType as NormalizedAttachment['type'])) return { type: 'unsupported' };
+    const url = typeof attachment?.payload?.url === 'string' ? attachment.payload.url : undefined;
+    return url
+      ? { type: rawType as NormalizedAttachment['type'], url }
+      : { type: rawType as NormalizedAttachment['type'] };
+  });
 }
 
 export function normalizeMetaWhatsApp(payload: any): NormalizedMessage[] {
@@ -128,6 +140,7 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
       const eventBody = message ?? postback;
       const text = messageText(eventBody);
       const type = postback ? 'postback' : messageType(eventBody);
+      const attachments = message ? instagramAttachments(message) : [];
       const timestamp = Number(event?.timestamp ?? entry?.time ?? Date.now());
 
       normalized.push({
@@ -141,6 +154,7 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
         sender_type: outbound ? 'human' : 'customer',
         text,
         message_type: type,
+        attachments,
         sent_at: new Date(timestamp > 10_000_000_000 ? timestamp : timestamp * 1000).toISOString(),
         raw_payload: {
           business_instagram_id: businessId,

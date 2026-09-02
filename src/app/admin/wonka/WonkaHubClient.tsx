@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '../_ui/AdminUI';
+import { OFFICIAL_SITE_URL } from '@/lib/site-url';
 
 type StoredMessage = {
   id: string;
@@ -293,7 +294,7 @@ export default function WonkaHubClient() {
           <section className="rounded-2xl border border-white/10 bg-[#050e0a] p-4">
             <h3 className="text-sm font-bold text-white">🔌 Synthetiq MCP</h3>
             <p className="mt-2 text-xs leading-5 text-white/45">El mismo Tool Layer puede ser usado por clientes MCP como ChatGPT/Codex compatibles. Genera primero un token de solo lectura.</p>
-            <div className="mt-3 break-all rounded-lg border border-white/8 bg-black/20 px-3 py-2 font-mono text-[10px] text-neon/70">https://lamanitodelvegano.vercel.app/api/mcp</div>
+            <div className="mt-3 break-all rounded-lg border border-white/8 bg-black/20 px-3 py-2 font-mono text-[10px] text-neon/70">{OFFICIAL_SITE_URL}/api/mcp</div>
             {!mcpToken ? (
               <button onClick={() => void createMcpToken()} disabled={creatingToken} className="mt-3 rounded-full border border-neon/30 bg-neon/10 px-4 py-2 text-xs font-bold text-neon disabled:opacity-50">{creatingToken ? 'Generando…' : 'Generar token MCP lectura'}</button>
             ) : (

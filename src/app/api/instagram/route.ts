@@ -30,14 +30,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const raw = await request.text();
-  const validSignature = verifyHmacAny(raw, request.headers.get('x-hub-signature-256'), [
+  const signature256 = request.headers.get('x-hub-signature-256');
+  const validSignature = verifyHmacAny(raw, signature256, [
     process.env.META_APP_SECRET,
     process.env.META_BRIDGE_APP_SECRET,
   ]);
   if (!validSignature) {
-    console.error('instagram_webhook_invalid_signature', {
-      has_primary_secret: Boolean(process.env.META_APP_SECRET),
-      has_bridge_secret: Boolean(process.env.META_BRIDGE_APP_SECRET),
+    console.warn('instagram_webhook_signature_rejected', {
+      signature256Present: Boolean(signature256),
+      signatureLegacyPresent: Boolean(request.headers.get('x-hub-signature')),
+      primarySecretPresent: Boolean(process.env.META_APP_SECRET),
+      bridgeSecretPresent: Boolean(process.env.META_BRIDGE_APP_SECRET),
+      bodyBytes: Buffer.byteLength(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }
@@ -102,6 +106,9 @@ export async function POST(request: Request) {
       orders_synced: ordersSynced,
     });
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('meta_asset_not_connected')) {
+      return Response.json({ ok: true, ignored: true, reason: 'asset_not_connected' }, { status: 200 });
+    }
     console.error('instagram_webhook_persist_failed', {
       message: error instanceof Error ? error.message : 'unknown',
     });

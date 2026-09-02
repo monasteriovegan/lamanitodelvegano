@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Producto } from '@/types/domain';
 import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
 import { useCart } from '@/lib/cart/CartContext';
+import { trackAddToCart } from '@/lib/analytics/client';
 
 export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto; onAdded?: () => void }) {
   const { addItem } = useCart();
@@ -55,16 +56,10 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
       });
     }
 
-    if (typeof window !== 'undefined' && window.fbq) {
-      window.fbq('track', 'AddToCart', { content_name: producto.nombre, value: precioTotal, currency: 'CLP' });
-    }
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'add_to_cart', {
-        currency: 'CLP',
-        value: precioTotal,
-        items: [{ item_id: producto.id, item_name: producto.nombre }],
-      });
-    }
+    trackAddToCart({
+      items: [{ id: producto.id, name: producto.nombre, price: precioUnitario, quantity: cantidadFinal }],
+      value: precioTotal,
+    });
 
     onAdded?.();
   }

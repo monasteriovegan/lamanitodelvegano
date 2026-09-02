@@ -3,8 +3,13 @@
 import { useEffect } from 'react';
 import type { Producto } from '@/types/domain';
 import { ProductPurchasePanel } from './ProductPurchasePanel';
+import { trackViewContent } from '@/lib/analytics/client';
 
 export function ProductDetailModal({ producto, onClose }: { producto: Producto; onClose: () => void }) {
+  useEffect(() => {
+    trackViewContent({ id: producto.id, name: producto.nombre, price: producto.precio });
+  }, [producto.id, producto.nombre, producto.precio]);
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();

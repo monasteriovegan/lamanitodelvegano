@@ -143,10 +143,10 @@ test('migración v2 incluye índices para todas las FK críticas faltantes', () 
   ]) assert.match(source, new RegExp(`create index if not exists ${index}`));
 });
 
-test('capabilities habilita checkout en schema v2 verificado salvo kill switch explícito', () => {
+test('capabilities no habilita checkout salvo schema v2 verificado', () => {
   const source = read('src/lib/repositories/schema-capabilities.ts');
   assert.match(source, /omnichannel-reconciled-v2/);
-  assert.match(source, /checkoutWrites:\s*reconciled\s*&&\s*source\.SUPABASE_CHECKOUT_SCHEMA_READY !== 'false'/);
+  assert.match(source, /checkoutWrites:\s*reconciled\s*&&\s*source\.SUPABASE_CHECKOUT_SCHEMA_READY === 'true'/);
 });
 
 test('runtime src no consulta directamente tablas no canónicas', () => {
@@ -163,11 +163,10 @@ test('configuración de IA tiene default seguro OFF', () => {
   assert.doesNotMatch(source, /automatic_ai_enabled:\s*true/);
 });
 
-test('checkout pre-migración o con kill switch se bloquea antes de escribir', () => {
+test('checkout pre-migración se bloquea antes de escribir', () => {
   const capabilities = read('src/lib/repositories/schema-capabilities.ts');
   const checkout = read('src/app/api/checkout/route.ts');
   assert.match(capabilities, /checkoutWrites:\s*reconciled\s*&&/);
-  assert.match(capabilities, /SUPABASE_CHECKOUT_SCHEMA_READY !== 'false'/);
   assert.match(checkout, /if \(!capabilities\.checkoutWrites\)/);
   assert.match(checkout, /SCHEMA_MIGRATION_REQUIRED/);
   assert.ok(

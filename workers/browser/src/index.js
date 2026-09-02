@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const API_URL = String(process.env.SYNTHETIQ_API_URL || 'https://lamanitodelvegano.vercel.app').replace(/\/$/, '');
+const API_URL = String(process.env.SYNTHETIQ_API_URL || 'https://lamanitodelvegano.cl').replace(/\/$/, '');
 const TOKEN = String(process.env.SYNTHETIQ_WORKER_TOKEN || '');
 const WORKER_ID = String(process.env.SYNTHETIQ_WORKER_ID || 'synthetiq-browser-railway');
 const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 5000));

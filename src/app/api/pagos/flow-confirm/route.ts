@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { sendPaidPurchaseToMeta } from '@/lib/meta/conversions-api';
 
 /** Flow notifica un token; el estado real se consulta server-side con firma. */
 export async function POST(req: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       payment_status: effectiveStatus,
       notes: `Flow status ${numericStatus}`,
     });
+    if (effectiveStatus === 'paid') await sendPaidPurchaseToMeta(supabase, pedidoId);
   }
 
   return new NextResponse('OK', { status: 200 });

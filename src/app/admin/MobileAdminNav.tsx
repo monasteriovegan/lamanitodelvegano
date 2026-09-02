@@ -17,7 +17,6 @@ const primary = [
 ];
 
 const more = [
-  { href: '/admin/ventas-conversaciones', icon: '🧾', label: 'Ventas por chat' },
   { href: '/admin/wonka', icon: '🎩', label: 'Wonka Hub' },
   { href: '/admin/agentes', icon: '🤖', label: 'Agentes & modelos' },
   { href: '/admin/computer', icon: '🖥️', label: 'Synthetiq Computer' },
