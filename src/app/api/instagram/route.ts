@@ -7,6 +7,21 @@ import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale }
 
 export const dynamic = 'force-dynamic';
 
+function unverifiedSenderIdForDiagnostics(raw: string) {
+  try {
+    const payload = JSON.parse(raw);
+    if (payload?.object !== 'instagram') return null;
+    for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
+      for (const event of Array.isArray(entry?.messaging) ? entry.messaging : []) {
+        const senderId = String(event?.sender?.id || '');
+        const recipientId = String(event?.recipient?.id || '');
+        if (/^\d+$/.test(senderId) && recipientId === '17841419477422736') return senderId;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get('hub.mode');
@@ -42,6 +57,7 @@ export async function POST(request: Request) {
       primarySecretPresent: Boolean(process.env.META_APP_SECRET),
       bridgeSecretPresent: Boolean(process.env.META_BRIDGE_APP_SECRET),
       bodyBytes: Buffer.byteLength(raw),
+      unverifiedSenderId: unverifiedSenderIdForDiagnostics(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }

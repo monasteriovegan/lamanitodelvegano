@@ -130,19 +130,35 @@ function conversationUrl(source: ConversationSource, after?: string | null) {
   return `https://graph.facebook.com/${source.version}/${encodeURIComponent(source.targetId)}/conversations?platform=instagram&fields=id&limit=1${cursor}`;
 }
 
+function targetedConversationUrls(source: ConversationSource, userId: string) {
+  const base = `https://graph.facebook.com/${source.version}/${encodeURIComponent(source.targetId)}/conversations`;
+  const encodedUser = encodeURIComponent(userId);
+  return [
+    `${base}?user_id=${encodedUser}&fields=id,updated_time&limit=1`,
+    `${base}?platform=instagram&user_id=${encodedUser}&fields=id,updated_time&limit=1`,
+  ];
+}
+
+function conversationCandidates(input: {
+  version: string;
+  pageId: string;
+  businessInstagramId: string;
+}) {
+  const versions = Array.from(new Set([input.version, 'v25.0', 'v24.0']));
+  return versions.flatMap((version) => [
+    { version, targetId: input.pageId, kind: 'page' as const },
+    { version, targetId: 'me', kind: 'me' as const },
+    { version, targetId: input.businessInstagramId, kind: 'instagram_business' as const },
+  ]);
+}
+
 async function discoverConversationSource(input: {
   version: string;
   pageId: string;
   businessInstagramId: string;
   pageToken: string;
 }) {
-  const versions = Array.from(new Set([input.version, 'v25.0', 'v24.0']));
-  const candidates: ConversationSource[] = versions.flatMap((version) => [
-    { version, targetId: input.pageId, kind: 'page' as const },
-    { version, targetId: 'me', kind: 'me' as const },
-    { version, targetId: input.businessInstagramId, kind: 'instagram_business' as const },
-  ]);
-
+  const candidates = conversationCandidates(input);
   let emptyResult: { source: ConversationSource; page: GraphPage<any> } | null = null;
   let lastError: Error | null = null;
 
@@ -163,6 +179,37 @@ async function discoverConversationSource(input: {
 
   if (emptyResult) return emptyResult;
   throw lastError || new Error('instagram_backfill_no_conversation_source');
+}
+
+async function findTargetedConversation(input: {
+  version: string;
+  pageId: string;
+  businessInstagramId: string;
+  pageToken: string;
+  userId: string;
+}) {
+  const candidates = conversationCandidates(input);
+  let lastError: Error | null = null;
+
+  for (const source of candidates) {
+    for (const url of targetedConversationUrls(source, input.userId)) {
+      try {
+        const page = await graphJson<GraphPage<any>>(url, input.pageToken, 1);
+        const row = page.data?.[0];
+        if (row?.id) return { source, conversation: row };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('instagram_targeted_backfill_failed');
+        console.warn('instagram_targeted_source_failed', {
+          source: source.kind,
+          version: source.version,
+          reason: lastError.message,
+        });
+      }
+    }
+  }
+
+  if (lastError) throw lastError;
+  return null;
 }
 
 async function listRecentConversations(input: {
@@ -230,9 +277,43 @@ async function loadConversationMessages(input: {
   });
 }
 
+async function syncConversation(input: {
+  db: SupabaseClient;
+  conversationId: string;
+  graphVersion: string;
+  pageToken: string;
+  businessInstagramId: string;
+  pageId: string;
+}) {
+  const rows = await loadConversationMessages({
+    version: input.graphVersion,
+    conversationId: input.conversationId,
+    pageToken: input.pageToken,
+  });
+  let localConversationId: string | null = null;
+  let messagesStored = 0;
+  let duplicates = 0;
+
+  for (const row of rows) {
+    const normalized = normalizeHistoryMessage(row, input.businessInstagramId, input.pageId);
+    if (!normalized) continue;
+    const persisted = await persistMessage(input.db, normalized);
+    localConversationId = persisted.conversationId || localConversationId;
+    persisted.duplicate ? (duplicates += 1) : (messagesStored += 1);
+  }
+
+  let ordersSynced = 0;
+  if (localConversationId) {
+    const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);
+    if (synced.status === 'synced') ordersSynced = 1;
+  }
+
+  return { localConversationId, messagesStored, duplicates, ordersSynced };
+}
+
 export async function backfillInstagramConversations(
   db: SupabaseClient,
-  options: { limit?: number; businessUnitId?: string } = {},
+  options: { limit?: number; businessUnitId?: string; userId?: string } = {},
 ) {
   const businessUnitId = options.businessUnitId || process.env.MANITO_BUSINESS_UNIT_ID || DEFAULT_BUSINESS_UNIT_ID;
   const credential = await new MetaConnectionsRepository(db).getActiveCredential(
@@ -246,6 +327,52 @@ export async function backfillInstagramConversations(
 
   const version = process.env.META_GRAPH_VERSION || 'v26.0';
   const pageToken = await resolvePageAccessToken(storedToken, pageId);
+
+  if (options.userId) {
+    if (!/^\d+$/.test(options.userId)) throw new Error('instagram_backfill_invalid_user_id');
+    const targeted = await findTargetedConversation({
+      version,
+      pageId,
+      businessInstagramId,
+      pageToken,
+      userId: options.userId,
+    });
+    if (!targeted) {
+      return {
+        conversationsScanned: 0,
+        conversationsFailed: 0,
+        messagesStored: 0,
+        duplicates: 0,
+        ordersSynced: 0,
+        source: 'targeted',
+        graphVersion: version,
+        targeted: true,
+        found: false,
+      };
+    }
+
+    const synced = await syncConversation({
+      db,
+      conversationId: String(targeted.conversation.id),
+      graphVersion: targeted.source.version,
+      pageToken,
+      businessInstagramId,
+      pageId,
+    });
+    return {
+      conversationsScanned: 1,
+      conversationsFailed: 0,
+      messagesStored: synced.messagesStored,
+      duplicates: synced.duplicates,
+      ordersSynced: synced.ordersSynced,
+      source: targeted.source.kind,
+      graphVersion: targeted.source.version,
+      targeted: true,
+      found: true,
+      localConversationId: synced.localConversationId,
+    };
+  }
+
   const requestedLimit = Math.max(1, Math.min(Number(options.limit || 3), 10));
   const recent = await listRecentConversations({
     version,
@@ -267,25 +394,17 @@ export async function backfillInstagramConversations(
     conversationsScanned += 1;
 
     try {
-      const rows = await loadConversationMessages({
-        version: recent.source.version,
+      const synced = await syncConversation({
+        db,
         conversationId,
+        graphVersion: recent.source.version,
         pageToken,
+        businessInstagramId,
+        pageId,
       });
-      let localConversationId: string | null = null;
-
-      for (const row of rows) {
-        const normalized = normalizeHistoryMessage(row, businessInstagramId, pageId);
-        if (!normalized) continue;
-        const persisted = await persistMessage(db, normalized);
-        localConversationId = persisted.conversationId || localConversationId;
-        persisted.duplicate ? (duplicates += 1) : (messagesStored += 1);
-      }
-
-      if (localConversationId) {
-        const synced = await autoRegisterInstagramConversationSale(db, localConversationId);
-        if (synced.status === 'synced') ordersSynced += 1;
-      }
+      messagesStored += synced.messagesStored;
+      duplicates += synced.duplicates;
+      ordersSynced += synced.ordersSynced;
     } catch (error) {
       conversationsFailed += 1;
       console.warn('instagram_backfill_conversation_failed', {
@@ -303,5 +422,6 @@ export async function backfillInstagramConversations(
     ordersSynced,
     source: recent.source.kind,
     graphVersion: recent.source.version,
+    targeted: false,
   };
 }
