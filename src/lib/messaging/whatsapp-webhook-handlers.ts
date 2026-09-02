@@ -48,6 +48,13 @@ type WhatsAppWebhookDependencies = {
   observe: (db: any, input: Observation) => Promise<void>;
   persist: (db: any, message: any) => Promise<PersistResult>;
   autoReply: (db: any, result: PersistResult, message: any) => Promise<{ called: boolean; replied: boolean }>;
+  // Optional: cheap, no-AI-cost filter + batched AI extraction that turns a
+  // conversation into a pedido when Remy itself did NOT handle this turn
+  // (switched off, human takeover, outside the 24h window, etc). See
+  // src/lib/orders/whatsapp-auto-sale.ts. Failures here are logged and
+  // swallowed — this is a best-effort enhancement, never a reason to fail
+  // the webhook response to Meta.
+  autoSale?: (db: any, result: PersistResult, message: any) => Promise<void>;
   appSecret?: string;
   verifyToken?: string;
   configuredPhoneNumberId?: string;
@@ -167,15 +174,32 @@ export function createWhatsAppWebhookHandlers(deps: WhatsAppWebhookDependencies)
         }
 
         if (
-          deps.sendMode() === 'live'
-          && !result.duplicate
+          !result.duplicate
           && !isStatus
           && !isAppEcho
           && message.direction === 'inbound'
         ) {
-          const ai = await deps.autoReply(db, result, message);
-          if (ai.called) aiCalled += 1;
-          if (ai.replied) aiReplied += 1;
+          let repliedThisTurn = false;
+          if (deps.sendMode() === 'live') {
+            const ai = await deps.autoReply(db, result, message);
+            if (ai.called) aiCalled += 1;
+            if (ai.replied) {
+              aiReplied += 1;
+              repliedThisTurn = true;
+            }
+          }
+          // Only attempt the batched auto-sale extraction when Remy did not
+          // itself handle this turn, to avoid two independent order-creation
+          // paths racing on the same conversation. Both ultimately go through
+          // the same idempotent checkout RPC, but they use different
+          // idempotency keys, so this keeps them from ever overlapping.
+          if (deps.autoSale && !repliedThisTurn) {
+            try {
+              await deps.autoSale(db, result, message);
+            } catch {
+              (deps.logError ?? console.error)('whatsapp_webhook_autosale_failed', { requestId });
+            }
+          }
         }
       }
 

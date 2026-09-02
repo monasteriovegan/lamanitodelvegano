@@ -9,10 +9,19 @@ import {
 } from '@/lib/messaging/webhook-observability';
 import { createWhatsAppWebhookHandlers } from '@/lib/messaging/whatsapp-webhook-handlers';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import {
+  autoRegisterWhatsappConversationSale,
+  shouldAttemptWhatsappAutoSale,
+} from '@/lib/orders/whatsapp-auto-sale';
 
 export { createWhatsAppWebhookHandlers };
 
 export const dynamic = 'force-dynamic';
+
+async function autoSale(db: any, result: { conversationId: string }, message: any) {
+  if (!shouldAttemptWhatsappAutoSale(message)) return;
+  await autoRegisterWhatsappConversationSale(db, result.conversationId);
+}
 
 const handlers = createWhatsAppWebhookHandlers({
   createDb: createSupabaseServiceClient,
@@ -22,6 +31,7 @@ const handlers = createWhatsAppWebhookHandlers({
   observe: recordWhatsAppWebhookObservation,
   persist: persistMessage,
   autoReply: maybeAutoReply,
+  autoSale,
   appSecret: process.env.META_APP_SECRET,
   verifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN,
   configuredPhoneNumberId: process.env.WA_PHONE_NUMBER_ID,
