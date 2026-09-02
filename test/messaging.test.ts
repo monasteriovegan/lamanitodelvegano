@@ -204,6 +204,18 @@ test('Instagram marca ecos de la cuenta profesional como salida humana', () => {
   assert.equal(message.sender_type, 'human');
 });
 
+test('webhook Instagram verifica HMAC sobre bytes crudos antes de decodificar JSON', () => {
+  const route = readFileSync(
+    new URL('../src/app/api/instagram/route.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(route, /await request\.arrayBuffer\(\)/);
+  assert.match(route, /Buffer\.from\(/);
+  assert.match(route, /verifyHmacAny\(rawBody,/);
+  assert.match(route, /verifyHmacSha1\(rawBody,/);
+  assert.doesNotMatch(route, /const raw = await request\.text\(\)/);
+});
+
 test('envío real permanece bloqueado por la política actual salvo habilitación explícita', () => {
   const transport = readFileSync(
     new URL('../src/lib/messaging/transports/whatsapp-cloud.ts', import.meta.url),
