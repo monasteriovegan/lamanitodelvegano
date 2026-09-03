@@ -28,25 +28,8 @@ jobs:
           from pathlib import Path
           p = Path('src/lib/meta/instagram-backfill.ts')
           s = p.read_text()
-          old = """  let ordersSynced = 0;
-  if (localConversationId) {
-    const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);
-    if (synced.status === 'synced') ordersSynced = 1;
-  }
-"""
-          new = """  let ordersSynced = 0;
-  if (localConversationId) {
-    try {
-      const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);
-      if (synced.status === 'synced') ordersSynced = 1;
-    } catch (error) {
-      console.warn('instagram_backfill_sale_sync_failed', {
-        conversationId: localConversationId,
-        reason: error instanceof Error ? error.message : 'unknown',
-      });
-    }
-  }
-"""
+          old = "  let ordersSynced = 0;\n  if (localConversationId) {\n    const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);\n    if (synced.status === 'synced') ordersSynced = 1;\n  }\n"
+          new = "  let ordersSynced = 0;\n  if (localConversationId) {\n    try {\n      const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);\n      if (synced.status === 'synced') ordersSynced = 1;\n    } catch (error) {\n      console.warn('instagram_backfill_sale_sync_failed', {\n        conversationId: localConversationId,\n        reason: error instanceof Error ? error.message : 'unknown',\n      });\n    }\n  }\n"
           if s.count(old) != 1:
               raise SystemExit(f'expected exactly one target, found {s.count(old)}')
           p.write_text(s.replace(old, new, 1))
