@@ -37,5 +37,5 @@ test('conversation order RPC keeps phone and shipping zone optional without weak
   assert.match(sql, /p_source_channel text/i);
   assert.match(sql, /conversation_id/i);
   assert.match(sql, /if nullif\(btrim\(p_customer_phone\), ''\) is not null then/i);
-  assert.doesNotMatch(sql, /p_customer_phone is null[^;]+missing_customer_data/is);
+  assert.doesNotMatch(sql, /p_customer_phone is null[^;]+missing_customer_data/i);
 });
