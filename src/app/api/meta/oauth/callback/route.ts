@@ -40,16 +40,18 @@ export async function GET(request: Request) {
       const profile = await discoverInstagramLoginProfile(exchanged.accessToken);
 
       const { data: selectedAsset, error: assetError } = await db.from('meta_connection_assets')
-        .select('external_id')
+        .select('external_id,metadata')
         .eq('business_unit_id', stateRow.business_unit_id)
         .eq('asset_type', 'instagram_account')
         .eq('selected', true)
         .limit(1)
         .maybeSingle();
       if (assetError) throw assetError;
-      if (selectedAsset?.external_id && String(selectedAsset.external_id) !== profile.id) {
-        throw new Error('instagram_login_wrong_account');
-      }
+      const selectedUsername = String((selectedAsset?.metadata as Record<string, unknown> | null)?.username || '').toLowerCase();
+      const profileUsername = String(profile.username || '').toLowerCase();
+      const sameId = Boolean(selectedAsset?.external_id) && String(selectedAsset?.external_id) === profile.id;
+      const sameUsername = Boolean(selectedUsername && profileUsername) && selectedUsername === profileUsername;
+      if (selectedAsset && !sameId && !sameUsername) throw new Error('instagram_login_wrong_account');
 
       const encrypted = encryptMetaToken(exchanged.accessToken, key);
       await db.from('meta_connections').update({ status: 'revoked', last_error_code: 'reauthorized' })
