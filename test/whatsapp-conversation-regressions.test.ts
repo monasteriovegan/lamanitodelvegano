@@ -53,5 +53,6 @@ test('WABA subscription explicitly requests SMB message echoes alongside message
 test('conversation polling refreshes messages in background without re-entering loading state', () => {
   const source = readFileSync(new URL('../src/app/admin/conversaciones/ConversationsClient.tsx', import.meta.url), 'utf8');
   assert.match(source, /loadMessages\(selectedId,\s*true\)/);
-  assert.match(source, /background[^\n]*boolean/);
+  assert.match(source, /loadMessages\s*=\s*useCallback\(async\s*\(conversationId:\s*string,\s*background\s*=\s*false\)/);
+  assert.match(source, /if\s*\(!background\)\s*setLoadingMessages\(true\)/);
 });
