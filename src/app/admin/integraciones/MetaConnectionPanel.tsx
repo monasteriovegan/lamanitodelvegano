@@ -21,6 +21,7 @@ export function MetaConnectionPanel({ businessUnitId, businessName, connection }
   const [verified, setVerified] = useState(false);
   const needsSelection = connection?.status === 'pending';
   const connectUrl = `/api/meta/oauth/start?business_unit_id=${encodeURIComponent(businessUnitId)}`;
+  const instagramLoginUrl = `/api/meta/instagram/oauth/start?business_unit_id=${encodeURIComponent(businessUnitId)}`;
 
   async function saveSelection() {
     if (!connection || !selected.length) return setError('Selecciona al menos un activo autorizado.');
@@ -48,12 +49,21 @@ export function MetaConnectionPanel({ businessUnitId, businessName, connection }
             {connection?.last_error_code ? ` · ${connection.last_error_code}` : ''}
           </p>
         </div>
-        {!connection || ['disconnected', 'expired', 'revoked', 'degraded'].includes(connection.status) ? (
-          <a href={connectUrl} className="rounded-full bg-blue-500 px-4 py-2 text-xs font-bold text-white">
-            {connection ? 'Reconectar / reautorizar' : 'Conectar con Meta'}
+        <div className="flex flex-wrap gap-2">
+          {!connection || ['disconnected', 'expired', 'revoked', 'degraded'].includes(connection.status) ? (
+            <a href={connectUrl} className="rounded-full bg-blue-500 px-4 py-2 text-xs font-bold text-white">
+              {connection ? 'Reconectar / reautorizar' : 'Conectar con Meta'}
+            </a>
+          ) : null}
+          <a href={instagramLoginUrl} className="rounded-full border border-fuchsia-300/40 bg-fuchsia-400/10 px-4 py-2 text-xs font-bold text-fuchsia-100">
+            Autorizar Instagram Login
           </a>
-        ) : null}
+        </div>
       </div>
+
+      <p className="mt-3 text-[11px] text-white/55">
+        Instagram Login usa la credencial propia de Instagram para responder DMs reales; la conexión Meta/Facebook se conserva para Page, Ads y WhatsApp.
+      </p>
 
       {connection?.assets?.length ? (
         <div className="mt-4 grid gap-2">
