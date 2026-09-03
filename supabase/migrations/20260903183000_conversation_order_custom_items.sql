@@ -97,7 +97,6 @@ begin
     return jsonb_build_object('pedido_id', existing_order_id, 'idempotent_replay', true);
   end if;
 
-  -- Validate the printable/order lines and calculate their authoritative subtotal.
   for item in select value from jsonb_array_elements(p_order_items)
   loop
     begin
@@ -146,7 +145,6 @@ begin
     calculated_subtotal := calculated_subtotal + (item_price * item_quantity);
   end loop;
 
-  -- Only catalog-backed lines participate in stock mutation.
   for item in select value from jsonb_array_elements(p_stock_items)
   loop
     begin
