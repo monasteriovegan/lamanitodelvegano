@@ -14,6 +14,7 @@ test('backfill trata Timeout de Graph como transitorio y reintenta sin exponer c
 
 test('backfill separa listado de conversaciones, ids de mensajes y detalle de cada mensaje', () => {
   assert.match(source, /conversations\?platform=instagram&fields=id/);
-  assert.match(source, /messages\.limit\(20\)\{id,created_time\}/);
+  assert.match(source, /messages\.limit\(\$\{input\.messageLimit\}\)\{id,created_time\}/);
+  assert.match(source, /const messageLimit = input\.userId \? 50 : 20/);
   assert.match(source, /fields=id,created_time,from,to,message/);
 });
