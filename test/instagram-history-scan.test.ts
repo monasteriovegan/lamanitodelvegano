@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import test from 'node:test';
+
+const root = process.cwd();
+const path = 'src/app/api/internal/instagram-history-scan/route.ts';
+
+test('scanner histórico de Instagram es interno, paginado y no expone credenciales', () => {
+  assert.equal(existsSync(join(root, path)), true);
+  const source = readFileSync(join(root, path), 'utf8');
+  assert.match(source, /createHash\(['"]sha256['"]\)/);
+  assert.match(source, /timingSafeEqual/);
+  assert.match(source, /getInstagramLoginCredential/);
+  assert.match(source, /graph\.instagram\.com/);
+  assert.match(source, /searchParams\.get\(['"]offset['"]\)/);
+  assert.match(source, /searchParams\.get\(['"]limit['"]\)/);
+  assert.match(source, /fields=id,name,username/);
+  assert.doesNotMatch(source, /accessToken\s*[,}]/);
+  assert.doesNotMatch(source, /token:/);
+});
