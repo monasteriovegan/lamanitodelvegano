@@ -20,7 +20,14 @@ export const dynamic = 'force-dynamic';
 
 async function autoSale(db: any, result: { conversationId: string }, message: any) {
   if (!shouldAttemptWhatsappAutoSale(message)) return;
-  await autoRegisterWhatsappConversationSale(db, result.conversationId);
+  const sale = await autoRegisterWhatsappConversationSale(db, result.conversationId);
+  console.info('whatsapp_autosale_result', {
+    conversationId: result.conversationId,
+    status: sale.status,
+    missing: sale.missing || [],
+    orderId: sale.orderId || null,
+    paymentStatus: sale.paymentStatus || null,
+  });
 }
 
 const handlers = createWhatsAppWebhookHandlers({
