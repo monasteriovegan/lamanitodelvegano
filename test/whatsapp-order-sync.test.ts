@@ -13,10 +13,11 @@ test('webhook de WhatsApp intenta registrar una venta cerrada en pedidos canóni
   assert.match(route, /autoSale/);
 });
 
-test('el auto-sale solo corre cuando Remy no atendió el turno, para no competir por el mismo pedido', () => {
+test('el auto-sale inbound solo corre cuando Remy no atendió el turno, mientras los ecos humanos se reconcilian aparte', () => {
   const handlers = read('src/lib/messaging/whatsapp-webhook-handlers.ts');
   assert.match(handlers, /repliedThisTurn/);
-  assert.match(handlers, /deps\.autoSale\s*&&\s*!repliedThisTurn/);
+  assert.match(handlers, /if\s*\(!repliedThisTurn\)\s*await attemptAutoSale\(result, message\)/);
+  assert.match(handlers, /isAppEcho\s*&&\s*message\.direction\s*===\s*['"]outbound['"][\s\S]*attemptAutoSale\(result, message\)/);
 });
 
 test('una falla en el auto-sale se registra pero nunca hace fallar la respuesta del webhook', () => {
