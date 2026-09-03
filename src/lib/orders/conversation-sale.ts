@@ -7,7 +7,7 @@ import { parseFormatos } from '@/lib/pricing/formatos';
 import { calcularPedido } from '@/lib/pricing/calcular-pedido';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
-import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { OrderRepository, type AdminOrder } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import type { CheckoutRequest } from '@/types/domain';
 
@@ -49,6 +49,8 @@ export type ConversationSaleConfirmOptions = {
   idempotencyKey?: string;
   linkUnassignedMessages?: boolean;
   attributionMedium?: string;
+  allowMissingPhone?: boolean;
+  allowTranscriptShipping?: boolean;
 };
 
 function compact(value: unknown, max = 12000) {
@@ -257,11 +259,11 @@ Debes llamar a extract_sale una sola vez.`;
   const transcriptTotal = Number(args.transcriptTotal || 0) > 0 ? Math.round(Number(args.transcriptTotal)) : null;
 
   let calculated: ConversationSaleDraft['calculated'] = null;
-  if (items.length && zone) {
+  if (items.length) {
     const request: CheckoutRequest = {
       cliente: { nombre: customerName || 'Cliente', direccion: address, telefono: phone, email: cleanString(contact?.email) },
       items: items.map((item) => ({ productoId: item.productId, qty: item.quantity, formato: item.format, variedad: item.variety })),
-      zonaId: zone.id,
+      zonaId: zone?.id || null,
       cuponCode: null,
       metodoPago: paymentMethod === 'unknown' ? 'transfer' : paymentMethod,
       attribution: { utm_source: conversation.channel, utm_medium: 'manual_conversation' },
@@ -287,7 +289,7 @@ Debes llamar a extract_sale una sola vez.`;
   if (!cleanString(args.deliveryDate)) missing.push('fecha_entrega');
   if (!zone) missing.push('zona_despacho');
   if (paymentMethod === 'unknown') missing.push('medio_pago');
-  if (!calculated && items.length && zone) missing.push('validacion_pedido');
+  if (!calculated && items.length) missing.push('validacion_pedido');
   if (calculated && transcriptTotal && Math.abs(calculated.total - transcriptTotal) > 100) missing.push('total_no_coincide');
 
   return {
@@ -317,8 +319,23 @@ export async function confirmConversationSale(
   changedBy?: string,
   options: ConversationSaleConfirmOptions = {},
 ) {
-  if (!draft?.conversationId || !draft.saleDetected || draft.missing?.length) throw new Error('sale_draft_incomplete');
-  if (!draft.zoneId || !draft.items?.length || draft.paymentMethod === 'unknown') throw new Error('sale_draft_incomplete');
+  const canUseTranscriptShipping = Boolean(
+    options.allowTranscriptShipping
+    && !draft.zoneId
+    && draft.transcriptTotal
+    && draft.calculated
+    && draft.transcriptTotal >= draft.calculated.subtotal,
+  );
+  const allowedMissing = new Set<string>();
+  if (options.allowMissingPhone) allowedMissing.add('telefono');
+  if (canUseTranscriptShipping) {
+    allowedMissing.add('zona_despacho');
+    allowedMissing.add('total_no_coincide');
+  }
+  const blockingMissing = (draft.missing || []).filter((item) => !allowedMissing.has(item));
+  if (!draft?.conversationId || !draft.saleDetected || blockingMissing.length) throw new Error('sale_draft_incomplete');
+  if (!draft.items?.length || draft.paymentMethod === 'unknown') throw new Error('sale_draft_incomplete');
+  if (!draft.zoneId && !canUseTranscriptShipping) throw new Error('sale_draft_incomplete');
 
   const { data: conversation, error: conversationError } = await db
     .from('conversations')
@@ -356,47 +373,91 @@ export async function confirmConversationSale(
 
   const calculation = await calcularPedido(request, business.id);
   if (!calculation.ok) throw new Error(`checkout_validation_failed:${calculation.error || 'unknown'}`);
-  const total = Number(calculation.total || 0);
-  if (draft.transcriptTotal && Math.abs(total - draft.transcriptTotal) > 100) throw new Error('total_mismatch');
+  const subtotal = Number(calculation.subtotal || 0);
+  let shippingCost = Number(calculation.costoEnvio || 0);
+  let shippingZoneName = calculation.zonaNombre || draft.zoneName;
+  let total = Number(calculation.total || 0);
+  if (canUseTranscriptShipping && draft.transcriptTotal) {
+    shippingCost = draft.transcriptTotal - subtotal;
+    shippingZoneName = 'Despacho acordado por conversación';
+    total = draft.transcriptTotal;
+  } else if (draft.transcriptTotal && Math.abs(total - draft.transcriptTotal) > 100) {
+    throw new Error('total_mismatch');
+  }
 
   const capabilities = getSchemaCapabilities();
-  const customerRepository = new CustomerRepository(db, capabilities);
-  const customer = await customerRepository.upsertCheckoutContact(business.id, {
-    email: draft.email || null,
-    phone: draft.phone,
-    nombre: draft.customerName,
-    direccion: draft.address,
-    comuna: draft.comuna,
-  }, conversation.customer_id || conversation.contact_id || null);
   const orderRepository = new OrderRepository(db, capabilities);
-  const order = await orderRepository.createTransactionalCheckout({
-    idempotencyKey,
-    businessUnitId: business.id,
-    customerId: customer.id,
-    customerEmail: customer.email || null,
-    customerName: draft.customerName,
-    customerPhone: draft.phone,
-    address: draft.address,
-    comuna: draft.comuna,
-    items: calculation.itemsResueltos || [],
-    total,
-    paymentMethod: draft.paymentMethod,
-    shippingCost: Number(calculation.costoEnvio || 0),
-    shippingZoneId: draft.zoneId,
-    shippingZoneName: calculation.zonaNombre || draft.zoneName,
-    loyaltyDiscount: 0,
-    loyaltyPointsRedeemed: 0,
-    discountTotal: Number(calculation.descuentoCupon || 0),
-    stockItems: calculation.itemsResueltos || [],
-    attribution: request.attribution || {},
-  });
-
   const transferPaid = draft.paymentMethod === 'transfer' && draft.paymentEvidence;
-  const updated = await orderRepository.update(order.numeric_id, {
-    status: transferPaid ? 'confirmed' : 'pending',
-    payment_status: transferPaid ? 'paid' : 'pending',
-    admin_notes: `Pedido confirmado desde conversación ${conversation.channel}. ${draft.notes || ''}`.trim(),
-  }, changedBy);
+  const adminNotes = `Pedido confirmado desde conversación ${conversation.channel}. ${draft.notes || ''}`.trim();
+  const useConversationOrder = Boolean(options.allowMissingPhone || options.allowTranscriptShipping);
+  let customerId: string;
+  let order: AdminOrder;
+  let updated: AdminOrder;
+
+  if (useConversationOrder) {
+    customerId = String(conversation.customer_id || conversation.contact_id || '');
+    if (!customerId) throw new Error('conversation_customer_not_found');
+    order = await orderRepository.createConversationOrder({
+      idempotencyKey,
+      businessUnitId: business.id,
+      customerId,
+      conversationId: String(conversation.id),
+      customerEmail: draft.email || null,
+      customerName: draft.customerName,
+      customerPhone: draft.phone || null,
+      address: draft.address || null,
+      comuna: draft.comuna || null,
+      items: calculation.itemsResueltos || [],
+      stockItems: calculation.itemsResueltos || [],
+      total,
+      paymentMethod: draft.paymentMethod,
+      paymentConfirmed: transferPaid,
+      shippingCost,
+      shippingZoneId: draft.zoneId,
+      shippingZoneName,
+      deliveryDate: draft.deliveryDate || null,
+      sourceChannel: conversation.channel,
+      adminNotes,
+      attribution: request.attribution || {},
+    });
+    updated = order;
+  } else {
+    const customerRepository = new CustomerRepository(db, capabilities);
+    const customer = await customerRepository.upsertCheckoutContact(business.id, {
+      email: draft.email || null,
+      phone: draft.phone,
+      nombre: draft.customerName,
+      direccion: draft.address,
+      comuna: draft.comuna,
+    }, conversation.customer_id || conversation.contact_id || null);
+    customerId = customer.id;
+    order = await orderRepository.createTransactionalCheckout({
+      idempotencyKey,
+      businessUnitId: business.id,
+      customerId: customer.id,
+      customerEmail: customer.email || null,
+      customerName: draft.customerName,
+      customerPhone: draft.phone,
+      address: draft.address,
+      comuna: draft.comuna,
+      items: calculation.itemsResueltos || [],
+      total,
+      paymentMethod: draft.paymentMethod,
+      shippingCost,
+      shippingZoneId: draft.zoneId,
+      shippingZoneName,
+      loyaltyDiscount: 0,
+      loyaltyPointsRedeemed: 0,
+      discountTotal: Number(calculation.descuentoCupon || 0),
+      stockItems: calculation.itemsResueltos || [],
+      attribution: request.attribution || {},
+    });
+    updated = await orderRepository.update(order.numeric_id, {
+      status: transferPaid ? 'confirmed' : 'pending',
+      payment_status: transferPaid ? 'paid' : 'pending',
+      admin_notes: adminNotes,
+    }, changedBy);
+  }
 
   await db.from('pedidos').update({
     source_channel: conversation.channel,
@@ -419,7 +480,7 @@ export async function confirmConversationSale(
   ]));
   const { error: conversationUpdateError } = await db.from('conversations').update({
     order_id: order.numeric_id,
-    customer_id: customer.id,
+    customer_id: customerId,
     labels,
     updated_at: new Date().toISOString(),
   }).eq('id', conversation.id);
