@@ -105,7 +105,7 @@ function usernameFromHistory(message: any) {
 }
 
 function historyAttachments(message: any) {
-  const rows = Array.isArray(message?.attachments?.data)
+  const rows: any[] = Array.isArray(message?.attachments?.data)
     ? message.attachments.data
     : Array.isArray(message?.attachments)
       ? message.attachments
