@@ -11,17 +11,19 @@ test('Conversaciones prioriza @usuario de Instagram sobre nombres placeholder Cl
   assert.match(route, /instagramUsername/);
   assert.match(route, /isPlaceholderInstagramName/);
   assert.match(route, /external_username/);
+  assert.match(route, /payloadUsernameMap/);
 });
 
-test('el cliente de Conversaciones puede buscar y mostrar el @usuario de Instagram', () => {
-  const client = read('src/app/admin/conversaciones/ConversationsClient.tsx');
-  assert.match(client, /instagramUsername/);
-  assert.match(client, /matchesUsername/);
+test('Conversaciones expone un identificador legible/buscable de Instagram sin perder el thread id', () => {
+  const route = read('src/app/api/admin/conversations/route.ts');
+  assert.match(route, /externalId:\s*row\.channel === 'instagram'/);
+  assert.match(route, /instagramUsername/);
+  assert.match(route, /externalThreadId:\s*row\.external_conversation_id/);
 });
 
-test('resolveIdentity enriquece contactos existentes cuando Meta entrega un nombre o @usuario posterior', () => {
-  const repo = read('src/lib/repositories/customers-repository.ts');
-  assert.match(repo, /enrichExistingIdentityContact/);
-  assert.match(repo, /input\.name/);
-  assert.match(repo, /display_name/);
+test('el webhook de Instagram resuelve el perfil antes de persistir y enriquece el contacto existente', () => {
+  const webhook = read('src/app/api/instagram/route.ts');
+  assert.match(webhook, /enrichInstagramMessageIdentity/);
+  assert.match(webhook, /persistInstagramIdentity/);
+  assert.match(webhook, /resolveBusinessUnitForMessage/);
 });
