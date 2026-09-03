@@ -104,12 +104,15 @@ async function loadMessageDetails(input: {
   version: string;
   conversationId: string;
   secretBearer: string;
+  messageLimit: number;
 }) {
   const detail = await graphJson<any>(
-    `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(input.conversationId)}?fields=messages.limit(20){id,created_time}`,
+    `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(input.conversationId)}?fields=messages.limit(${input.messageLimit}){id,created_time}`,
     input.secretBearer,
   );
-  const refs = Array.isArray(detail?.messages?.data) ? detail.messages.data.slice(0, 20) : [];
+  const refs = Array.isArray(detail?.messages?.data)
+    ? detail.messages.data.slice(0, input.messageLimit)
+    : [];
   const messages: any[] = [];
 
   for (let index = 0; index < refs.length; index += 5) {
@@ -163,8 +166,12 @@ async function run(request: Request) {
 
   const rawOffset = Number(url.searchParams.get('offset') || 0);
   const rawLimit = Number(url.searchParams.get('limit') || 10);
+  const rawMessageLimit = Number(url.searchParams.get('message_limit') || 20);
   const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.min(Math.trunc(rawOffset), 100)) : 0;
   const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(Math.trunc(rawLimit), 20)) : 10;
+  const messageLimit = Number.isFinite(rawMessageLimit)
+    ? Math.max(1, Math.min(Math.trunc(rawMessageLimit), 50))
+    : 20;
   const needle = normalizedNeedle(url.searchParams.get('needle') || '');
 
   try {
@@ -198,7 +205,12 @@ async function run(request: Request) {
 
       let recentMessages: Array<{ direction: 'inbound' | 'outbound'; at: string | null; text: string }> = [];
       if (matched) {
-        const messages = await loadMessageDetails({ version, conversationId, secretBearer });
+        const messages = await loadMessageDetails({
+          version,
+          conversationId,
+          secretBearer,
+          messageLimit,
+        });
         recentMessages = messages
           .map((message: any) => {
             const fromId = String(message?.from?.id || '');
@@ -227,6 +239,7 @@ async function run(request: Request) {
       ok: true,
       offset,
       limit,
+      messageLimit,
       scanned: results.length,
       matches: results.filter((item) => item.matched),
       results: needle ? undefined : results,
