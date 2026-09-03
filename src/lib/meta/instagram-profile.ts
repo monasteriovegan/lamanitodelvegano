@@ -32,6 +32,22 @@ async function fetchInstagramProfile(accessToken: string, userId: string): Promi
   };
 }
 
+export async function resolveInstagramProfileIdentity(
+  db: SupabaseClient,
+  businessUnitId: string,
+  userId: string,
+): Promise<InstagramProfileIdentity | null> {
+  try {
+    const credential = await new MetaConnectionsRepository(db).getInstagramLoginCredential(businessUnitId);
+    return await fetchInstagramProfile(credential.accessToken, userId);
+  } catch (error) {
+    console.warn('instagram_profile_lookup_failed', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
+    return null;
+  }
+}
+
 export async function enrichInstagramMessageProfile(
   db: SupabaseClient,
   message: NormalizedMessage,
@@ -44,8 +60,7 @@ export async function enrichInstagramMessageProfile(
     const connections = new MetaConnectionsRepository(db);
     const businessUnitId = await connections.resolveBusinessUnitForMessage(message);
     if (!businessUnitId) return { message, profile: null };
-    const credential = await connections.getInstagramLoginCredential(businessUnitId);
-    const profile = await fetchInstagramProfile(credential.accessToken, message.external_user_id);
+    const profile = await resolveInstagramProfileIdentity(db, businessUnitId, message.external_user_id);
     if (!profile) return { message, profile: null };
     const displayName = profile.instagram_name || (profile.instagram_username ? `@${profile.instagram_username}` : null);
     return {
@@ -53,7 +68,7 @@ export async function enrichInstagramMessageProfile(
       profile,
     };
   } catch (error) {
-    console.warn('instagram_profile_lookup_failed', {
+    console.warn('instagram_profile_enrichment_failed', {
       reason: error instanceof Error ? error.message : 'unknown',
     });
     return { message, profile: null };
