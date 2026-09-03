@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     db.from('omnichannel_messages')
       .select('conversation_id,body,direction,status,created_at,sent_at,message_type')
       .in('conversation_id', conversationIds)
+      .not('message_type', 'like', 'status:%')
       .order('created_at', { ascending: false })
       .limit(1000),
   ]);
