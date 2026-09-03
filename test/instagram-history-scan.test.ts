@@ -19,3 +19,13 @@ test('scanner histórico de Instagram es interno, paginado y no expone credencia
   assert.doesNotMatch(source, /accessToken\s*[,}]/);
   assert.doesNotMatch(source, /token:/);
 });
+
+test('scanner distingue el id de Instagram Login del asset profesional de mensajería', () => {
+  const source = readFileSync(join(root, path), 'utf8');
+  assert.match(source, /getActiveCredential\([\s\S]*instagram_account/);
+  assert.match(source, /businessIds/);
+  assert.match(source, /routingCredential\.externalId/);
+  assert.match(source, /credential\.externalId/);
+  assert.match(source, /businessIds\.has/);
+  assert.match(source, /counterpartyFromParticipants\([\s\S]*businessIds/);
+});
