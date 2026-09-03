@@ -7,6 +7,7 @@ import { recordLlmUsage } from '@/lib/observability/usage';
 import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { compactJsonForModel, compactText, getAgentContextBudget, type AgentContextBudget } from '@/lib/ai/context-budget';
 import { callAiProvider, type ProviderMessage, type ProviderToolCall } from '@/lib/ai/providers';
+import { formatDeterministicToolResponse } from '@/lib/wonka/deterministic-synthesis';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const ALL_TOOLS = [...WONKA_TOOLS, ...WONKA_COMPUTER_TOOLS, ...WONKA_GOOGLE_TOOLS];
@@ -199,24 +200,37 @@ export async function runWonkaChat(
     content: JSON.stringify(compactJsonForModel(item.result, budget.maxToolResultChars)),
   }));
 
-  const secondCall = await callAiProvider(db, {
-    provider: runtime.provider,
-    model,
-    systemPrompt: SYSTEM_PROMPT,
-    messages: [...contents, firstCall.assistantMessage, ...toolMessages],
-    maxOutputTokens: Math.min(budget.maxOutputTokens, 180),
-    temperature: 0.2,
-  });
-  await recordLlmUsage(db, {
-    ...usageContext,
-    provider: runtime.provider,
-    model,
-    usage: secondCall.usage,
-    latencyMs: secondCall.latencyMs,
-    metadata: {
-      stage: 'tool_followup', tools: toolResults.map((item) => item.name), runtime_mode: runtime.executionMode,
-      tool_schemas_resent: false, tool_results_compacted: true, token_budget: budget,
-    },
-  });
-  return { text: secondCall.text || 'Consulté los datos.', toolResults };
+  let secondCallText = '';
+  try {
+    const secondCall = await callAiProvider(db, {
+      provider: runtime.provider,
+      model,
+      systemPrompt: SYSTEM_PROMPT,
+      messages: [...contents, firstCall.assistantMessage, ...toolMessages],
+      tools: selectedTools,
+      maxOutputTokens: Math.min(budget.maxOutputTokens, 300),
+      temperature: 0.2,
+    });
+    secondCallText = secondCall.text;
+    await recordLlmUsage(db, {
+      ...usageContext,
+      provider: runtime.provider,
+      model,
+      usage: secondCall.usage,
+      latencyMs: secondCall.latencyMs,
+      metadata: {
+        stage: 'tool_followup', tools: toolResults.map((item) => item.name), runtime_mode: runtime.executionMode,
+        tool_schemas_resent: true, tool_results_compacted: true, token_budget: budget,
+      },
+    });
+  } catch (synthesisError) {
+    console.warn('wonka_synthesis_llm_failed_using_deterministic_fallback', {
+      error: synthesisError instanceof Error ? synthesisError.message : String(synthesisError),
+      tools: toolResults.map((t) => t.name),
+    });
+    secondCallText = formatDeterministicToolResponse(toolResults, latestUserText(input.messages));
+  }
+
+  const finalResponseText = secondCallText.trim() || formatDeterministicToolResponse(toolResults, latestUserText(input.messages));
+  return { text: finalResponseText, toolResults };
 }
