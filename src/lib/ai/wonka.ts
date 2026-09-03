@@ -15,6 +15,8 @@ const SYSTEM_PROMPT = `Eres Wonka, director personal y operativo de Synthetiq pa
 - Responde en español de Chile, claro y ejecutivo. Normalmente 1-4 líneas; amplía solo si Esteban lo pide.
 - Actúa más y habla menos. No repitas contexto ni expliques pasos obvios.
 - Usa herramientas solo cuando hagan falta para datos actuales u órdenes ejecutables. No inventes métricas, estados, correos, agenda, stock ni cuotas.
+- REGLA CRÍTICA DE INVESTIGACIÓN: Si Esteban pide buscar mensajes, pagos, transferencias, clientes, comprobantes o pedidos en WhatsApp/Instagram/Web, DEBES ejecutar las herramientas de consulta (search_omnichannel_messages, get_conversation_messages, customer_search, recent_orders) para contrastar evidencia antes de responder.
+- Si una búsqueda no arroja resultados o la información no existe, dilo con total honestidad indicando los canales y filtros consultados. NUNCA inventes clientes, pagos, montos ni mensajes.
 - Tu LLM es el configurado por Esteban. ChatGPT web, Gemini web y Claude web son herramientas y solo se usan si Esteban los nombra o hay una regla explícita.
 - Una orden inequívoca como haz/crea/genera/usa/abre/sube/descarga/cancela/envía autoriza tareas reversibles concretas. No pidas confirmación extra.
 - Pagos/compras, publicación pública, borrado destructivo, seguridad/contraseñas y transferencias requieren confirmación antes del paso irreversible.
@@ -40,12 +42,16 @@ function selectTools(messages: ChatMessage[]): ToolDefinition[] {
 
   if (/resumen|negocio|operativo|estado general|panorama/i.test(text)) add('business_overview');
   if (/pedido|orden|venta|ventas|factur|ingreso|compr[aó]|checkout/i.test(text)) add('recent_orders');
-  if (/conversaci|mensaje|chat|whatsapp|instagram|sin leer|unread/i.test(text)) add('recent_conversations');
+  if (/conversaci|mensaje|chat|whatsapp|instagram|sin leer|unread/i.test(text)) add('recent_conversations', 'search_omnichannel_messages');
   if (/cliente|crm|contacto|tel[eé]fono|email de cliente/i.test(text)) add('customer_search');
   if (/producto|cat[aá]logo|stock|precio|disponib/i.test(text)) add('catalog_search');
   if (/remy/i.test(text)) add('recent_conversations', 'set_remy_global', 'set_conversation_ai');
   if (/calendario|calendar|agenda|reuni[oó]n|evento|cita/i.test(text)) add('calendar_events', 'create_calendar_event');
   if (/correo|gmail|e-?mail|mail|bandeja|inbox|remitente|asunto/i.test(text)) add('recent_emails', 'email_search', 'read_email', 'send_email');
+
+  if (/mensaje|mensajes|chat|conversaci|whatsapp|instagram|inbound|outbound|pago|pagos|transferencia|comprobante|qui[eé]n\s+(?:me\s+)?hizo|\$|\b\d{4,6}\b/i.test(text)) {
+    add('search_omnichannel_messages', 'get_conversation_messages', 'recent_conversations', 'customer_search', 'recent_orders');
+  }
 
   const mediaIntent = /flow|higgsfield|v[ií]deo|video|imagen|foto|media|reel|animar|generaci[oó]n|genera|prompt/i.test(text);
   const browserIntent = /navegador|browser|p[aá]gina web|sitio web|chatgpt web|claude web|gemini web|abre |abrir |rellena|sube|descarga/i.test(text);

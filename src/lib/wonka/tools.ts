@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCalendarEvent, listCalendarEvents } from '@/lib/wonka/google-calendar';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { generateAmountSearchVariants, normalizeAmountToNumber } from '@/lib/messaging/amounts';
 
 export type WonkaToolContext = {
   actorType: 'wonka' | 'mcp' | 'admin';
@@ -52,6 +53,40 @@ export const WONKA_TOOLS: WonkaTool[] = [
       type: 'object',
       properties: { query: { type: 'string', minLength: 1 } },
       required: ['query'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'search_omnichannel_messages',
+    description: 'Busca mensajes históricos y recientes en WhatsApp, Instagram y Web por texto, monto de pago/transferencia o palabras clave, incluyendo texto extraído de comprobantes o imágenes (OCR).',
+    write: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto, palabra clave o nombre a buscar' },
+        amount: { type: 'string', description: 'Monto de pago o transferencia (ej: $22.950, 22950, 22.950)' },
+        channel: { type: 'string', enum: ['whatsapp', 'instagram', 'web'], description: 'Canal específico opcional' },
+        direction: { type: 'string', enum: ['inbound', 'outbound'], description: 'Mensajes recibidos (inbound) o enviados (outbound)' },
+        customer_id: { type: 'string', description: 'ID del contacto CRM opcional' },
+        conversation_id: { type: 'string', description: 'ID de la conversación opcional' },
+        date_from: { type: 'string', description: 'Fecha inicial ISO opcional' },
+        date_to: { type: 'string', description: 'Fecha final ISO opcional' },
+        limit: { type: 'integer', minimum: 1, maximum: 30 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_conversation_messages',
+    description: 'Obtiene los mensajes cronológicos de una conversación específica de WhatsApp, Instagram o Web para analizar el hilo completo.',
+    write: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        conversation_id: { type: 'string', description: 'ID de la conversación a inspeccionar' },
+        limit: { type: 'integer', minimum: 1, maximum: 50 },
+      },
+      required: ['conversation_id'],
       additionalProperties: false,
     },
   },
@@ -180,6 +215,125 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const { data, error } = await query;
       if (error) throw error;
       result = data || [];
+    } else if (toolName === 'search_omnichannel_messages') {
+      const limit = Math.max(1, Math.min(30, Number(args?.limit || 15)));
+      const rawQuery = String(args?.query || '').trim();
+      const rawAmount = args?.amount !== undefined && args?.amount !== null ? String(args.amount).trim() : '';
+      const normalizedAmountNum = rawAmount ? normalizeAmountToNumber(rawAmount) : null;
+      const amountVariants = rawAmount ? generateAmountSearchVariants(rawAmount) : [];
+
+      let msgQuery = db.from('omnichannel_messages')
+        .select('id,conversation_id,customer_id,direction,message_type,body,status,provider,transport,sent_at,created_at,payload,raw_payload')
+        .not('message_type', 'like', 'status:%')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (args?.direction) msgQuery = msgQuery.eq('direction', String(args.direction));
+      if (args?.customer_id) msgQuery = msgQuery.eq('customer_id', String(args.customer_id));
+      if (args?.conversation_id) msgQuery = msgQuery.eq('conversation_id', String(args.conversation_id));
+      if (args?.date_from) msgQuery = msgQuery.gte('created_at', String(args.date_from));
+      if (args?.date_to) msgQuery = msgQuery.lte('created_at', String(args.date_to));
+
+      const { data: messages, error: msgErr } = await msgQuery;
+      if (msgErr) throw msgErr;
+
+      // Buscar también si hay pedidos registrados con el mismo monto exacto
+      let matchedOrders: any[] = [];
+      if (normalizedAmountNum !== null) {
+        const { data: orders } = await db.from('pedidos')
+          .select('id,order_number,nombre_cliente,telefono,total,estado,payment_status,source_channel,customer_id,created_at')
+          .eq('business_unit_id', businessUnitId)
+          .eq('total', normalizedAmountNum)
+          .limit(5);
+        matchedOrders = orders || [];
+      }
+
+      // Enriquecer con datos de conversación y contacto
+      const convIds = Array.from(new Set((messages || []).map((m: any) => m.conversation_id).filter(Boolean)));
+      const custIds = Array.from(new Set((messages || []).map((m: any) => m.customer_id).filter(Boolean)));
+
+      const [convsRes, custsRes] = await Promise.all([
+        convIds.length ? db.from('conversations').select('id,channel,status,customer_id').in('id', convIds) : { data: [] },
+        custIds.length ? db.from('omnichannel_contacts').select('id,nombre,display_name,phone,email,channel').in('id', custIds) : { data: [] },
+      ]);
+
+      const convMap = new Map((convsRes.data || []).map((c: any) => [c.id, c]));
+      const custMap = new Map((custsRes.data || []).map((c: any) => [c.id, c]));
+
+      const filtered = (messages || []).filter((m: any) => {
+        const conv = convMap.get(m.conversation_id);
+        if (args?.channel && conv && conv.channel !== args.channel) return false;
+
+        const bodyText = String(m.body || '').toLowerCase();
+        const ocrText = String(m.payload?.ocr_text || m.raw_payload?.ocr_text || '').toLowerCase();
+        const fullSearchable = `${bodyText} ${ocrText}`;
+
+        if (rawQuery && !fullSearchable.includes(rawQuery.toLowerCase())) {
+          return false;
+        }
+
+        if (rawAmount && !amountVariants.some((v) => fullSearchable.includes(v.toLowerCase()))) {
+          return false;
+        }
+
+        return true;
+      }).slice(0, limit);
+
+      result = {
+        total_matched_messages: filtered.length,
+        searched_amount: rawAmount ? { input: rawAmount, normalized_clp: normalizedAmountNum, search_variants: amountVariants } : null,
+        searched_query: rawQuery || null,
+        matched_orders_with_same_amount: matchedOrders,
+        messages: filtered.map((m: any) => {
+          const conv = convMap.get(m.conversation_id);
+          const cust = custMap.get(m.customer_id);
+          return {
+            message_id: m.id,
+            conversation_id: m.conversation_id,
+            channel: conv?.channel || m.provider || 'unknown',
+            customer: cust ? { id: cust.id, name: cust.nombre || cust.display_name, phone: cust.phone, email: cust.email } : null,
+            direction: m.direction,
+            message_type: m.message_type,
+            sent_at: m.sent_at || m.created_at,
+            body: m.body,
+            ocr_text: m.payload?.ocr_text || m.raw_payload?.ocr_text || null,
+          };
+        }),
+      };
+    } else if (toolName === 'get_conversation_messages') {
+      const convId = String(args?.conversation_id || '');
+      if (!convId) throw new Error('conversation_id_required');
+      const limit = Math.max(1, Math.min(50, Number(args?.limit || 20)));
+
+      const [convRes, msgRes] = await Promise.all([
+        db.from('conversations').select('id,channel,status,customer_id,last_message_at').eq('id', convId).maybeSingle(),
+        db.from('omnichannel_messages')
+          .select('id,direction,message_type,body,status,sent_at,created_at,payload')
+          .eq('conversation_id', convId)
+          .not('message_type', 'like', 'status:%')
+          .order('created_at', { ascending: true })
+          .limit(limit),
+      ]);
+
+      const conv = convRes.data;
+      let customer = null;
+      if (conv?.customer_id) {
+        const { data: custData } = await db.from('omnichannel_contacts').select('id,nombre,display_name,phone,email').eq('id', conv.customer_id).maybeSingle();
+        customer = custData;
+      }
+
+      result = {
+        conversation: conv || null,
+        customer,
+        messages: (msgRes.data || []).map((m: any) => ({
+          id: m.id,
+          direction: m.direction,
+          message_type: m.message_type,
+          body: m.body,
+          ocr_text: m.payload?.ocr_text || null,
+          timestamp: m.sent_at || m.created_at,
+        })),
+      };
     } else if (toolName === 'customer_search') {
       const q = String(args?.query || '').trim();
       if (!q) throw new Error('query_required');
