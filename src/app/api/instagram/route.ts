@@ -3,6 +3,7 @@ import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
+import { enrichInstagramContactProfile } from '@/lib/meta/instagram-profile';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
 export const dynamic = 'force-dynamic';
@@ -74,6 +75,19 @@ export async function POST(request: Request) {
       result.duplicate ? (duplicates += 1) : (stored += 1);
 
       if (!result.duplicate && message.direction === 'inbound') {
+        try {
+          await enrichInstagramContactProfile(db, {
+            conversationId: result.conversationId,
+            externalUserId: message.external_user_id,
+          });
+        } catch (error) {
+          console.warn('instagram_profile_enrichment_failed', {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+
         try {
           const ai = await maybeAutoReply(db, result, message);
           if (ai.called) aiCalled += 1;
