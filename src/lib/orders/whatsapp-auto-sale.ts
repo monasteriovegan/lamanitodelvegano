@@ -168,7 +168,7 @@ async function confirmWhatsappPickupSale(
       nombre: draft.customerName || 'Cliente',
       direccion: '',
       telefono: draft.phone,
-      email: draft.email || undefined,
+      email: draft.email || '',
     },
     items: draft.items.map((item) => ({
       productoId: item.productId,
