@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import {
+  instagramUsernameFromStoredPayload,
+  isPlaceholderInstagramName,
+  normalizeInstagramUsername,
+} from '@/lib/messaging/instagram-identity';
 
 export async function GET(request: Request) {
   const admin = await getCurrentAdminUser();
@@ -30,7 +35,7 @@ export async function GET(request: Request) {
       ? db.from('omnichannel_contacts').select('id,display_name,nombre,phone,email,external_id,crm_status,metadata').in('id', contactIds)
       : Promise.resolve({ data: [] as any[] }),
     db.from('omnichannel_messages')
-      .select('conversation_id,body,direction,status,created_at,sent_at,message_type')
+      .select('conversation_id,body,direction,status,created_at,sent_at,message_type,payload')
       .in('conversation_id', conversationIds)
       .not('message_type', 'like', 'status:%')
       .order('created_at', { ascending: false })
@@ -40,11 +45,16 @@ export async function GET(request: Request) {
   const contactMap = new Map((contacts || []).map((contact: any) => [contact.id, contact]));
   const lastMessageMap = new Map<string, any>();
   const lastInboundMap = new Map<string, string>();
+  const payloadUsernameMap = new Map<string, string>();
   for (const message of messages || []) {
     if (message.message_type?.startsWith('status:')) continue;
     if (!lastMessageMap.has(message.conversation_id)) lastMessageMap.set(message.conversation_id, message);
     if (message.direction === 'inbound' && !lastInboundMap.has(message.conversation_id)) {
       lastInboundMap.set(message.conversation_id, message.sent_at || message.created_at);
+    }
+    if (!payloadUsernameMap.has(message.conversation_id)) {
+      const payloadUsername = instagramUsernameFromStoredPayload(message.payload);
+      if (payloadUsername) payloadUsernameMap.set(message.conversation_id, payloadUsername);
     }
   }
 
@@ -56,13 +66,36 @@ export async function GET(request: Request) {
       ? new Date(new Date(lastInboundAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
       : null;
     const personal = Boolean(contact?.metadata?.personal || row.metadata?.personal || row.labels?.includes?.('personal'));
+    const instagramUsername = row.channel === 'instagram'
+      ? normalizeInstagramUsername(row.metadata?.external_username)
+        || normalizeInstagramUsername(contact?.metadata?.instagram_username)
+        || normalizeInstagramUsername(contact?.display_name)
+        || payloadUsernameMap.get(row.id)
+        || null
+      : null;
+    const contactName = row.channel === 'instagram' && isPlaceholderInstagramName(contact?.nombre, row.external_conversation_id)
+      ? null
+      : contact?.nombre || null;
+    const instagramDisplayName = row.channel === 'instagram'
+      ? (
+          contactName && instagramUsername
+            ? `${contactName} · ${instagramUsername}`
+            : contactName || instagramUsername || contact?.display_name || `Instagram ${row.external_conversation_id}`
+        )
+      : null;
+
     return {
       id: row.id,
       channel: row.channel,
-      name: contact?.nombre || contact?.display_name || row.metadata?.external_username || (row.channel === 'instagram' ? `Instagram ${row.external_conversation_id}` : row.external_conversation_id),
+      name: row.channel === 'instagram'
+        ? instagramDisplayName
+        : contact?.nombre || contact?.display_name || row.external_conversation_id,
       phone: row.channel === 'whatsapp' ? (contact?.phone || contact?.external_id || row.external_conversation_id) : null,
       email: contact?.email || null,
-      externalId: contact?.external_id || row.external_conversation_id,
+      externalId: row.channel === 'instagram'
+        ? (instagramUsername ? instagramUsername.replace(/^@/, '') : contact?.external_id || row.external_conversation_id)
+        : contact?.external_id || row.external_conversation_id,
+      instagramUsername,
       customerId: row.customer_id || row.contact_id || null,
       crmStatus: contact?.crm_status || 'new',
       externalThreadId: row.external_conversation_id,
