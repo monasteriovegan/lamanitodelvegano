@@ -103,11 +103,59 @@ export class CustomerRepository {
   async list(filters: { crmStatus?: string } = {}): Promise<AdminCustomer[]> {
     const { data, error } = await this.db.from('omnichannel_contacts').select('*');
     if (error) throw error;
-    let customers = (data || []).map(mapContactToAdminCustomer);
+    let customers = (data || [])
+      .map(mapContactToAdminCustomer)
+      .filter((customer) => !Boolean(customer.metadata?.personal));
     if (filters.crmStatus && filters.crmStatus !== 'Todos') {
       customers = customers.filter((customer) => customer.crm_status === filters.crmStatus);
     }
     return customers.sort((a, b) => b.total_spent - a.total_spent);
+  }
+
+  async enrichInstagramProfile(
+    businessUnitId: string,
+    externalId: string,
+    profile: { name?: string | null; username?: string | null },
+  ): Promise<void> {
+    const name = profile.name?.trim() || null;
+    const username = profile.username?.trim().replace(/^@/, '') || null;
+    if (!name && !username) return;
+
+    const { data: contact, error: readError } = await this.db
+      .from('omnichannel_contacts')
+      .select('id,nombre,display_name,metadata')
+      .eq('business_unit_id', businessUnitId)
+      .eq('channel', 'instagram')
+      .eq('external_id', externalId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!contact) return;
+
+    const metadata = contact.metadata && typeof contact.metadata === 'object' ? contact.metadata : {};
+    const preferredDisplayName = username ? `@${username}` : name;
+    const currentName = String(contact.nombre || '').trim();
+    const placeholderNames = new Set([
+      '',
+      `Cliente ${externalId}`,
+      `Contacto ${externalId}`,
+      externalId,
+    ]);
+    const patch: JsonRecord = {
+      display_name: preferredDisplayName || contact.display_name || null,
+      metadata: {
+        ...metadata,
+        ...(username ? { instagram_username: username } : {}),
+        ...(name ? { instagram_name: name } : {}),
+      },
+      updated_at: new Date().toISOString(),
+    };
+    if (preferredDisplayName && placeholderNames.has(currentName)) patch.nombre = preferredDisplayName;
+
+    const { error: updateError } = await this.db
+      .from('omnichannel_contacts')
+      .update(patch)
+      .eq('id', contact.id);
+    if (updateError) throw updateError;
   }
 
   async getById(id: string): Promise<AdminCustomer | null> {

@@ -1,6 +1,9 @@
 import 'server-only';
 import { runtimeSiteUrl } from '@/lib/site-url';
-import { ensureWabaMessagesSubscription } from '@/lib/meta/waba-subscription';
+import {
+  ensureWabaMessagesSubscription,
+  WHATSAPP_COEXISTENCE_ECHO_FIELD,
+} from '@/lib/meta/waba-subscription';
 
 const DEFAULT_APP_ID = '1691394752113175';
 const DEFAULT_PAGE_ID = '1210803402107834';
@@ -20,6 +23,7 @@ export type MetaMessagingSetupResult = {
     subscribed?: boolean;
     fields?: string[];
     verifiedAfterWrite?: boolean;
+    coexistenceEchoReady?: boolean;
     error?: string;
   } | null;
   warnings: string[];
@@ -176,14 +180,19 @@ export async function setupMetaMessaging(
   });
   const verifiedWaba = wabaVerification.after.status === 'subscribed'
     && wabaVerification.after.fields.includes('messages');
+  const coexistenceEchoReady = wabaVerification.after.fields.includes(WHATSAPP_COEXISTENCE_ECHO_FIELD);
   result.wabaSubscription = {
     ok: verifiedWaba,
     status: wabaVerification.after.httpStatus ?? wabaVerification.mutationStatus ?? 0,
     subscribed: verifiedWaba,
     fields: wabaVerification.after.fields,
     verifiedAfterWrite: wabaVerification.mutationStatus !== null,
+    coexistenceEchoReady,
     ...(wabaVerification.after.error ? { error: wabaVerification.after.error } : {}),
   };
+  if (!coexistenceEchoReady) {
+    result.warnings.push('WhatsApp Business App message echo no verificado: smb_message_echoes no aparece en subscribed_fields.');
+  }
 
   const required = [
     'pages_show_list',

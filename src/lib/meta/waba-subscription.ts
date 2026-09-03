@@ -1,3 +1,5 @@
+export const WHATSAPP_COEXISTENCE_ECHO_FIELD = 'smb_message_echoes';
+
 export type WabaSubscriptionState = {
   status: 'subscribed' | 'not_subscribed' | 'unknown';
   appId: string;
@@ -155,8 +157,9 @@ export function parseWabaSubscription(body: unknown, appId: string): WabaSubscri
     : [];
 
   return {
-    // Meta's current subscribed_apps response identifies the subscribed app
-    // under whatsapp_business_api_data and may omit subscribed_fields entirely.
+    // Keep every field Meta returns, including smb_message_echoes for
+    // WhatsApp Business App coexistence. Presence is checked separately from
+    // the standard messages subscription.
     status: nestedRecord || fields.includes('messages') ? 'subscribed' : 'not_subscribed',
     appId,
     fields,

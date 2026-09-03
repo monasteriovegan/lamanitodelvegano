@@ -27,6 +27,7 @@ export async function GET(
     .from('omnichannel_messages')
     .select('id,direction,message_type,body,status,provider,transport,external_message_id,provider_message_id,sent_at,delivered_at,read_at,created_at,payload')
     .eq('conversation_id', id)
+    .not('message_type', 'like', 'status:%')
     .order('created_at', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

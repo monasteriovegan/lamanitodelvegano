@@ -45,7 +45,7 @@ function remainingWindow(expiresAt: string | null) {
 function conversationAiState(conversation: Conversation, aiGlobalEnabled: boolean) {
   if (conversation.personal) return { dot: '⚪', label: 'Personal', hint: 'Contacto personal: excluido del CRM y de Remy.' };
   if (conversation.humanTakeover) return { dot: '🔵', label: 'Tomado por humano', hint: 'Un humano tomó esta conversación. Remy está pausado hasta liberarla.' };
-  if (conversation.channel === 'whatsapp' && !aiGlobalEnabled) return { dot: '⚪', label: 'Pausado (global)', hint: 'El interruptor global de WhatsApp IA está apagado. Afecta a todas las conversaciones por igual.' };
+  if (conversation.channel === 'whatsapp' && !aiGlobalEnabled) return { dot: '⚪', label: 'Pausado (global)', hint: 'El interruptor global de Remy para WhatsApp está apagado. Afecta a todas las conversaciones de WhatsApp por igual.' };
   if (!conversation.aiEnabled) return { dot: '🟠', label: 'Pausado aquí', hint: 'Apagaste a Remy en esta conversación puntual. Actívalo con el botón "Habilitar Remy" o con "Reactivar en todas".' };
   return { dot: '🟢', label: conversation.channel === 'whatsapp' ? 'Remy activo' : 'Remy listo', hint: 'Remy va a responder automáticamente a los próximos mensajes de este chat.' };
 }
@@ -189,8 +189,8 @@ export default function ConversationsClient() {
       <PageHeader eyebrow="✦ Omnicanal" title="Conversaciones" action={
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">WhatsApp + Instagram + Web</span>
-          <button onClick={() => void toggleGlobalAi()} disabled={savingAi || (!hasConnectedProvider && !ai.enabled)} title="Prende o apaga a Remy para TODO WhatsApp de una. No afecta los interruptores individuales de cada conversación." className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
-            {ai.enabled ? '🤖 WhatsApp IA global ON' : '🤖 WhatsApp IA global OFF'}
+          <button onClick={() => void toggleGlobalAi()} disabled={savingAi || (!hasConnectedProvider && !ai.enabled)} title="Prende o apaga a Remy para TODO WhatsApp. Instagram no depende de este botón." className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
+            {ai.enabled ? '🤖 Remy WhatsApp global ON' : '🤖 Remy WhatsApp global OFF'}
           </button>
           {pausedIndividuallyCount > 0 && (
             <button
@@ -209,7 +209,7 @@ export default function ConversationsClient() {
         <div className={`text-[10px] px-2.5 py-2 rounded-lg ${hasConnectedProvider ? 'text-neon bg-neon/10' : 'text-amber-200 bg-amber-400/10'}`}>
           {hasConnectedProvider ? 'Proveedor IA conectado' : 'Falta conectar un proveedor IA'}
         </div>
-        <div className="text-[10px] text-white/45">El modelo de Remy se administra en <b>Agentes</b>. Este interruptor solo habilita o bloquea la automatización global de WhatsApp — cada conversación además tiene su propio interruptor individual (columna izquierda y botón &quot;Habilitar Remy&quot; en cada chat).</div>
+        <div className="text-[10px] text-white/45">El modelo de Remy se administra en <b>Agentes</b>. Este interruptor solo habilita o bloquea Remy globalmente para WhatsApp. Instagram se controla desde Agentes y con el interruptor individual de cada conversación.</div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -243,7 +243,7 @@ export default function ConversationsClient() {
                 {selected.channel !== 'web' && <button
                   onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })}
                   disabled={updating || selected.personal || selected.humanTakeover}
-                  title={selected.personal ? 'No puedes activar Remy: esta conversación está marcada como Personal.' : selected.humanTakeover ? 'No puedes activar Remy: un humano tiene tomada esta conversación. Libérala primero con "Liberar a Remy".' : 'Solo afecta a esta conversación. El interruptor global de WhatsApp está más arriba.'}
+                  title={selected.personal ? 'No puedes activar Remy: esta conversación está marcada como Personal.' : selected.humanTakeover ? 'No puedes activar Remy: un humano tiene tomada esta conversación. Libérala primero con "Liberar a Remy".' : selected.channel === 'instagram' ? 'Solo afecta a este chat de Instagram. El interruptor global superior es solo para WhatsApp.' : 'Solo afecta a esta conversación. El interruptor global de WhatsApp está más arriba.'}
                   className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}
                 >{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
                 <button
@@ -270,7 +270,7 @@ export default function ConversationsClient() {
               {selected.humanTakeover && <div className="mb-3 rounded-xl border border-sky-300/20 bg-sky-300/10 p-3 text-xs text-sky-100">👤 Atención humana activa: Remy quedó pausado para esta conversación hasta que pulses “Liberar a Remy”.</div>}
               {!windowState.open && selected.channel === 'whatsapp' && <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-100">La ventana API de 24 h está cerrada. El CRM bloquea el envío libre.</div>}
               <div className="flex gap-3 items-end"><textarea value={text} onChange={(event) => setText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(); } }} rows={3} maxLength={4096} disabled={!windowState.open || selected.channel === 'web'} placeholder={windowState.open ? `Responder por ${channelMeta(selected.channel).label}...` : 'Ventana de respuesta cerrada'} className="flex-1 resize-none rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-neon/50 disabled:opacity-45" /><button onClick={() => void send()} disabled={sending || !text.trim() || !windowState.open || selected.channel === 'web'} className="rounded-xl bg-neon text-black font-bold text-sm px-5 py-3 disabled:opacity-40">{sending ? 'Enviando...' : 'Enviar'}</button></div>
-              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual disponible dentro de la ventana del canal. Remy solo responde si el canal, la conversación y el interruptor aplicable están habilitados y no hay takeover humano.</div>
+              <div className="mt-2 text-[10px] text-white/35">Respuesta humana manual disponible dentro de la ventana del canal. En WhatsApp manda el interruptor global más el del chat; en Instagram manda la configuración del agente/canal más el interruptor del chat. En ambos casos, takeover humano o Personal bloquean a Remy.</div>
             </div>
           </>}
         </div>
