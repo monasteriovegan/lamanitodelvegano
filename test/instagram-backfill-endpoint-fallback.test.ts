@@ -35,6 +35,11 @@ test('backfill histórico conserva imágenes y rehidrata duplicados vacíos', ()
   assert.match(source, /processInboundImageOcrAsync/);
 });
 
+test('un fallo al extraer la venta no invalida la recuperación histórica ya persistida', () => {
+  assert.match(source, /instagram_backfill_sale_sync_failed/);
+  assert.match(source, /try\s*\{[\s\S]*autoRegisterInstagramConversationSale[\s\S]*catch/);
+});
+
 test('backfill conserva Facebook Login como fallback si Instagram Login no está disponible', () => {
   assert.match(source, /getActiveCredential/);
   assert.match(source, /discoverConversationSource/);
