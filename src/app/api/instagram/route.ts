@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   try {
     payload = JSON.parse(raw);
   } catch {
-    return Response.json({ error: 'invalid_json'' }, { status: 400 });
+    return Response.json({ error: 'invalid_json' }, { status: 400 });
   }
 
   if (payload?.object !== 'instagram') {
