@@ -22,9 +22,12 @@ test('el endpoint cambia solo metadata.channels.instagram conservando el resto d
 });
 
 test('Conversaciones muestra un interruptor global visible y usa la misma fuente de verdad', () => {
-  const client = read('src/app/admin/conversaciones/ConversationsClient.tsx');
-  assert.match(client, /Remy Instagram/);
-  assert.match(client, /\/api\/admin\/conversations\/remy-instagram/);
-  assert.match(client, /instagramRemyEnabled/);
-  assert.match(client, /Los DM siguen entrando al CRM/);
+  const page = read('src/app/admin/conversaciones/page.tsx');
+  const toggle = read('src/app/admin/conversaciones/RemyInstagramToggle.tsx');
+  assert.match(page, /RemyInstagramToggle/);
+  assert.match(toggle, /Remy Instagram/);
+  assert.match(toggle, /\/api\/admin\/conversations\/remy-instagram/);
+  assert.match(toggle, /instagramRemyEnabled/);
+  assert.match(toggle, /Los DM siguen entrando al CRM/);
+  assert.match(toggle, /WhatsApp no cambia/);
 });
