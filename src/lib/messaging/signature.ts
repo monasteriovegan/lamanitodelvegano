@@ -12,18 +12,6 @@ export function verifyHmac(
   return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
 }
 
-export function verifyHmacSha1(
-  raw: string | Buffer,
-  header: string | null,
-  secret: string | undefined,
-) {
-  if (!header || !secret) return false;
-  const supplied = header.replace(/^sha1=/, '');
-  if (!/^[a-f0-9]{40}$/i.test(supplied)) return false;
-  const expected = createHmac('sha1', secret).update(raw).digest('hex');
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
-}
-
 export function verifyHmacAny(
   raw: string | Buffer,
   header: string | null,

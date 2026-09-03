@@ -8,7 +8,7 @@ import {
   normalizeMetaWhatsApp,
   normalizePhone,
 } from '../src/lib/messaging/normalize.ts';
-import { verifyHmac, verifyHmacSha1 } from '../src/lib/messaging/signature.ts';
+import { verifyHmac } from '../src/lib/messaging/signature.ts';
 
 test('normaliza teléfonos chilenos sin alterar E.164', () => {
   assert.equal(normalizePhone('+56 9 9081 6124'), '56990816124');
@@ -79,15 +79,6 @@ test('valida HMAC y rechaza alteración', () => {
   assert.equal(verifyHmac(raw, signature, secret), true);
   assert.equal(verifyHmac(`${raw}x`, signature, secret), false);
   assert.equal(verifyHmac(raw, 'sha256=bad', secret), false);
-});
-
-test('diagnóstico legacy valida HMAC SHA-1 sin aceptar una firma alterada', () => {
-  const raw = '{"object":"instagram"}';
-  const secret = 'secret';
-  const signature = `sha1=${createHmac('sha1', secret).update(raw).digest('hex')}`;
-  assert.equal(verifyHmacSha1(raw, signature, secret), true);
-  assert.equal(verifyHmacSha1(`${raw}x`, signature, secret), false);
-  assert.equal(verifyHmacSha1(raw, 'sha1=bad', secret), false);
 });
 
 test('misma entrega genera una clave estable por transporte', () => {
@@ -212,7 +203,6 @@ test('webhook Instagram verifica HMAC sobre bytes crudos antes de decodificar JS
   assert.match(route, /await request\.arrayBuffer\(\)/);
   assert.match(route, /Buffer\.from\(/);
   assert.match(route, /verifyHmacAny\(rawBody,/);
-  assert.match(route, /verifyHmacSha1\(rawBody,/);
   assert.doesNotMatch(route, /const raw = await request\.text\(\)/);
 });
 

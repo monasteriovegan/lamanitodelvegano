@@ -24,13 +24,15 @@ test('endpoint protegido acepta user_id numérico sin quitar autorización', () 
   assert.match(route, /userId/);
 });
 
-test('webhook inválido solo expone envoltorio numérico y sigue respondiendo 401', () => {
+test('webhook inválido rechaza por HMAC antes de parsear contenido no verificado', () => {
   const route = read('src/app/api/instagram/route.ts');
-  assert.match(route, /unverifiedSenderId/);
-  assert.match(route, /unverifiedRecipientId/);
-  assert.match(route, /unverifiedObject/);
+  assert.match(route, /request\.arrayBuffer\(\)/);
+  assert.match(route, /verifyHmacAny\(rawBody/);
+  assert.match(route, /META_INSTAGRAM_APP_SECRET/);
   assert.match(route, /instagram_webhook_signature_rejected/);
   assert.match(route, /invalid_signature/);
   assert.match(route, /status:\s*401/);
-  assert.doesNotMatch(route, /unverifiedMessageText/);
+  assert.doesNotMatch(route, /unverifiedEnvelopeForDiagnostics/);
+  assert.doesNotMatch(route, /unverifiedSenderId|unverifiedRecipientId|unverifiedObject/);
+  assert.doesNotMatch(route, /verifyHmacSha1|signatureLegacy/);
 });
