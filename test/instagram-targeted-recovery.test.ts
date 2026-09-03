@@ -31,6 +31,15 @@ test('endpoint protegido permite ampliar el barrido con un limit acotado', () =>
   assert.match(route, /limit/);
 });
 
+test('backfill permite paginar conversaciones por offset para evitar timeouts', () => {
+  const route = read('src/app/api/internal/instagram-backfill/route.ts');
+  const source = read('src/lib/meta/instagram-backfill.ts');
+  assert.match(route, /searchParams\.get\(['"]offset['"]\)/);
+  assert.match(route, /Math\.min\([^\n]*100/);
+  assert.match(source, /offset\?:\s*number/);
+  assert.match(source, /input\.offset/);
+});
+
 test('webhook inválido rechaza por HMAC antes de parsear contenido no verificado', () => {
   const route = read('src/app/api/instagram/route.ts');
   assert.match(route, /request\.arrayBuffer\(\)/);
