@@ -24,6 +24,9 @@ export type AdminCustomer = {
   total_orders: number;
   total_spent: number;
   channels: string[];
+  instagram_username: string | null;
+  instagram_name: string | null;
+  conversation_labels: string[];
   last_contact_at: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -45,7 +48,10 @@ export function mapContactToAdminCustomer(row: JsonRecord): AdminCustomer {
   const channel = String(row.channel || 'manual');
   const phone = row.phone ?? metadata.phone ?? (channel === 'whatsapp' ? row.external_id : null);
   const email = row.email ?? metadata.email ?? null;
-  const nombre = String(row.nombre ?? row.display_name ?? metadata.name ?? `Contacto ${row.external_id || ''}`).trim();
+  const instagramUsername = metadata.instagram_username ? String(metadata.instagram_username) : null;
+  const instagramName = metadata.instagram_name ? String(metadata.instagram_name) : null;
+  const fallbackName = instagramName || (instagramUsername ? `@${instagramUsername}` : null);
+  const nombre = String(row.nombre ?? row.display_name ?? fallbackName ?? metadata.name ?? `Contacto ${row.external_id || ''}`).trim();
   const status = String(row.crm_status ?? metadata.crm_status ?? 'new');
   return {
     id: String(row.id),
@@ -61,6 +67,9 @@ export function mapContactToAdminCustomer(row: JsonRecord): AdminCustomer {
     total_orders: Number(row.total_orders ?? metadata.total_orders ?? 0),
     total_spent: Number(row.total_spent ?? metadata.total_spent ?? 0),
     channels: Array.from(new Set([channel, ...(Array.isArray(metadata.channels) ? metadata.channels : [])])),
+    instagram_username: instagramUsername,
+    instagram_name: instagramName,
+    conversation_labels: Array.isArray(row.conversation_labels) ? row.conversation_labels.map(String) : [],
     last_contact_at: row.last_order_at ?? row.updated_at ?? null,
     created_at: row.created_at ?? null,
     updated_at: row.updated_at ?? null,
@@ -100,10 +109,41 @@ export class CustomerRepository {
     if (error) throw error;
   }
 
+  private async attachConversationLabels(customers: AdminCustomer[]): Promise<AdminCustomer[]> {
+    const customerIds = customers.map((customer) => customer.id);
+    if (customerIds.length === 0) return customers;
+
+    const [{ data: byCustomer, error: customerError }, { data: byContact, error: contactError }] = await Promise.all([
+      this.db.from('conversations').select('customer_id,contact_id,labels').in('customer_id', customerIds),
+      this.db.from('conversations').select('customer_id,contact_id,labels').in('contact_id', customerIds),
+    ]);
+    const error = customerError || contactError;
+    if (error) throw error;
+
+    const wanted = new Set(customerIds);
+    const labelMap = new Map<string, Set<string>>();
+    for (const row of [...(byCustomer || []), ...(byContact || [])] as JsonRecord[]) {
+      const ids = [row.customer_id, row.contact_id].filter((value): value is string => typeof value === 'string' && wanted.has(value));
+      for (const id of ids) {
+        const labels = labelMap.get(id) || new Set<string>();
+        for (const label of Array.isArray(row.labels) ? row.labels : []) {
+          const normalized = String(label || '').trim().toLowerCase();
+          if (normalized && normalized !== 'personal') labels.add(normalized);
+        }
+        labelMap.set(id, labels);
+      }
+    }
+
+    return customers.map((customer) => ({
+      ...customer,
+      conversation_labels: Array.from(labelMap.get(customer.id) || []).sort(),
+    }));
+  }
+
   async list(filters: { crmStatus?: string } = {}): Promise<AdminCustomer[]> {
     const { data, error } = await this.db.from('omnichannel_contacts').select('*');
     if (error) throw error;
-    let customers = (data || []).map(mapContactToAdminCustomer);
+    let customers = await this.attachConversationLabels((data || []).map(mapContactToAdminCustomer));
     if (filters.crmStatus && filters.crmStatus !== 'Todos') {
       customers = customers.filter((customer) => customer.crm_status === filters.crmStatus);
     }
@@ -117,7 +157,9 @@ export class CustomerRepository {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    return data ? mapContactToAdminCustomer(data) : null;
+    if (!data) return null;
+    const [customer] = await this.attachConversationLabels([mapContactToAdminCustomer(data)]);
+    return customer || null;
   }
 
   async getDetail(id: string): Promise<CustomerDetail | null> {
