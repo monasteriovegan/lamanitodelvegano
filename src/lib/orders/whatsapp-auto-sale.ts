@@ -1,10 +1,12 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { confirmConversationSale, prepareConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import { confirmConversationSale, prepareConversationSaleDraft, type ConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import { calcularPedido } from '@/lib/pricing/calcular-pedido';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import {
   hasBusinessPaymentConfirmation,
   hasCustomerNewOrderSignal,
+  hasCustomerPickupSignal,
   shouldAttemptWhatsappAutoSale,
   type WhatsappMessageRow as MessageRow,
 } from '@/lib/orders/whatsapp-auto-sale-signals';
@@ -29,6 +31,9 @@ type WhatsappConversationRow = {
   channel: string;
   order_id: number | null;
   labels?: string[] | null;
+  business_unit_id: string | null;
+  customer_id: string | null;
+  contact_id: string | null;
 };
 
 export type WhatsappAutoSaleResult = {
@@ -44,6 +49,32 @@ async function linkMessagesToOrder(db: SupabaseClient, conversationId: string, o
     .eq('conversation_id', conversationId)
     .is('order_id', null);
   if (error) throw error;
+}
+
+async function linkConversationToOrder(
+  db: SupabaseClient,
+  conversation: WhatsappConversationRow,
+  orderId: number,
+  paymentConfirmed: boolean,
+) {
+  const labels = Array.from(new Set([
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    'pedido',
+    ...(paymentConfirmed ? ['pagado'] : []),
+  ]));
+  const { error: conversationError } = await db.from('conversations').update({
+    order_id: orderId,
+    labels,
+    updated_at: new Date().toISOString(),
+  }).eq('id', conversation.id);
+  if (conversationError) throw conversationError;
+
+  const { error: linkError } = await db.from('conversation_orders').upsert({
+    conversation_id: conversation.id,
+    pedido_id: orderId,
+  }, { onConflict: 'conversation_id,pedido_id', ignoreDuplicates: true });
+  if (linkError) throw linkError;
+  await linkMessagesToOrder(db, conversation.id, orderId);
 }
 
 async function reconcileExistingWhatsappOrderPayment(
@@ -116,18 +147,97 @@ async function loadConversationMessages(
   return (data || []) as MessageRow[];
 }
 
+async function confirmWhatsappPickupSale(
+  db: SupabaseClient,
+  conversation: WhatsappConversationRow,
+  draft: ConversationSaleDraft,
+  messages: MessageRow[],
+  idempotencyKey: string,
+): Promise<WhatsappAutoSaleResult> {
+  const allowedPickupMissing = new Set(['direccion', 'comuna', 'zona_despacho']);
+  const blockingMissing = (draft.missing || []).filter((item) => !allowedPickupMissing.has(item));
+  if (blockingMissing.length) return { status: 'pending', missing: blockingMissing };
+  if (!conversation.business_unit_id || !draft.items.length || draft.paymentMethod === 'unknown') {
+    return { status: 'pending', missing: ['validacion_pedido'] };
+  }
+  const customerId = String(conversation.customer_id || conversation.contact_id || '');
+  if (!customerId) return { status: 'pending', missing: ['cliente'] };
+
+  const calculation = await calcularPedido({
+    cliente: {
+      nombre: draft.customerName || 'Cliente',
+      direccion: '',
+      telefono: draft.phone,
+      email: draft.email || undefined,
+    },
+    items: draft.items.map((item) => ({
+      productoId: item.productId,
+      qty: item.quantity,
+      formato: item.format,
+      variedad: item.variety,
+    })),
+    zonaId: null,
+    cuponCode: null,
+    metodoPago: draft.paymentMethod === 'unknown' ? 'transfer' : draft.paymentMethod,
+    attribution: { utm_source: 'whatsapp', utm_medium: 'whatsapp_conversation_auto' },
+  }, conversation.business_unit_id);
+  if (!calculation.ok || !calculation.itemsResueltos?.length) {
+    return { status: 'pending', missing: ['validacion_pedido'] };
+  }
+
+  const total = Number(calculation.total || 0);
+  if (draft.transcriptTotal && Math.abs(total - draft.transcriptTotal) > 100) {
+    return { status: 'pending', missing: ['total_no_coincide'] };
+  }
+
+  const paymentConfirmed = draft.paymentMethod === 'transfer'
+    && hasBusinessPaymentConfirmation(messages);
+  const repo = new OrderRepository(db);
+  const order = await repo.createConversationOrder({
+    idempotencyKey,
+    businessUnitId: conversation.business_unit_id,
+    customerId,
+    conversationId: conversation.id,
+    customerEmail: draft.email || null,
+    customerName: draft.customerName,
+    customerPhone: draft.phone || null,
+    address: null,
+    comuna: null,
+    items: calculation.itemsResueltos,
+    stockItems: calculation.itemsResueltos,
+    total,
+    paymentMethod: draft.paymentMethod,
+    paymentConfirmed,
+    shippingCost: 0,
+    shippingZoneId: null,
+    shippingZoneName: 'Retiro acordado por conversación',
+    deliveryDate: draft.deliveryDate || null,
+    sourceChannel: 'whatsapp',
+    adminNotes: `Pedido confirmado desde conversación WhatsApp. Retiro acordado. ${draft.notes || ''}`.trim(),
+    attribution: { utm_source: 'whatsapp', utm_medium: 'whatsapp_conversation_auto' },
+  });
+
+  await linkConversationToOrder(db, conversation, order.numeric_id, paymentConfirmed);
+  return {
+    status: 'synced',
+    orderId: order.numeric_id,
+    paymentStatus: order.payment_status || null,
+  };
+}
+
 export async function autoRegisterWhatsappConversationSale(
   db: SupabaseClient,
   conversationId: string,
 ): Promise<WhatsappAutoSaleResult> {
   const { data: conversation, error } = await db
     .from('conversations')
-    .select('id,channel,order_id,labels')
+    .select('id,channel,order_id,labels,business_unit_id,customer_id,contact_id')
     .eq('id', conversationId)
     .maybeSingle();
   if (error) throw error;
   if (!conversation || conversation.channel !== 'whatsapp') return { status: 'ignored' };
 
+  const typedConversation = conversation as WhatsappConversationRow;
   const repeatOrder = Boolean(conversation.order_id);
   const onlyUnlinkedMessages = repeatOrder;
   const messages = await loadConversationMessages(db, conversationId, onlyUnlinkedMessages);
@@ -138,7 +248,7 @@ export async function autoRegisterWhatsappConversationSale(
   if (repeatOrder) {
     const paymentReconciliation = await reconcileExistingWhatsappOrderPayment(
       db,
-      conversation as WhatsappConversationRow,
+      typedConversation,
       messages,
     );
     if (paymentReconciliation) return paymentReconciliation;
@@ -154,6 +264,23 @@ export async function autoRegisterWhatsappConversationSale(
   // number (conversation.external_conversation_id / contact.external_id), so
   // prepareConversationSaleDraft already resolves the phone for this channel —
   // no extra text-scraping fallback needed here.
+
+  const firstCycleMessageId = messages[0]?.id;
+  if (repeatOrder && !firstCycleMessageId) {
+    return { status: 'already_linked', orderId: Number(conversation.order_id) };
+  }
+  const idempotencyKey = repeatOrder
+    ? `conversation:${conversation.id}:cycle:${firstCycleMessageId}`
+    : `conversation:${conversation.id}`;
+
+  // Pickup/retiro is a valid conversational fulfillment mode. It deliberately
+  // bypasses checkout-only address/comuna/shipping-zone requirements while
+  // still recalculating products and prices server-side and using the same
+  // idempotent conversation_create_order_v1 transaction as other DM sales.
+  if (hasCustomerPickupSignal(messages)) {
+    return confirmWhatsappPickupSale(db, typedConversation, draft, messages, idempotencyKey);
+  }
+
   if (draft.missing.length) {
     return { status: 'pending', missing: draft.missing };
   }
@@ -163,14 +290,6 @@ export async function autoRegisterWhatsappConversationSale(
   // WhatsApp business account in this same, still-unlinked order cycle.
   const businessPaymentConfirmed = draft.paymentMethod === 'transfer'
     && hasBusinessPaymentConfirmation(messages);
-
-  const firstCycleMessageId = messages[0]?.id;
-  if (repeatOrder && !firstCycleMessageId) {
-    return { status: 'already_linked', orderId: Number(conversation.order_id) };
-  }
-  const idempotencyKey = repeatOrder
-    ? `conversation:${conversation.id}:cycle:${firstCycleMessageId}`
-    : `conversation:${conversation.id}`;
 
   const result = await confirmConversationSale(db, {
     ...draft,
