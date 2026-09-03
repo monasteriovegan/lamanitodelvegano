@@ -8,7 +8,7 @@ const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('full order edit is transactional, audited and stock-delta aware', () => {
   const service = read('src/lib/orders/admin-order-admin.ts');
-  const migration = read('supabase/migrations/20260903220000_admin_order_transactions.sql');
+  const migration = read('supabase/migrations/20260903221500_admin_order_edit.sql');
   assert.match(service, /FullOrderUpdateInput/);
   assert.match(service, /updateFullOrder/);
   assert.match(service, /admin_update_order_v1/);
