@@ -187,14 +187,17 @@ export async function autoRegisterInstagramConversationSale(
   });
   if (!draft.saleDetected) return { status: 'pending', missing: draft.missing };
 
-  const nonPhoneMissing = draft.missing.filter((item) => item !== 'telefono');
-  if (draft.missing.length && nonPhoneMissing.length) {
-    return { status: 'pending', missing: draft.missing };
-  }
-
   const extractedPhone = draft.phone || extractPhoneFromMessages(messages);
-  const missing = draft.missing.filter((item) => item !== 'telefono' || !extractedPhone);
-  if (missing.length) return { status: 'pending', missing };
+  const draftHasMissing = draft.missing.length > 0;
+  const missingWithoutPhone = draft.missing.filter((item) => item !== 'telefono');
+  const explicitTranscriptShipping = Boolean(draft.transcriptTotal && draft.calculated && draft.transcriptTotal >= draft.calculated.subtotal);
+  const toleratedMissing = new Set<string>();
+  if (explicitTranscriptShipping) {
+    toleratedMissing.add('zona_despacho');
+    toleratedMissing.add('total_no_coincide');
+  }
+  const missing = (draftHasMissing ? missingWithoutPhone : []).filter((item) => !toleratedMissing.has(item));
+  if (missing.length) return { status: 'pending', missing: draft.missing };
 
   // A customer-supplied receipt can support creating the order, but automatic
   // paid status requires an explicit human outbound acknowledgement from the
@@ -217,6 +220,8 @@ export async function autoRegisterInstagramConversationSale(
     paymentEvidence: businessPaymentConfirmed,
   }, undefined, {
     allowExistingOrder: repeatOrder,
+    allowMissingPhone: true,
+    allowTranscriptShipping: true,
     idempotencyKey,
     linkUnassignedMessages: true,
     attributionMedium: 'instagram_conversation_auto',

@@ -75,6 +75,30 @@ export type CheckoutOrderInput = {
   attribution: JsonRecord;
 };
 
+export type ConversationOrderInput = {
+  idempotencyKey: string;
+  businessUnitId: string;
+  customerId: string;
+  conversationId: string;
+  customerEmail: string | null;
+  customerName: string;
+  customerPhone: string | null;
+  address: string | null;
+  comuna: string | null;
+  items: JsonRecord[];
+  stockItems: JsonRecord[];
+  total: number;
+  paymentMethod: string;
+  paymentConfirmed: boolean;
+  shippingCost: number;
+  shippingZoneId: string | null;
+  shippingZoneName: string | null;
+  deliveryDate: string | null;
+  sourceChannel: string;
+  adminNotes: string | null;
+  attribution: JsonRecord;
+};
+
 export function normalizeOrderStatus(value: unknown): OperationalStatus {
   return TO_OPERATIONAL[String(value || 'pending').trim().toLowerCase()] || 'pending';
 }
@@ -259,6 +283,39 @@ export class OrderRepository {
       if (historyError) throw historyError;
     }
     return updated;
+  }
+
+  async createConversationOrder(input: ConversationOrderInput): Promise<AdminOrder> {
+    requireSchemaCapability(this.capabilities, 'orderExtensions');
+    const { data, error } = await this.db.rpc('conversation_create_order_v1', {
+      p_idempotency_key: input.idempotencyKey,
+      p_business_unit_id: input.businessUnitId,
+      p_customer_id: input.customerId,
+      p_conversation_id: input.conversationId,
+      p_customer_email: input.customerEmail,
+      p_customer_name: input.customerName,
+      p_customer_phone: input.customerPhone,
+      p_address: input.address,
+      p_comuna: input.comuna,
+      p_order_items: input.items,
+      p_stock_items: input.stockItems,
+      p_total: input.total,
+      p_payment_method: input.paymentMethod,
+      p_payment_confirmed: input.paymentConfirmed,
+      p_shipping_cost: input.shippingCost,
+      p_shipping_zone_id: input.shippingZoneId,
+      p_shipping_zone_name: input.shippingZoneName,
+      p_delivery_date: input.deliveryDate,
+      p_source_channel: input.sourceChannel,
+      p_admin_notes: input.adminNotes,
+      p_attribution: input.attribution,
+    });
+    if (error) throw error;
+    const pedidoId = Number((data as JsonRecord)?.pedido_id);
+    if (!Number.isInteger(pedidoId)) throw new Error('conversation_create_order_v1 no devolvió pedido_id integer.');
+    const order = await this.getById(pedidoId);
+    if (!order) throw new Error('El pedido de conversación fue creado pero no pudo recuperarse.');
+    return order;
   }
 
   async createTransactionalCheckout(input: CheckoutOrderInput): Promise<AdminOrder> {
