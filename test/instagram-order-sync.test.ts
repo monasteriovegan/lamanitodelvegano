@@ -29,10 +29,12 @@ test('sincronización automática reutiliza la venta conversacional, evita dupli
 
 test('sincronización automática puede completar teléfono explícito del chat y exige señal comercial', () => {
   const source = read('src/lib/orders/instagram-auto-sale.ts');
+  const signals = read('src/lib/orders/instagram-auto-sale-signals.ts');
   assert.match(source, /extractPhoneFromMessages/);
   assert.match(source, /item\s*!==\s*['"]telefono['"]/);
   assert.match(source, /shouldAttemptInstagramAutoSale/);
-  assert.match(source, /direction\s*===\s*['"]outbound['"]/);
+  assert.match(signals, /direction\s*===\s*['"]outbound['"]/);
+  assert.match(signals, /BUSINESS_SALE_SIGNAL/);
 });
 
 test('un mismo DM de Instagram puede generar pedidos posteriores sin mezclar la venta anterior', () => {
