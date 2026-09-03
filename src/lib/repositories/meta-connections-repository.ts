@@ -65,13 +65,12 @@ export class MetaConnectionsRepository {
     };
   }
 
-  async getInstagramLoginCredential(businessUnitId: string, instagramUserId: string) {
+  async getInstagramLoginCredential(businessUnitId: string) {
     const { data: connection, error } = await this.db
       .from('meta_connections')
       .select('id,external_user_id,access_token_ciphertext,access_token_iv,access_token_tag,status,token_expires_at')
       .eq('business_unit_id', businessUnitId)
       .eq('provider', 'meta_instagram_login')
-      .eq('external_user_id', instagramUserId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
