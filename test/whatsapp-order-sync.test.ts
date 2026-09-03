@@ -43,7 +43,8 @@ test('sincronización automática de WhatsApp reutiliza la venta conversacional,
   assert.match(source, /confirmConversationSale/);
   assert.match(source, /conversation\.order_id/);
   assert.match(source, /draft\.saleDetected/);
-  assert.match(source, /draft\.missing\.length/);
+  assert.match(source, /draft\.missing/);
+  assert.match(source, /toleratedMissing/);
   assert.match(source, /paymentEvidence:\s*businessPaymentConfirmed/);
   assert.match(source, /conversation\.channel\s*!==\s*'whatsapp'/);
 });
