@@ -120,10 +120,7 @@ export async function sendInstagramMeta(
   let result: { response: Response; body: { message_id?: string; messages?: Array<{ id?: string }> } };
   let transportMode: 'instagram_login' | 'facebook_login' = 'facebook_login';
   try {
-    const instagramCredential = await repository.getInstagramLoginCredential(
-      options.businessUnitId,
-      routingCredential.externalId,
-    );
+    const instagramCredential = await repository.getInstagramLoginCredential(options.businessUnitId);
     result = await sendWithInstagramLogin(
       input,
       instagramCredential.accessToken,
