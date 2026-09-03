@@ -24,6 +24,13 @@ test('endpoint protegido acepta user_id numérico sin quitar autorización', () 
   assert.match(route, /userId/);
 });
 
+test('endpoint protegido permite ampliar el barrido con un limit acotado', () => {
+  const route = read('src/app/api/internal/instagram-backfill/route.ts');
+  assert.match(route, /searchParams\.get\(['"]limit['"]\)/);
+  assert.match(route, /Math\.min\([^\n]*10/);
+  assert.match(route, /limit/);
+});
+
 test('webhook inválido rechaza por HMAC antes de parsear contenido no verificado', () => {
   const route = read('src/app/api/instagram/route.ts');
   assert.match(route, /request\.arrayBuffer\(\)/);
