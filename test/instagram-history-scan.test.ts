@@ -37,3 +37,10 @@ test('scanner puede ampliar mensajes para auditar el total corregido sin quitar 
   assert.match(source, /messageLimit/);
   assert.match(source, /messages\.limit\(\$\{input\.messageLimit\}\)/);
 });
+
+test('scanner histórico conserva adjuntos para identificar vouchers sin texto', () => {
+  const source = readFileSync(join(root, path), 'utf8');
+  assert.match(source, /fields=id,created_time,from,to,message,attachments/);
+  assert.match(source, /attachments:/);
+  assert.match(source, /payload\?\.url/);
+});
