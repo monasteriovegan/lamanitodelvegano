@@ -122,7 +122,7 @@ async function loadMessageDetails(input: {
       if (!id) return null;
       try {
         return await graphJson<any>(
-          `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(id)}?fields=id,created_time,from,to,message,attachments`,
+          `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(id)}?fields=id,created_time,from,to,message,attachments{image_data,video_data,file_url,mime_type,name}`,
           input.secretBearer,
         );
       } catch {
@@ -145,10 +145,24 @@ function counterpartyFromParticipants(row: ConversationRow, businessIds: Set<str
 
 function safeAttachments(message: any) {
   return (Array.isArray(message?.attachments?.data) ? message.attachments.data : Array.isArray(message?.attachments) ? message.attachments : [])
-    .map((attachment: any) => ({
-      type: String(attachment?.type || 'attachment'),
-      url: typeof attachment?.payload?.url === 'string' ? attachment.payload.url : null,
-    }))
+    .map((attachment: any) => {
+      const imageUrl = typeof attachment?.image_data?.url === 'string' ? attachment.image_data.url : null;
+      const videoUrl = typeof attachment?.video_data?.url === 'string' ? attachment.video_data.url : null;
+      const fileUrl = typeof attachment?.file_url === 'string' ? attachment.file_url : null;
+      const payloadUrl = typeof attachment?.payload?.url === 'string' ? attachment.payload.url : null;
+      const mimeType = String(attachment?.mime_type || '');
+      const type = imageUrl || mimeType.startsWith('image/')
+        ? 'image'
+        : videoUrl || mimeType.startsWith('video/')
+          ? 'video'
+          : 'file';
+      return {
+        type,
+        url: imageUrl || videoUrl || fileUrl || payloadUrl,
+        mimeType: mimeType || null,
+        name: attachment?.name ? String(attachment.name) : null,
+      };
+    })
     .filter((attachment: { type: string; url: string | null }) => attachment.url || attachment.type);
 }
 
@@ -216,7 +230,7 @@ async function run(request: Request) {
         direction: 'inbound' | 'outbound';
         at: string | null;
         text: string;
-        attachments: Array<{ type: string; url: string | null }>;
+        attachments: Array<{ type: string; url: string | null; mimeType: string | null; name: string | null }>;
       }> = [];
       if (matched) {
         const messages = await loadMessageDetails({
