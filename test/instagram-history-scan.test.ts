@@ -29,3 +29,11 @@ test('scanner distingue el id de Instagram Login del asset profesional de mensaj
   assert.match(source, /businessIds\.has/);
   assert.match(source, /counterpartyFromParticipants\([\s\S]*businessIds/);
 });
+
+test('scanner puede ampliar mensajes para auditar el total corregido sin quitar límites', () => {
+  const source = readFileSync(join(root, path), 'utf8');
+  assert.match(source, /searchParams\.get\(['"]message_limit['"]\)/);
+  assert.match(source, /Math\.min\([^\n]*50/);
+  assert.match(source, /messageLimit/);
+  assert.match(source, /messages\.limit\(\$\{input\.messageLimit\}\)/);
+});
