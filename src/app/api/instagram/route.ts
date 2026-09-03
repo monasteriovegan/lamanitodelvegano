@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
-import { persistMessage } from '@/lib/messaging/messages';
+import { persistMessage, resolveBusinessUnitForMessage } from '@/lib/messaging/messages';
+import { enrichInstagramMessageIdentity, persistInstagramIdentity } from '@/lib/messaging/instagram-identity';
 import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
@@ -69,9 +70,29 @@ export async function POST(request: Request) {
   let ordersSynced = 0;
 
   try {
-    for (const message of normalizeMetaInstagram(payload)) {
+    for (const normalizedMessage of normalizeMetaInstagram(payload)) {
+      const businessUnitId = await resolveBusinessUnitForMessage(db, normalizedMessage);
+      const identity = await enrichInstagramMessageIdentity(db, businessUnitId, normalizedMessage);
+      const message = identity.message;
       const result = await persistMessage(db, message);
       result.duplicate ? (duplicates += 1) : (stored += 1);
+
+      if (result.conversationId && identity.username) {
+        try {
+          await persistInstagramIdentity(db, {
+            customerId: result.customerId,
+            conversationId: result.conversationId,
+            externalUserId: message.external_user_id,
+            username: identity.username,
+            profileName: identity.profileName,
+          });
+        } catch (error) {
+          console.error('instagram_identity_persist_failed', {
+            conversationId: result.conversationId,
+            reason: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }
 
       if (!result.duplicate && message.direction === 'inbound') {
         try {
