@@ -112,6 +112,15 @@ export function createWhatsAppWebhookHandlers(deps: WhatsAppWebhookDependencies)
       }
     };
 
+    const attemptAutoSale = async (result: PersistResult, message: any) => {
+      if (!deps.autoSale) return;
+      try {
+        await deps.autoSale(db, result, message);
+      } catch {
+        (deps.logError ?? console.error)('whatsapp_webhook_autosale_failed', { requestId });
+      }
+    };
+
     await observe({ outcome: 'received', counts: counts(inspection) });
     const raw = await request.text();
     if (!deps.verify(raw, request.headers.get('x-hub-signature-256'), deps.appSecret)) {
@@ -173,32 +182,29 @@ export function createWhatsAppWebhookHandlers(deps: WhatsAppWebhookDependencies)
           if (isAppEcho) appEchoes += 1;
         }
 
-        if (
-          !result.duplicate
-          && !isStatus
-          && !isAppEcho
-          && message.direction === 'inbound'
-        ) {
-          let repliedThisTurn = false;
-          if (deps.sendMode() === 'live') {
-            const ai = await deps.autoReply(db, result, message);
-            if (ai.called) aiCalled += 1;
-            if (ai.replied) {
-              aiReplied += 1;
-              repliedThisTurn = true;
+        if (!result.duplicate && !isStatus) {
+          // Messages sent by a human from the WhatsApp Business app must never
+          // invoke Remy, but they do need to reach auto-sale reconciliation so
+          // a human "pago/transferencia recibida" acknowledgement can mark the
+          // already-created order paid immediately.
+          if (isAppEcho && message.direction === 'outbound') {
+            await attemptAutoSale(result, message);
+          } else if (message.direction === 'inbound') {
+            let repliedThisTurn = false;
+            if (deps.sendMode() === 'live') {
+              const ai = await deps.autoReply(db, result, message);
+              if (ai.called) aiCalled += 1;
+              if (ai.replied) {
+                aiReplied += 1;
+                repliedThisTurn = true;
+              }
             }
-          }
-          // Only attempt the batched auto-sale extraction when Remy did not
-          // itself handle this turn, to avoid two independent order-creation
-          // paths racing on the same conversation. Both ultimately go through
-          // the same idempotent checkout RPC, but they use different
-          // idempotency keys, so this keeps them from ever overlapping.
-          if (deps.autoSale && !repliedThisTurn) {
-            try {
-              await deps.autoSale(db, result, message);
-            } catch {
-              (deps.logError ?? console.error)('whatsapp_webhook_autosale_failed', { requestId });
-            }
+            // Only attempt the batched auto-sale extraction when Remy did not
+            // itself handle this turn, to avoid two independent order-creation
+            // paths racing on the same conversation. Both ultimately go through
+            // the same idempotent checkout RPC, but they use different
+            // idempotency keys, so this keeps them from ever overlapping.
+            if (!repliedThisTurn) await attemptAutoSale(result, message);
           }
         }
       }
