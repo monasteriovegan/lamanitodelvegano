@@ -21,6 +21,20 @@ test('backfill conserva el username real de Instagram para identificar al client
   assert.match(source, /usernames/);
 });
 
+test('recuperación dirigida usa hasta 50 mensajes sin volver pesado el barrido general', () => {
+  assert.match(source, /messageLimit/);
+  assert.match(source, /input\.userId\s*\?\s*50\s*:\s*20/);
+  assert.match(source, /messages\.limit\(\$\{input\.messageLimit\}\)/);
+});
+
+test('backfill histórico conserva imágenes y rehidrata duplicados vacíos', () => {
+  assert.match(source, /attachments\{image_data,video_data,file_url,mime_type,name\}/);
+  assert.match(source, /historyAttachments/);
+  assert.match(source, /message_type:\s*attachmentType/);
+  assert.match(source, /hydrateHistoricalDuplicate/);
+  assert.match(source, /processInboundImageOcrAsync/);
+});
+
 test('backfill conserva Facebook Login como fallback si Instagram Login no está disponible', () => {
   assert.match(source, /getActiveCredential/);
   assert.match(source, /discoverConversationSource/);
