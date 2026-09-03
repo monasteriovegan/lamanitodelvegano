@@ -1,7 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistMessage } from '@/lib/messaging/messages';
-import type { NormalizedMessage } from '@/lib/messaging/types';
+import { processInboundImageOcrAsync } from '@/lib/messaging/ocr';
+import type { NormalizedAttachment, NormalizedMessage } from '@/lib/messaging/types';
 import { autoRegisterInstagramConversationSale } from '@/lib/orders/instagram-auto-sale';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 
@@ -103,6 +104,40 @@ function usernameFromHistory(message: any) {
   return username ? `@${username}` : null;
 }
 
+function historyAttachments(message: any) {
+  const rows = Array.isArray(message?.attachments?.data)
+    ? message.attachments.data
+    : Array.isArray(message?.attachments)
+      ? message.attachments
+      : [];
+
+  return rows.flatMap((attachment: any) => {
+    const imageUrl = typeof attachment?.image_data?.url === 'string' ? attachment.image_data.url : null;
+    const videoUrl = typeof attachment?.video_data?.url === 'string' ? attachment.video_data.url : null;
+    const fileUrl = typeof attachment?.file_url === 'string' ? attachment.file_url : null;
+    const payloadUrl = typeof attachment?.payload?.url === 'string' ? attachment.payload.url : null;
+    const url = imageUrl || videoUrl || fileUrl || payloadUrl;
+    if (!url) return [];
+
+    const mimeType = String(attachment?.mime_type || '');
+    const type: NormalizedAttachment['type'] = imageUrl || mimeType.startsWith('image/')
+      ? 'image'
+      : videoUrl || mimeType.startsWith('video/')
+        ? 'video'
+        : 'file';
+
+    return [{
+      normalized: { type, url } satisfies NormalizedAttachment,
+      raw: {
+        type,
+        payload: { url },
+        mime_type: mimeType || null,
+        name: attachment?.name ? String(attachment.name) : null,
+      },
+    }];
+  });
+}
+
 function normalizeHistoryMessage(
   message: any,
   routingBusinessInstagramId: string,
@@ -127,6 +162,9 @@ function normalizeHistoryMessage(
   const displayName = outbound
     ? null
     : username || (message?.from?.name ? String(message.from.name) : null);
+  const media = historyAttachments(message);
+  const attachments = media.map((item) => item.normalized);
+  const attachmentType = attachments[0]?.type || 'text';
 
   return {
     channel: 'instagram',
@@ -138,15 +176,61 @@ function normalizeHistoryMessage(
     direction: outbound ? 'outbound' : 'inbound',
     sender_type: outbound ? 'human' : 'customer',
     text: message?.message ? String(message.message) : null,
-    message_type: 'text',
+    message_type: attachmentType,
+    attachments,
     sent_at: new Date(message?.created_time || Date.now()).toISOString(),
     raw_payload: {
       source: 'instagram_history_backfill',
       business_instagram_id: routingBusinessInstagramId,
       message,
+      attachments: media.map((item) => item.raw),
     },
     display_name: displayName,
   };
+}
+
+async function hydrateHistoricalDuplicate(
+  db: SupabaseClient,
+  message: NormalizedMessage,
+) {
+  if (!message.attachments?.length) return;
+
+  const { data: existing, error } = await db
+    .from('omnichannel_messages')
+    .select('id,message_type,body,payload')
+    .eq('provider_message_id', message.provider_message_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!existing) return;
+
+  const payload = existing.payload && typeof existing.payload === 'object' ? existing.payload : {};
+  const patch = {
+    message_type: message.message_type,
+    body: existing.body || message.text,
+    payload: {
+      ...payload,
+      provider: message.provider,
+      transport: message.transport,
+      external_thread_id: message.external_thread_id,
+      sender_type: message.sender_type,
+      raw: message.raw_payload,
+    },
+  };
+
+  const { error: updateError } = await db
+    .from('omnichannel_messages')
+    .update(patch)
+    .eq('id', existing.id);
+  if (updateError) throw updateError;
+
+  if (message.direction === 'inbound' && message.message_type === 'image') {
+    void processInboundImageOcrAsync(db, String(existing.id), message).catch((ocrError) => {
+      console.warn('instagram_history_duplicate_ocr_failed', {
+        messageId: String(existing.id),
+        reason: ocrError instanceof Error ? ocrError.message : 'unknown',
+      });
+    });
+  }
 }
 
 function nextCursor(page: GraphPage<any>) {
@@ -320,12 +404,15 @@ async function loadConversationMessages(input: {
   conversationId: string;
   accessToken: string;
   graphBase: string;
+  messageLimit: number;
 }) {
   const detail = await graphJson<any>(
-    `${input.graphBase}/${input.version}/${encodeURIComponent(input.conversationId)}?fields=messages.limit(20){id,created_time}`,
+    `${input.graphBase}/${input.version}/${encodeURIComponent(input.conversationId)}?fields=messages.limit(${input.messageLimit}){id,created_time}`,
     input.accessToken,
   );
-  const refs = Array.isArray(detail?.messages?.data) ? detail.messages.data.slice(0, 20) : [];
+  const refs = Array.isArray(detail?.messages?.data)
+    ? detail.messages.data.slice(0, input.messageLimit)
+    : [];
   const messages: any[] = [];
 
   for (let index = 0; index < refs.length; index += 5) {
@@ -335,7 +422,7 @@ async function loadConversationMessages(input: {
       if (!messageId) return null;
       try {
         return await graphJson<any>(
-          `${input.graphBase}/${input.version}/${encodeURIComponent(messageId)}?fields=id,created_time,from,to,message`,
+          `${input.graphBase}/${input.version}/${encodeURIComponent(messageId)}?fields=id,created_time,from,to,message,attachments{image_data,video_data,file_url,mime_type,name}`,
           input.accessToken,
         );
       } catch (error) {
@@ -365,12 +452,14 @@ async function syncConversation(input: {
   routingBusinessInstagramId: string;
   actorInstagramId: string;
   pageId: string;
+  messageLimit: number;
 }): Promise<SyncResult> {
   const rows = await loadConversationMessages({
     version: input.graphVersion,
     conversationId: input.conversationId,
     accessToken: input.accessToken,
     graphBase: input.graphBase,
+    messageLimit: input.messageLimit,
   });
   let localConversationId: string | null = null;
   let messagesStored = 0;
@@ -390,7 +479,12 @@ async function syncConversation(input: {
     if (!normalized) continue;
     const persisted = await persistMessage(input.db, normalized);
     localConversationId = persisted.conversationId || localConversationId;
-    persisted.duplicate ? (duplicates += 1) : (messagesStored += 1);
+    if (persisted.duplicate) {
+      duplicates += 1;
+      await hydrateHistoricalDuplicate(input.db, normalized);
+    } else {
+      messagesStored += 1;
+    }
   }
 
   let ordersSynced = 0;
@@ -418,6 +512,7 @@ async function runInstagramLoginBackfill(input: {
   limit: number;
   userId?: string;
 }) {
+  const messageLimit = input.userId ? 50 : 20;
   if (input.userId) {
     const conversation = await findInstagramLoginConversation({
       version: input.version,
@@ -449,6 +544,7 @@ async function runInstagramLoginBackfill(input: {
       routingBusinessInstagramId: input.routingBusinessInstagramId,
       actorInstagramId: input.igUserId,
       pageId: input.pageId,
+      messageLimit,
     });
     return {
       conversationsScanned: 1,
@@ -492,6 +588,7 @@ async function runInstagramLoginBackfill(input: {
         routingBusinessInstagramId: input.routingBusinessInstagramId,
         actorInstagramId: input.igUserId,
         pageId: input.pageId,
+        messageLimit,
       });
       messagesStored += synced.messagesStored;
       duplicates += synced.duplicates;
@@ -595,6 +692,7 @@ export async function backfillInstagramConversations(
       routingBusinessInstagramId,
       actorInstagramId: businessInstagramId,
       pageId,
+      messageLimit: 50,
     });
     return {
       conversationsScanned: 1,
@@ -641,6 +739,7 @@ export async function backfillInstagramConversations(
         routingBusinessInstagramId,
         actorInstagramId: businessInstagramId,
         pageId,
+        messageLimit: 20,
       });
       messagesStored += synced.messagesStored;
       duplicates += synced.duplicates;
