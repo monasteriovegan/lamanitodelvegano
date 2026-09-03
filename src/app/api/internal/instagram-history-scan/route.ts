@@ -122,7 +122,7 @@ async function loadMessageDetails(input: {
       if (!id) return null;
       try {
         return await graphJson<any>(
-          `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(id)}?fields=id,created_time,from,to,message`,
+          `${INSTAGRAM_GRAPH}/${input.version}/${encodeURIComponent(id)}?fields=id,created_time,from,to,message,attachments`,
           input.secretBearer,
         );
       } catch {
@@ -141,6 +141,15 @@ function counterpartyFromParticipants(row: ConversationRow, businessIds: Set<str
     const id = String(item?.id || '');
     return id && !businessIds.has(id);
   }) || null;
+}
+
+function safeAttachments(message: any) {
+  return (Array.isArray(message?.attachments?.data) ? message.attachments.data : Array.isArray(message?.attachments) ? message.attachments : [])
+    .map((attachment: any) => ({
+      type: String(attachment?.type || 'attachment'),
+      url: typeof attachment?.payload?.url === 'string' ? attachment.payload.url : null,
+    }))
+    .filter((attachment: { type: string; url: string | null }) => attachment.url || attachment.type);
 }
 
 function paymentRelevant(text: string) {
@@ -203,7 +212,12 @@ async function run(request: Request) {
       const name = String(profile?.name || participant?.name || '');
       const matched = matchesNeedle(needle, name, username, userId);
 
-      let recentMessages: Array<{ direction: 'inbound' | 'outbound'; at: string | null; text: string }> = [];
+      let recentMessages: Array<{
+        direction: 'inbound' | 'outbound';
+        at: string | null;
+        text: string;
+        attachments: Array<{ type: string; url: string | null }>;
+      }> = [];
       if (matched) {
         const messages = await loadMessageDetails({
           version,
@@ -218,9 +232,10 @@ async function run(request: Request) {
               direction: businessIds.has(fromId) ? 'outbound' as const : 'inbound' as const,
               at: message?.created_time ? String(message.created_time) : null,
               text: String(message?.message || ''),
+              attachments: safeAttachments(message),
             };
           })
-          .filter((message) => message.text);
+          .filter((message) => message.text || message.attachments.length > 0);
       }
 
       results.push({
