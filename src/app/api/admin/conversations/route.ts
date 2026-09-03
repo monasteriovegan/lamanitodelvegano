@@ -55,11 +55,26 @@ export async function GET(request: Request) {
     const serviceWindowExpiresAt = lastInboundAt
       ? new Date(new Date(lastInboundAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
       : null;
-    const personal = Boolean(contact?.metadata?.personal || row.metadata?.personal || row.labels?.includes?.('personal'));
+    const labels = Array.isArray(row.labels) ? row.labels.map(String) : [];
+    const personal = Boolean(contact?.metadata?.personal || row.metadata?.personal || labels.includes('personal'));
+    const instagramUsername = row.channel === 'instagram'
+      ? (contact?.metadata?.instagram_username || row.metadata?.external_username || null)
+      : null;
+    const instagramName = row.channel === 'instagram'
+      ? (contact?.metadata?.instagram_name || contact?.display_name || null)
+      : null;
+    const channelName = row.channel === 'instagram' && instagramUsername
+      ? `@${instagramUsername}`
+      : (instagramName || contact?.nombre || contact?.display_name || row.metadata?.external_username || (row.channel === 'instagram' ? `Instagram ${row.external_conversation_id}` : row.external_conversation_id));
+
     return {
       id: row.id,
       channel: row.channel,
-      name: contact?.nombre || contact?.display_name || row.metadata?.external_username || (row.channel === 'instagram' ? `Instagram ${row.external_conversation_id}` : row.external_conversation_id),
+      name: channelName,
+      customerName: contact?.nombre || null,
+      instagramUsername,
+      instagramName,
+      labels,
       phone: row.channel === 'whatsapp' ? (contact?.phone || contact?.external_id || row.external_conversation_id) : null,
       email: contact?.email || null,
       externalId: contact?.external_id || row.external_conversation_id,
