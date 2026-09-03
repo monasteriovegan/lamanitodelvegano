@@ -21,6 +21,9 @@ type EnsureWabaMessagesSubscriptionResult = {
   after: WabaSubscriptionState;
 };
 
+const REQUIRED_WABA_SUBSCRIBED_FIELDS = 'messages,smb_message_echoes';
+const REQUIRED_WABA_FIELDS = REQUIRED_WABA_SUBSCRIBED_FIELDS.split(',');
+
 export async function listWabaSubscriptions(input: {
   graphVersion: string;
   wabaId: string;
@@ -192,15 +195,18 @@ export async function ensureWabaMessagesSubscription(
     `https://graph.facebook.com/${encodeURIComponent(input.graphVersion)}/${encodeURIComponent(input.wabaId)}/subscribed_apps`,
   );
   const before = await readSubscription(url, input.appId, input.token, fetchImpl);
+  const hasAllRequiredFields = REQUIRED_WABA_FIELDS.every((field) => before.fields.includes(field));
 
-  if (before.status === 'subscribed' && before.fields.includes('messages')) {
+  if (before.status === 'subscribed' && hasAllRequiredFields) {
     return { before, mutationStatus: null, mutationAccepted: null, after: before };
   }
 
   let mutationStatus: number | null = null;
   let mutationAccepted = false;
   try {
-    const response = await fetchImpl(url, {
+    const mutationUrl = new URL(url);
+    mutationUrl.searchParams.set('subscribed_fields', REQUIRED_WABA_SUBSCRIBED_FIELDS);
+    const response = await fetchImpl(mutationUrl, {
       method: 'POST',
       headers: { Authorization: `Bearer ${input.token}` },
       cache: 'no-store',
