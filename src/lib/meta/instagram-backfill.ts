@@ -489,8 +489,15 @@ async function syncConversation(input: {
 
   let ordersSynced = 0;
   if (localConversationId) {
-    const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);
-    if (synced.status === 'synced') ordersSynced = 1;
+    try {
+      const synced = await autoRegisterInstagramConversationSale(input.db, localConversationId);
+      if (synced.status === 'synced') ordersSynced = 1;
+    } catch (error) {
+      console.warn('instagram_backfill_sale_sync_failed', {
+        conversationId: localConversationId,
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+    }
   }
 
   return {
