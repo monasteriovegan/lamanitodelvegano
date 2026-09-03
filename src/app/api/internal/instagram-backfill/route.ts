@@ -32,9 +32,14 @@ async function runBackfill(request: Request) {
     return Response.json({ error: 'invalid_user_id' }, { status: 400 });
   }
 
+  const requestedLimit = Number(url.searchParams.get('limit') || 3);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(Math.trunc(requestedLimit), 10))
+    : 3;
+
   try {
     const result = await backfillInstagramConversations(db, {
-      limit: 3,
+      limit,
       ...(userId ? { userId } : {}),
     });
     return Response.json({ ok: true, ...result });
