@@ -4,6 +4,7 @@ import { runHistoricalMediaBackfillV2 } from '@/lib/messaging/historical-media-b
 
 export const dynamic = 'force-dynamic';
 
+// Internal reconciliation only: this route never sends customer messages.
 function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
