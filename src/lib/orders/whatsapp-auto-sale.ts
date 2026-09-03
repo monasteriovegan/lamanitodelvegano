@@ -11,19 +11,6 @@ import {
   type WhatsappMessageRow as MessageRow,
 } from '@/lib/orders/whatsapp-auto-sale-signals';
 
-// Mirrors src/lib/orders/instagram-auto-sale.ts, adapted for the WhatsApp channel.
-// Kept as a separate module (rather than generalizing instagram-auto-sale.ts in
-// place) so the already-working Instagram flow is not touched by this change.
-//
-// Purpose: when Remy (the live conversational agent) is NOT the one handling a
-// WhatsApp conversation — global switch off, per-conversation switch off, human
-// takeover, outside the 24h window, etc. — messages still land in the CRM via
-// persistMessage, but nothing used to convert that conversation into a pedido.
-// The cheap "should we even bother calling the AI" filter (plain regex, no
-// tokens spent) lives in whatsapp-auto-sale-signals.ts; only when it fires does
-// this module trigger a single batched AI call (prepareConversationSaleDraft)
-// over the whole transcript to extract the order — instead of a live
-// per-message conversational agent.
 export { shouldAttemptWhatsappAutoSale };
 
 type WhatsappConversationRow = {
@@ -58,7 +45,7 @@ async function linkConversationToOrder(
   paymentConfirmed: boolean,
 ) {
   const labels = Array.from(new Set([
-    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
     ...(paymentConfirmed ? ['pagado'] : []),
   ]));
@@ -84,10 +71,6 @@ async function reconcileExistingWhatsappOrderPayment(
 ): Promise<WhatsappAutoSaleResult | null> {
   const orderId = Number(conversation.order_id || 0);
   if (!orderId || !hasBusinessPaymentConfirmation(messages)) return null;
-
-  // If the still-unlinked cycle already contains a clear request for another
-  // purchase, the payment acknowledgement may belong to that new sale. In that
-  // case do not mutate the previous order; let the normal new-order extractor run.
   if (hasCustomerNewOrderSignal(messages)) return null;
 
   const repo = new OrderRepository(db);
@@ -113,7 +96,7 @@ async function reconcileExistingWhatsappOrderPayment(
 
   await linkMessagesToOrder(db, conversation.id, orderId);
   const labels = Array.from(new Set([
-    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
     'pagado',
   ]));
@@ -137,7 +120,7 @@ async function loadConversationMessages(
 ) {
   let query = db
     .from('omnichannel_messages')
-    .select('id,direction,body,payload,created_at,order_id')
+    .select('id,direction,body,message_type,payload,created_at,order_id')
     .eq('conversation_id', conversationId);
   if (onlyUnlinkedMessages) query = query.is('order_id', null);
   const { data, error } = await query
@@ -163,6 +146,11 @@ async function confirmWhatsappPickupSale(
   const customerId = String(conversation.customer_id || conversation.contact_id || '');
   if (!customerId) return { status: 'pending', missing: ['cliente'] };
 
+  const catalogItems = draft.items.filter((item) => !item.isCustom && item.productId);
+  if (catalogItems.length !== draft.items.length) {
+    return { status: 'pending', missing: ['producto_personalizado_requiere_revision'] };
+  }
+
   const calculation = await calcularPedido({
     cliente: {
       nombre: draft.customerName || 'Cliente',
@@ -170,8 +158,8 @@ async function confirmWhatsappPickupSale(
       telefono: draft.phone,
       email: draft.email || '',
     },
-    items: draft.items.map((item) => ({
-      productoId: item.productId,
+    items: catalogItems.map((item) => ({
+      productoId: String(item.productId),
       qty: item.quantity,
       formato: item.format,
       variedad: item.variety,
@@ -260,11 +248,6 @@ export async function autoRegisterWhatsappConversationSale(
   });
   if (!draft.saleDetected) return { status: 'pending', missing: draft.missing };
 
-  // Unlike Instagram, the WhatsApp conversation is already tied to a phone
-  // number (conversation.external_conversation_id / contact.external_id), so
-  // prepareConversationSaleDraft already resolves the phone for this channel —
-  // no extra text-scraping fallback needed here.
-
   const firstCycleMessageId = messages[0]?.id;
   if (repeatOrder && !firstCycleMessageId) {
     return { status: 'already_linked', orderId: Number(conversation.order_id) };
@@ -273,30 +256,35 @@ export async function autoRegisterWhatsappConversationSale(
     ? `conversation:${conversation.id}:cycle:${firstCycleMessageId}`
     : `conversation:${conversation.id}`;
 
-  // Pickup/retiro is a valid conversational fulfillment mode. It deliberately
-  // bypasses checkout-only address/comuna/shipping-zone requirements while
-  // still recalculating products and prices server-side and using the same
-  // idempotent conversation_create_order_v1 transaction as other DM sales.
   if (hasCustomerPickupSignal(messages)) {
     return confirmWhatsappPickupSale(db, typedConversation, draft, messages, idempotencyKey);
   }
 
-  if (draft.missing.length) {
-    return { status: 'pending', missing: draft.missing };
+  const explicitTranscriptShipping = Boolean(
+    draft.transcriptTotal
+    && draft.calculated
+    && draft.transcriptTotal >= draft.calculated.subtotal,
+  );
+  const toleratedMissing = new Set<string>();
+  if (explicitTranscriptShipping || draft.explicitShippingCost != null) {
+    toleratedMissing.add('zona_despacho');
+    toleratedMissing.add('total_no_coincide');
+  }
+  const missing = (draft.missing || []).filter((item) => !toleratedMissing.has(item));
+  if (missing.length) {
+    return { status: 'pending', missing };
   }
 
-  // A customer-supplied receipt can support creating the order, but automatic
-  // paid status requires an explicit human outbound acknowledgement from the
-  // WhatsApp business account in this same, still-unlinked order cycle.
   const businessPaymentConfirmed = draft.paymentMethod === 'transfer'
     && hasBusinessPaymentConfirmation(messages);
 
   const result = await confirmConversationSale(db, {
     ...draft,
-    missing: [],
+    missing,
     paymentEvidence: businessPaymentConfirmed,
   }, undefined, {
     allowExistingOrder: repeatOrder,
+    allowTranscriptShipping: true,
     idempotencyKey,
     linkUnassignedMessages: true,
     attributionMedium: 'whatsapp_conversation_auto',
