@@ -10,6 +10,14 @@ import {
 
 const APP_ID = '1691394752113175';
 const WABA_ID = '1129249369256097';
+const TOKEN = 'secret-token-that-must-never-be-returned';
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 test('lists only safe phone-number asset fields from the configured WABA', async () => {
   const result = await listWabaPhoneNumbers({
@@ -26,7 +34,7 @@ test('lists only safe phone-number asset fields from the configured WABA', async
 test('lists only app ids and subscribed fields from WABA read-back', async () => {
   const fetchImpl = async () => new Response(JSON.stringify({ data: [
     { id: 'historical-app', name: 'secret name', subscribed_fields: ['messages'] },
-    { id: 'main-app', subscribed_fields: ['messages', 'message_template_status_update'] },
+    { id: 'main-app', subscribed_fields: ['messages', 'smb_message_echoes'] },
   ] }), { status: 200 });
   assert.deepEqual(await listWabaSubscriptions({
     graphVersion: 'v26.0', wabaId: WABA_ID, token: 'server-secret', fetchImpl,
@@ -34,7 +42,7 @@ test('lists only app ids and subscribed fields from WABA read-back', async () =>
     httpStatus: 200,
     apps: [
       { appId: 'historical-app', fields: ['messages'] },
-      { appId: 'main-app', fields: ['messages', 'message_template_status_update'] },
+      { appId: 'main-app', fields: ['messages', 'smb_message_echoes'] },
     ],
     error: null,
   });
@@ -60,22 +68,14 @@ test('recognizes Meta current nested whatsapp_business_api_data app shape', asyn
   });
   assert.equal(parseWabaSubscription(nested, APP_ID).status, 'subscribed');
 });
-const TOKEN = 'secret-token-that-must-never-be-returned';
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
 
 test('parses the expected app with messages as subscribed', () => {
   assert.deepEqual(
-    parseWabaSubscription({ data: [{ id: APP_ID, subscribed_fields: ['messages', 'statuses'] }] }, APP_ID),
+    parseWabaSubscription({ data: [{ id: APP_ID, subscribed_fields: ['messages', 'smb_message_echoes'] }] }, APP_ID),
     {
       status: 'subscribed',
       appId: APP_ID,
-      fields: ['messages', 'statuses'],
+      fields: ['messages', 'smb_message_echoes'],
       httpStatus: null,
       error: null,
     },
@@ -117,7 +117,7 @@ test('Graph errors and malformed responses remain unknown and redact token-like 
   });
 });
 
-test('already subscribed performs one GET and no mutation', async () => {
+test('already subscribed to messages and SMB echoes performs one GET and no mutation', async () => {
   const calls: Array<{ url: string; method: string; authorization: string | null }> = [];
   const fetchImpl: typeof fetch = async (input, init) => {
     calls.push({
@@ -125,7 +125,7 @@ test('already subscribed performs one GET and no mutation', async () => {
       method: init?.method || 'GET',
       authorization: new Headers(init?.headers).get('authorization'),
     });
-    return json({ data: [{ id: APP_ID, subscribed_fields: ['messages'] }] });
+    return json({ data: [{ id: APP_ID, subscribed_fields: ['messages', 'smb_message_echoes'] }] });
   };
 
   const result = await ensureWabaMessagesSubscription({
@@ -144,15 +144,38 @@ test('already subscribed performs one GET and no mutation', async () => {
   assert.equal(result.after.status, 'subscribed');
 });
 
+test('messages-only subscription is upgraded to include SMB message echoes', async () => {
+  const calls: Array<{ url: string; method: string }> = [];
+  const responses = [
+    json({ data: [{ id: APP_ID, subscribed_fields: ['messages'] }] }),
+    json({ success: true }),
+    json({ data: [{ id: APP_ID, subscribed_fields: ['messages', 'smb_message_echoes'] }] }),
+  ];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method || 'GET' });
+    return responses.shift()!;
+  };
+
+  const result = await ensureWabaMessagesSubscription({
+    graphVersion: 'v26.0', wabaId: WABA_ID, appId: APP_ID, token: TOKEN, fetchImpl,
+  });
+
+  assert.deepEqual(calls.map((call) => call.method), ['GET', 'POST', 'GET']);
+  const mutationUrl = new URL(calls[1]!.url);
+  assert.equal(mutationUrl.searchParams.get('subscribed_fields'), 'messages,smb_message_echoes');
+  assert.equal(result.mutationAccepted, true);
+  assert.deepEqual(result.after.fields, ['messages', 'smb_message_echoes']);
+});
+
 test('missing subscription performs GET POST GET and trusts only the read-back', async () => {
-  const calls: Array<{ method: string; body: string | null }> = [];
+  const calls: Array<{ url: string; method: string; body: string | null }> = [];
   const responses = [
     json({ data: [] }),
     json({ success: true }),
-    json({ data: [{ id: APP_ID, subscribed_fields: ['messages'] }] }),
+    json({ data: [{ id: APP_ID, subscribed_fields: ['messages', 'smb_message_echoes'] }] }),
   ];
-  const fetchImpl: typeof fetch = async (_input, init) => {
-    calls.push({ method: init?.method || 'GET', body: init?.body ? String(init.body) : null });
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method || 'GET', body: init?.body ? String(init.body) : null });
     return responses.shift()!;
   };
 
@@ -166,11 +189,13 @@ test('missing subscription performs GET POST GET and trusts only the read-back',
 
   assert.deepEqual(calls.map((call) => call.method), ['GET', 'POST', 'GET']);
   assert.equal(calls[1]?.body, null);
+  const mutationUrl = new URL(calls[1]!.url);
+  assert.equal(mutationUrl.searchParams.get('subscribed_fields'), 'messages,smb_message_echoes');
   assert.equal(result.before.status, 'not_subscribed');
   assert.equal(result.mutationStatus, 200);
   assert.equal(result.mutationAccepted, true);
   assert.equal(result.after.status, 'subscribed');
-  assert.deepEqual(result.after.fields, ['messages']);
+  assert.deepEqual(result.after.fields, ['messages', 'smb_message_echoes']);
 });
 
 test('POST 200 is not success when the mandatory GET read-back remains absent', async () => {
