@@ -7,13 +7,13 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('manual order transaction is canonical, idempotent and payment-aware', () => {
-  const repo = read('src/lib/repositories/orders-repository.ts');
+  const service = read('src/lib/orders/admin-order-admin.ts');
   const migration = read('supabase/migrations/20260903220000_admin_order_transactions.sql');
-  assert.match(repo, /export type ManualOrderInput/);
-  assert.match(repo, /createManualOrder/);
-  assert.match(repo, /admin_create_order_v1/);
-  assert.match(repo, /sourceChannel/);
-  assert.match(repo, /paymentStatus/);
+  assert.match(service, /export type ManualOrderInput/);
+  assert.match(service, /createManualOrder/);
+  assert.match(service, /admin_create_order_v1/);
+  assert.match(service, /sourceChannel/);
+  assert.match(service, /paymentStatus/);
   assert.match(migration, /create or replace function public\.admin_create_order_v1/i);
   assert.match(migration, /idempotency/i);
   assert.match(migration, /descontar_stock_v2/i);
