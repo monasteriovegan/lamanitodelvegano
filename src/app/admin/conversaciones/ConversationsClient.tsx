@@ -93,14 +93,16 @@ export default function ConversationsClient() {
       providers: body.providers && typeof body.providers === 'object' ? body.providers : {},
     });
   }, []);
-  const loadMessages = useCallback(async (conversationId: string) => {
-    setLoadingMessages(true);
+  const loadMessages = useCallback(async (conversationId: string, background = false) => {
+    if (!background) setLoadingMessages(true);
     try {
       const response = await fetch(`/api/admin/conversations/${conversationId}/messages`, { cache: 'no-store' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'No se pudieron cargar los mensajes');
       setMessages(body.data || []);
-    } finally { setLoadingMessages(false); }
+    } finally {
+      if (!background) setLoadingMessages(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -111,7 +113,7 @@ export default function ConversationsClient() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       loadConversations().catch(() => undefined);
-      if (selectedId) loadMessages(selectedId).catch(() => undefined);
+      if (selectedId) loadMessages(selectedId, true).catch(() => undefined);
     }, 8000);
     return () => window.clearInterval(timer);
   }, [loadConversations, loadMessages, selectedId]);
