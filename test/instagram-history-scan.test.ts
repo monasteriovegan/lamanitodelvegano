@@ -40,7 +40,8 @@ test('scanner puede ampliar mensajes para auditar el total corregido sin quitar 
 
 test('scanner histórico conserva adjuntos para identificar vouchers sin texto', () => {
   const source = readFileSync(join(root, path), 'utf8');
-  assert.match(source, /fields=id,created_time,from,to,message,attachments/);
-  assert.match(source, /attachments:/);
-  assert.match(source, /payload\?\.url/);
+  assert.match(source, /attachments\{image_data,video_data,file_url,mime_type,name\}/);
+  assert.match(source, /image_data\?\.url/);
+  assert.match(source, /video_data\?\.url/);
+  assert.match(source, /file_url/);
 });
