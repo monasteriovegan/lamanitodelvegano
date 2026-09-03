@@ -1,35 +1,11 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizeMetaInstagram } from '@/lib/messaging/normalize';
 import { persistMessage } from '@/lib/messaging/messages';
-import { verifyHmacAny, verifyHmacSha1 } from '@/lib/messaging/signature';
+import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
 
 export const dynamic = 'force-dynamic';
-
-function unverifiedEnvelopeForDiagnostics(raw: string) {
-  try {
-    const payload = JSON.parse(raw);
-    for (const entry of Array.isArray(payload?.entry) ? payload.entry : []) {
-      for (const event of Array.isArray(entry?.messaging) ? entry.messaging : []) {
-        const senderId = String(event?.sender?.id || '');
-        const recipientId = String(event?.recipient?.id || '');
-        return {
-          unverifiedObject: typeof payload?.object === 'string' ? payload.object : null,
-          unverifiedSenderId: /^\d+$/.test(senderId) ? senderId : null,
-          unverifiedRecipientId: /^\d+$/.test(recipientId) ? recipientId : null,
-        };
-      }
-    }
-    return {
-      unverifiedObject: typeof payload?.object === 'string' ? payload.object : null,
-      unverifiedSenderId: null,
-      unverifiedRecipientId: null,
-    };
-  } catch {
-    return { unverifiedObject: null, unverifiedSenderId: null, unverifiedRecipientId: null };
-  }
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -57,7 +33,6 @@ export async function POST(request: Request) {
   const rawBody = Buffer.from(arrayBuffer);
   const raw = rawBody.toString('utf8');
   const signature256 = request.headers.get('x-hub-signature-256');
-  const signatureLegacy = request.headers.get('x-hub-signature');
   const primarySecret = process.env.META_APP_SECRET;
   const bridgeSecret = process.env.META_BRIDGE_APP_SECRET;
   const instagramSecret = process.env.META_INSTAGRAM_APP_SECRET;
@@ -69,21 +44,8 @@ export async function POST(request: Request) {
   if (!validSignature) {
     console.warn('instagram_webhook_signature_rejected', {
       signature256Present: Boolean(signature256),
-      signatureLegacyPresent: Boolean(signatureLegacy),
-      signature256Length: signature256?.length || 0,
-      signatureLegacyLength: signatureLegacy?.length || 0,
       signature256FormatOk: /^sha256=[a-f0-9]{64}$/i.test(signature256 || ''),
-      signatureLegacyFormatOk: /^sha1=[a-f0-9]{40}$/i.test(signatureLegacy || ''),
-      primaryLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, primarySecret),
-      bridgeLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, bridgeSecret),
-      instagramLegacyMatch: verifyHmacSha1(rawBody, signatureLegacy, instagramSecret),
-      contentEncoding: request.headers.get('content-encoding') || null,
-      declaredContentLength: request.headers.get('content-length') || null,
-      primarySecretPresent: Boolean(primarySecret),
-      bridgeSecretPresent: Boolean(bridgeSecret),
-      instagramSecretPresent: Boolean(instagramSecret),
       bodyBytes: rawBody.length,
-      ...unverifiedEnvelopeForDiagnostics(raw),
     });
     return Response.json({ error: 'invalid_signature' }, { status: 401 });
   }
