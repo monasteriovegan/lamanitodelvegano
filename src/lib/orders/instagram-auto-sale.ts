@@ -188,13 +188,15 @@ export async function autoRegisterInstagramConversationSale(
   if (!draft.saleDetected) return { status: 'pending', missing: draft.missing };
 
   const extractedPhone = draft.phone || extractPhoneFromMessages(messages);
+  const draftHasMissing = draft.missing.length > 0;
+  const missingWithoutPhone = draft.missing.filter((item) => item !== 'telefono');
   const explicitTranscriptShipping = Boolean(draft.transcriptTotal && draft.calculated && draft.transcriptTotal >= draft.calculated.subtotal);
-  const toleratedMissing = new Set<string>(['telefono']);
+  const toleratedMissing = new Set<string>();
   if (explicitTranscriptShipping) {
     toleratedMissing.add('zona_despacho');
     toleratedMissing.add('total_no_coincide');
   }
-  const missing = draft.missing.filter((item) => !toleratedMissing.has(item));
+  const missing = (draftHasMissing ? missingWithoutPhone : []).filter((item) => !toleratedMissing.has(item));
   if (missing.length) return { status: 'pending', missing: draft.missing };
 
   // A customer-supplied receipt can support creating the order, but automatic
