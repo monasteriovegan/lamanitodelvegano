@@ -4,6 +4,7 @@ import { persistMessage } from '@/lib/messaging/messages';
 import { verifyHmacAny } from '@/lib/messaging/signature';
 import { maybeAutoReply } from '@/lib/ai/remy';
 import { autoRegisterInstagramConversationSale, shouldAttemptInstagramAutoSale } from '@/lib/orders/instagram-auto-sale';
+import { enrichInstagramMessageProfile, syncInstagramProfileToContact } from '@/lib/meta/instagram-profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   try {
     payload = JSON.parse(raw);
   } catch {
-    return Response.json({ error: 'invalid_json' }, { status: 400 });
+    return Response.json({ error: 'invalid_json'' }, { status: 400 });
   }
 
   if (payload?.object !== 'instagram') {
@@ -69,9 +70,19 @@ export async function POST(request: Request) {
   let ordersSynced = 0;
 
   try {
-    for (const message of normalizeMetaInstagram(payload)) {
+    for (const rawMessage of normalizeMetaInstagram(payload)) {
+      const enriched = await enrichInstagramMessageProfile(db, rawMessage);
+      const message = enriched.message;
       const result = await persistMessage(db, message);
       result.duplicate ? (duplicates += 1) : (stored += 1);
+
+      if (enriched.profile) {
+        await syncInstagramProfileToContact(db, result.customerId, enriched.profile);
+        console.info('instagram_identity_enriched', {
+          conversationId: result.conversationId,
+          instagram_username: Boolean(enriched.profile.instagram_username),
+        });
+      }
 
       if (!result.duplicate && message.direction === 'inbound') {
         try {
