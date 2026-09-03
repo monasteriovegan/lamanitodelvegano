@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import OrderActions from './OrderActions';
+import OrderEditForm from './OrderEditForm';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
@@ -11,160 +12,116 @@ interface PageProps {
 }
 
 export default async function AdminPedidoDetailPage({ params }: PageProps) {
-  await requireRole(['admin', 'soporte', 'bodega']);
+  const admin = await requireRole(['admin', 'soporte', 'bodega']);
   const { id } = await params;
 
   const supabase = createSupabaseServiceClient();
   const order = await new OrderRepository(supabase).getById(id);
-
   if (!order) notFound();
+
+  const { data: rawOrder, error: rawOrderError } = await supabase
+    .from('pedidos')
+    .select('business_unit_id')
+    .eq('id', Number(id))
+    .maybeSingle();
+  if (rawOrderError) throw rawOrderError;
+
+  const { data: products, error: productError } = rawOrder?.business_unit_id
+    ? await supabase
+        .from('productos')
+        .select('id,nombre,precio,gramaje,variedades,maneja_stock,stock')
+        .eq('business_unit_id', rawOrder.business_unit_id)
+        .eq('activo', true)
+        .order('nombre')
+    : { data: [], error: null };
+  if (productError) throw productError;
 
   const fmtCLP = (val: number) => `$${(val || 0).toLocaleString('es-CL')}`;
   const address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address;
 
   return (
     <div className="max-w-[1100px] w-full">
-      {/* Encabezado Principal */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">
-            ✦ Detalle de Pedido Comercial
-          </p>
-          <h1 className="font-display font-bold text-3xl text-white">
-            {order.order_number || `MAN-${order.id.substring(0, 8)}`}
-          </h1>
+          <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">✦ Detalle de Pedido Comercial</p>
+          <h1 className="font-display font-bold text-3xl text-white">{order.order_number || `MAN-${order.id.substring(0, 8)}`}</h1>
           <p className="text-xs text-muted mt-1 font-mono">
             Registrado el {new Date(order.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
-
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">
-            Canal: {order.source || 'web'}
-          </span>
-          <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">
-            Pago: {order.payment_status || 'pending'}
-          </span>
+          <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">Canal: {order.source || 'web'}</span>
+          <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">Pago: {order.payment_status || 'pending'}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna Izquierda: Información de Cliente, Despacho y Lista de Productos */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          {/* Ficha del Cliente */}
           <div className="bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-2xl p-5">
-            <h2 className="text-xs font-display font-bold text-neon uppercase tracking-widest mb-4">
-              👤 Datos del Cliente
-            </h2>
+            <h2 className="text-xs font-display font-bold text-neon uppercase tracking-widest mb-4">👤 Datos del Cliente</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-muted uppercase font-semibold">Nombre Completo</p>
-                <p className="text-white font-medium mt-0.5">{order.customer_name || 'Sin nombre registrado'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted uppercase font-semibold">Correo Electrónico</p>
-                <p className="text-white font-medium mt-0.5">{order.customer_email || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted uppercase font-semibold">Teléfono</p>
-                <p className="text-white font-medium mt-0.5">{order.customer_phone || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted uppercase font-semibold">Dirección & Zona</p>
-                <p className="text-white font-medium mt-0.5">
-                  {[address?.direccion || address?.address_line1, order.shipping_zone_name].filter(Boolean).join(', ') || 'Retiro en Taller'}
-                </p>
-              </div>
+              <div><p className="text-xs text-muted uppercase font-semibold">Nombre Completo</p><p className="text-white font-medium mt-0.5">{order.customer_name || 'Sin nombre registrado'}</p></div>
+              <div><p className="text-xs text-muted uppercase font-semibold">Correo Electrónico</p><p className="text-white font-medium mt-0.5">{order.customer_email || '—'}</p></div>
+              <div><p className="text-xs text-muted uppercase font-semibold">Teléfono</p><p className="text-white font-medium mt-0.5">{order.customer_phone || '—'}</p></div>
+              <div><p className="text-xs text-muted uppercase font-semibold">Dirección & Zona</p><p className="text-white font-medium mt-0.5">{[address?.direccion || address?.address_line1, order.shipping_zone_name].filter(Boolean).join(', ') || 'Retiro en Taller'}</p></div>
             </div>
           </div>
 
-          {/* Comentarios e Instrucciones del Pedido */}
           {order.notes && (
             <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-4.5 text-amber-200 shadow-sm">
-              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider mb-1.5 text-amber-300">
-                <span>📝</span> Instrucciones / Comentarios del Cliente
-              </div>
+              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider mb-1.5 text-amber-300"><span>📝</span> Instrucciones / Comentarios del Cliente</div>
               <p className="text-sm text-white font-medium whitespace-pre-wrap leading-relaxed">{order.notes}</p>
             </div>
           )}
 
-          {/* Desglose de Productos */}
           <div className="bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-2xl p-5">
-            <h2 className="text-xs font-display font-bold text-neon uppercase tracking-widest mb-4">
-              🛍️ Ítems del Pedido
-            </h2>
+            <h2 className="text-xs font-display font-bold text-neon uppercase tracking-widest mb-4">🛍️ Ítems del Pedido</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 text-[11px] text-muted uppercase tracking-wider">
-                    <th className="py-2.5">Producto & Composición</th>
-                    <th className="py-2.5 text-center">Cant.</th>
-                    <th className="py-2.5 text-right">Precio Unit.</th>
-                    <th className="py-2.5 text-right">Subtotal</th>
-                  </tr>
-                </thead>
+                <thead><tr className="border-b border-white/10 text-[11px] text-muted uppercase tracking-wider"><th className="py-2.5">Producto & Composición</th><th className="py-2.5 text-center">Cant.</th><th className="py-2.5 text-right">Precio Unit.</th><th className="py-2.5 text-right">Subtotal</th></tr></thead>
                 <tbody className="divide-y divide-white/5">
                   {(order.items || order.order_items || []).map((item: any, idx: number) => {
                     const variedad = item.variedad || (Array.isArray(item.selections) ? item.selections.map((s: any) => `${s.quantity}× ${s.label}`).join(', ') : null);
                     const itemNotas = item.notas;
+                    const qty = Number(item.quantity || item.qty || 1);
+                    const unitPrice = Number(item.unit_price || item.precio || 0);
                     return (
                       <tr key={idx} className="align-top">
                         <td className="py-3 text-white">
                           <div className="font-semibold text-sm">{item.product_name || item.nombre}</div>
                           {item.formato && <span className="inline-block mt-0.5 text-[11px] text-neon/80 bg-neon/10 px-2 py-0.5 rounded-md font-mono">{item.formato}</span>}
-                          {variedad && (
-                            <div className="mt-1 text-xs text-white/70 bg-white/[0.03] border border-white/10 rounded-lg p-2 font-mono">
-                              <span className="text-white/40 block text-[10px] uppercase font-bold tracking-wider">Composición:</span>
-                              {variedad}
-                            </div>
-                          )}
-                          {itemNotas && (
-                            <div className="mt-1 text-xs text-amber-200/90 italic">
-                              Obs: {itemNotas}
-                            </div>
-                          )}
+                          {variedad && <div className="mt-1 text-xs text-white/70 bg-white/[0.03] border border-white/10 rounded-lg p-2 font-mono"><span className="text-white/40 block text-[10px] uppercase font-bold tracking-wider">Composición:</span>{variedad}</div>}
+                          {itemNotas && <div className="mt-1 text-xs text-amber-200/90 italic">Obs: {itemNotas}</div>}
                         </td>
-                        <td className="py-3 text-center text-muted font-mono">{item.quantity || item.qty || 1}</td>
-                        <td className="py-3 text-right text-muted">{fmtCLP(item.unit_price || item.precio)}</td>
-                        <td className="py-3 text-right text-white font-bold">{fmtCLP(item.subtotal || (item.precio * (item.qty || 1)))}</td>
+                        <td className="py-3 text-center text-muted font-mono">{qty}</td>
+                        <td className="py-3 text-right text-muted">{fmtCLP(unitPrice)}</td>
+                        <td className="py-3 text-right text-white font-bold">{fmtCLP(Number(item.subtotal || unitPrice * qty))}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-
-            {/* Totales */}
             <div className="mt-5 pt-4 border-t border-white/10 flex flex-col gap-2 text-sm">
-              <div className="flex justify-between text-muted">
-                <span>Subtotal</span>
-                <span className="text-white font-medium">{fmtCLP(order.subtotal || order.total)}</span>
-              </div>
-              {order.discount_amount > 0 && (
-                <div className="flex justify-between text-emerald-400">
-                  <span>Descuento</span>
-                  <span>−{fmtCLP(order.discount_amount)}</span>
-                </div>
-              )}
-              {order.shipping_amount > 0 && (
-                <div className="flex justify-between text-muted">
-                  <span>Costo de envío</span>
-                  <span className="text-white font-medium">{fmtCLP(order.shipping_amount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-white text-base font-bold pt-2 border-t border-white/10">
-                <span>TOTAL</span>
-                <span className="text-neon font-display">{fmtCLP(order.total)}</span>
-              </div>
+              <div className="flex justify-between text-muted"><span>Subtotal</span><span className="text-white font-medium">{fmtCLP(order.subtotal || order.total)}</span></div>
+              {order.discount_amount > 0 && <div className="flex justify-between text-emerald-400"><span>Descuento</span><span>−{fmtCLP(order.discount_amount)}</span></div>}
+              {order.shipping_amount > 0 && <div className="flex justify-between text-muted"><span>Costo de envío</span><span className="text-white font-medium">{fmtCLP(order.shipping_amount)}</span></div>}
+              <div className="flex justify-between text-white text-base font-bold pt-2 border-t border-white/10"><span>TOTAL</span><span className="text-neon font-display">{fmtCLP(order.total)}</span></div>
             </div>
           </div>
         </div>
 
-        {/* Columna Derecha: Acciones Interactivas y Flujo Operacional */}
-        <div>
-          <OrderActions order={order} />
-        </div>
+        <div><OrderActions order={order} /></div>
       </div>
+
+      {(admin.rol === 'admin' || admin.rol === 'soporte') && (
+        <div className="mt-6">
+          <OrderEditForm
+            order={order}
+            products={(products || []).map((row: any) => ({ ...row, precio: Number(row.precio || 0), stock: row.stock == null ? null : Number(row.stock) }))}
+          />
+        </div>
+      )}
     </div>
   );
 }
