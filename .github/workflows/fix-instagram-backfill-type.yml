@@ -49,3 +49,5 @@ jobs:
           git add src/lib/meta/instagram-backfill.ts
           git commit -m 'fix: isolate Instagram sale extraction from history recovery'
           git push origin HEAD:main
+
+# rerun after bounded-history test was updated
