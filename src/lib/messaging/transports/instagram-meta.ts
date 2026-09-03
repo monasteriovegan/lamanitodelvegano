@@ -46,6 +46,31 @@ async function resolvePageAccessToken(
   return { pageId, pageAccessToken: userAccessToken };
 }
 
+async function sendWithInstagramLogin(
+  input: { to: string; text: string },
+  accessToken: string,
+  instagramUserId: string,
+) {
+  const version = process.env.META_GRAPH_VERSION || 'v26.0';
+  const response = await fetch(
+    `https://graph.instagram.com/${version}/${encodeURIComponent(instagramUserId)}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: { id: input.to },
+        message: { text: input.text },
+      }),
+      cache: 'no-store',
+    },
+  );
+  const body = await response.json().catch(() => ({}));
+  return { response, body };
+}
+
 async function sendWithFacebookLogin(
   input: { to: string; text: string },
   userAccessToken: string,
@@ -86,20 +111,39 @@ export async function sendInstagramMeta(
   }
 
   const db = createSupabaseServiceClient();
-  const credential = await new MetaConnectionsRepository(db).getActiveCredential(
+  const repository = new MetaConnectionsRepository(db);
+  const routingCredential = await repository.getActiveCredential(
     options.businessUnitId,
     'instagram_account',
   );
 
-  const result = await sendWithFacebookLogin(
-    input,
-    credential.accessToken,
-    credential.externalId,
-    credential.metadata?.page_id,
-  );
-  const transportMode = 'facebook_login' as const;
+  let result: { response: Response; body: { message_id?: string; messages?: Array<{ id?: string }> } };
+  let transportMode: 'instagram_login' | 'facebook_login' = 'facebook_login';
+  try {
+    const instagramCredential = await repository.getInstagramLoginCredential(
+      options.businessUnitId,
+      routingCredential.externalId,
+    );
+    result = await sendWithInstagramLogin(
+      input,
+      instagramCredential.accessToken,
+      instagramCredential.externalId,
+    );
+    transportMode = 'instagram_login';
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'unknown';
+    if (reason !== 'instagram_login_not_connected' && reason !== 'instagram_login_reauthorization_required') {
+      throw error;
+    }
+    result = await sendWithFacebookLogin(
+      input,
+      routingCredential.accessToken,
+      routingCredential.externalId,
+      routingCredential.metadata?.page_id,
+    );
+  }
 
-  const { response, body } = result as { response: Response; body: { message_id?: string; messages?: Array<{ id?: string }> } };
+  const { response, body } = result;
   if (!response.ok) {
     await db.from('messaging_transport_status').upsert({
       transport: 'instagram_api',
