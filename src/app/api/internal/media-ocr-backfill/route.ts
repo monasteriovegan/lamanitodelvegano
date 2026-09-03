@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { runHistoricalMediaBackfill } from '@/lib/messaging/ocr';
+import { runHistoricalMediaBackfillV2 } from '@/lib/messaging/historical-media-backfill';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,7 @@ async function run(request: Request) {
   const days = Number.isFinite(rawDays) ? Math.max(1, Math.min(Math.trunc(rawDays), 365)) : 14;
 
   try {
-    const result = await runHistoricalMediaBackfill(db, { limit, days });
+    const result = await runHistoricalMediaBackfillV2(db, { limit, days });
     return Response.json({ ok: true, limit, days, ...result });
   } catch (err) {
     console.error('historical_media_backfill_failed', {
