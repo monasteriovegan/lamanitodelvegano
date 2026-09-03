@@ -21,7 +21,7 @@ export default async function AdminIntegracionesPage() {
   const business = (memberships?.[0] as unknown as BusinessMembershipRow | undefined)?.business_units;
   const { data: connectionRows } = business ? await supabase.from('meta_connections')
     .select('id,status,token_expires_at,last_error_code,created_at')
-    .eq('business_unit_id', business.id).order('created_at', { ascending: false }).limit(1) : { data: [] };
+    .eq('business_unit_id', business.id).eq('provider', 'meta').order('created_at', { ascending: false }).limit(1) : { data: [] };
   const connection = connectionRows?.[0] || null;
   const { data: assets } = connection && business ? await supabase.from('meta_connection_assets')
     .select('id,asset_type,external_id,display_name,selected').eq('connection_id', connection.id)
