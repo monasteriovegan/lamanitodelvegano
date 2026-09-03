@@ -211,3 +211,12 @@ begin
   return jsonb_build_object('pedido_id', pedido_id, 'idempotent_replay', false);
 end;
 $$;
+
+revoke all on function public.conversation_create_order_v1(
+  text, uuid, uuid, uuid, text, text, text, text, text, jsonb, jsonb, numeric,
+  text, boolean, numeric, uuid, text, text, text, text, jsonb
+) from public, anon, authenticated;
+grant execute on function public.conversation_create_order_v1(
+  text, uuid, uuid, uuid, text, text, text, text, text, jsonb, jsonb, numeric,
+  text, boolean, numeric, uuid, text, text, text, text, jsonb
+) to service_role;
