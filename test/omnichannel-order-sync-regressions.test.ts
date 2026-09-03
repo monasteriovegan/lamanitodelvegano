@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   hasReceiptBackedBusinessConfirmation,
   type InstagramPaymentMessage,
-} from '../src/lib/orders/instagram-auto-sale-signals';
+} from '../src/lib/orders/instagram-auto-sale-signals.ts';
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
