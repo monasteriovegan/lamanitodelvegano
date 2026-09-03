@@ -41,12 +41,12 @@ test('OrderRepository: update method handles admin_notes, notes, print_action, a
 test('Pack Selection: validates exact quantity match for pack of 10 empanadas', () => {
   const product: CatalogProduct = {
     id: 'prod-emp-18',
+    businessUnitId: 'bu-test',
     slug: 'empanada-del-18',
     name: 'La Empanada del 18',
     description: 'Empanadas artesanales',
     imageUrl: null,
     active: true,
-    sortOrder: 1,
     availabilityDates: [],
     variants: [
       {
