@@ -303,6 +303,10 @@ export interface Order {
   customer_name?: string | null;
   notes?: string | null;
   admin_notes?: string | null;
+  printed_at?: string | null;
+  last_printed_at?: string | null;
+  print_count?: number;
+  printed_by?: string | null;
   paid_at?: string | null;
   shipped_at?: string | null;
   delivered_at?: string | null;

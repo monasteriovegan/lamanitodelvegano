@@ -179,6 +179,14 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                           🏦 Confirmar pago
                         </span>
                       )}
+                      {o.print_count > 0 && (
+                        <span
+                          className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold"
+                          title={o.last_printed_at ? `Última impresión: ${new Date(o.last_printed_at).toLocaleString('es-CL')}` : 'Impreso'}
+                        >
+                          ✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">
@@ -227,16 +235,23 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                 <span className="font-mono font-bold text-neon text-sm">
                   {o.order_number || `MAN-${o.id.substring(0, 8)}`}
                 </span>
-                <span
-                  className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border"
-                  style={{
-                    backgroundColor: colorStyle.bg,
-                    color: colorStyle.text,
-                    borderColor: colorStyle.border,
-                  }}
-                >
-                  {STATUS_LABELS[opStatus] || opStatus}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {o.print_count > 0 && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">
+                      ✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}
+                    </span>
+                  )}
+                  <span
+                    className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border"
+                    style={{
+                      backgroundColor: colorStyle.bg,
+                      color: colorStyle.text,
+                      borderColor: colorStyle.border,
+                    }}
+                  >
+                    {STATUS_LABELS[opStatus] || opStatus}
+                  </span>
+                </div>
               </div>
 
               <div>

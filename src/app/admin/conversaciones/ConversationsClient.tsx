@@ -211,17 +211,17 @@ export default function ConversationsClient() {
     }
   }, []);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    setLoadingMessages(true);
+  const loadMessages = useCallback(async (conversationId: string, background = false) => {
+    if (!background) setLoadingMessages(true);
     try {
       const response = await fetch(`/api/admin/conversations/${conversationId}/messages`, { cache: 'no-store' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Error al cargar mensajes');
       setMessages(body.data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar mensajes');
+      if (!background) setError(err instanceof Error ? err.message : 'Error al cargar mensajes');
     } finally {
-      setLoadingMessages(false);
+      if (!background) setLoadingMessages(false);
     }
   }, []);
 
@@ -264,7 +264,7 @@ export default function ConversationsClient() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       loadConversations().catch(() => undefined);
-      if (selectedId) loadMessages(selectedId).catch(() => undefined);
+      if (selectedId) loadMessages(selectedId, true).catch(() => undefined);
     }, 8000);
     return () => window.clearInterval(timer);
   }, [loadConversations, loadMessages, selectedId]);

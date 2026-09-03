@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OperationalStatus, Order, OrderItem, PaymentStatus } from '@/types/domain';
+import { normalizePhone } from '@/lib/messaging/normalize';
 import {
   getSchemaCapabilities,
   requireSchemaCapability,
@@ -167,6 +168,10 @@ export function mapPedidoToAdminOrder(row: JsonRecord): AdminOrder {
     customer_name: row.nombre_cliente ?? cliente.nombre ?? null,
     notes: row.notas ?? null,
     admin_notes: row.admin_notes ?? null,
+    printed_at: row.printed_at ?? row.metadata?.printed_at ?? null,
+    last_printed_at: row.last_printed_at ?? row.metadata?.last_printed_at ?? null,
+    print_count: Number(row.print_count ?? row.metadata?.print_count ?? 0),
+    printed_by: row.printed_by ?? row.metadata?.printed_by ?? null,
     created_at: createdAt,
     updated_at: String(row.updated_at ?? createdAt),
     order_items: orderItems,
@@ -241,7 +246,21 @@ export class OrderRepository {
 
   async update(
     id: string | number,
-    input: { status?: string; payment_status?: string; tracking_number?: string; admin_notes?: string },
+    input: {
+      status?: string;
+      payment_status?: string;
+      tracking_number?: string;
+      admin_notes?: string;
+      notes?: string;
+      customer_name?: string;
+      customer_phone?: string;
+      customer_email?: string;
+      address?: string;
+      comuna?: string;
+      delivery_date?: string;
+      print_action?: 'mark_printed' | 'reset_print';
+      update_crm?: boolean;
+    },
     changedBy?: string,
   ): Promise<AdminOrder> {
     const pedidoId = parsePedidoId(id);
@@ -255,14 +274,108 @@ export class OrderRepository {
       requireSchemaCapability(this.capabilities, 'orderExtensions');
     }
 
-    const update: JsonRecord = {};
-    if (input.status !== undefined) update.estado = toLegacyOrderStatus(normalizeOrderStatus(input.status));
+    const update: JsonRecord = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.status !== undefined) {
+      update.estado = toLegacyOrderStatus(normalizeOrderStatus(input.status));
+    }
+
     if (this.capabilities.orderExtensions) {
-      update.updated_at = new Date().toISOString();
       if (input.payment_status !== undefined) update.payment_status = input.payment_status;
       if (input.tracking_number !== undefined) update.tracking_number = input.tracking_number || null;
       if (input.admin_notes !== undefined) update.admin_notes = input.admin_notes || null;
     }
+
+    if (input.notes !== undefined) {
+      update.notas = input.notes || null;
+    }
+
+    if (input.delivery_date !== undefined) {
+      update.fecha_entrega = input.delivery_date || null;
+    }
+
+    // Actualización de cliente en JSON y campos planos
+    const clienteData = {
+      ...(before.cliente && typeof before.cliente === 'object' ? before.cliente : {}),
+    };
+    let clienteChanged = false;
+
+    if (input.customer_name !== undefined) {
+      update.nombre_cliente = input.customer_name || null;
+      clienteData.nombre = input.customer_name || null;
+      clienteChanged = true;
+    }
+    if (input.customer_phone !== undefined) {
+      const normalizedPhone = input.customer_phone ? normalizePhone(input.customer_phone) : null;
+      update.telefono = normalizedPhone;
+      clienteData.telefono = normalizedPhone;
+      clienteChanged = true;
+
+      // Si el operador marcó explícitamente actualizar la ficha CRM
+      if (input.update_crm && before.customer_id) {
+        await this.db
+          .from('omnichannel_contacts')
+          .update({ phone: normalizedPhone, updated_at: new Date().toISOString() })
+          .eq('id', before.customer_id);
+      }
+    }
+    if (input.customer_email !== undefined) {
+      update.customer_email = input.customer_email || null;
+      clienteData.email = input.customer_email || null;
+      clienteChanged = true;
+      if (input.update_crm && before.customer_id) {
+        await this.db
+          .from('omnichannel_contacts')
+          .update({ email: input.customer_email || null, updated_at: new Date().toISOString() })
+          .eq('id', before.customer_id);
+      }
+    }
+    if (input.address !== undefined) {
+      update.direccion = input.address || null;
+      clienteData.direccion = input.address || null;
+      clienteChanged = true;
+    }
+    if (input.comuna !== undefined) {
+      update.comuna = input.comuna || null;
+      clienteData.comuna = input.comuna || null;
+      clienteChanged = true;
+    }
+
+    if (clienteChanged) {
+      update.cliente = clienteData;
+    }
+
+    // Manejo de Registro de Impresión (F)
+    const existingMetadata = {
+      ...(before.shipping_address && typeof before.shipping_address === 'object' && before.shipping_address.metadata
+        ? before.shipping_address.metadata
+        : {}),
+    };
+
+    if (input.print_action === 'mark_printed') {
+      const nextCount = (before.print_count || 0) + 1;
+      const nowIso = new Date().toISOString();
+      const printMeta = {
+        ...existingMetadata,
+        printed_at: before.printed_at || nowIso,
+        last_printed_at: nowIso,
+        print_count: nextCount,
+        printed_by: changedBy || null,
+      };
+      update.metadata = printMeta;
+    } else if (input.print_action === 'reset_print') {
+      const printMeta = {
+        ...existingMetadata,
+        printed_at: null,
+        last_printed_at: null,
+        print_count: 0,
+        printed_by: null,
+      };
+      update.metadata = printMeta;
+    }
+
     const { data, error } = await this.db
       .from('pedidos')
       .update(update)
@@ -272,17 +385,43 @@ export class OrderRepository {
     if (error) throw error;
 
     const updated = mapPedidoToAdminOrder(data);
-    if (this.capabilities.supportTables && before.legacy_status !== updated.legacy_status) {
-      const { error: historyError } = await this.db.from('order_status_history').insert({
-        pedido_id: pedidoId,
-        old_status: before.legacy_status,
-        new_status: updated.legacy_status,
-        payment_status: updated.payment_status,
-        notes: input.admin_notes || 'Actualización desde panel administrativo',
-        changed_by: changedBy || null,
-      });
-      if (historyError) throw historyError;
+
+    // Registro de auditoría
+    if (this.capabilities.supportTables) {
+      const changes: string[] = [];
+      if (before.legacy_status !== updated.legacy_status) {
+        changes.push(`Estado: ${before.legacy_status} → ${updated.legacy_status}`);
+      }
+      if (before.payment_status !== updated.payment_status) {
+        changes.push(`Pago: ${before.payment_status} → ${updated.payment_status}`);
+      }
+      if (before.customer_phone !== updated.customer_phone) {
+        changes.push(`Teléfono: ${before.customer_phone || '—'} → ${updated.customer_phone || '—'}`);
+      }
+      if (before.notes !== updated.notes) {
+        changes.push('Notas del cliente actualizadas');
+      }
+      if (before.admin_notes !== updated.admin_notes) {
+        changes.push('Notas internas actualizadas');
+      }
+      if (input.print_action === 'mark_printed') {
+        changes.push(`Orden impresa (Impresión #${updated.print_count})`);
+      } else if (input.print_action === 'reset_print') {
+        changes.push('Estado de impresión restablecido');
+      }
+
+      if (changes.length > 0) {
+        await this.db.from('order_status_history').insert({
+          pedido_id: pedidoId,
+          old_status: before.legacy_status,
+          new_status: updated.legacy_status,
+          payment_status: updated.payment_status,
+          notes: changes.join(' · '),
+          changed_by: changedBy || null,
+        });
+      }
     }
+
     return updated;
   }
 

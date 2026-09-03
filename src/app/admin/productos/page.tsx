@@ -17,14 +17,25 @@ export default async function AdminProductosPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-bold text-xl text-white">📦 Productos</h1>
-        <Link
-          href="/admin/productos/nuevo"
-          className="bg-neon text-[#020705] px-4 py-2 rounded-full text-sm font-bold hover:bg-white transition-colors"
-        >
-          + Agregar producto
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="font-display font-bold text-xl text-white">🌿 Catálogo de Productos</h1>
+          <p className="text-xs text-muted mt-0.5">Inventario, precios base y fichas técnicas del catálogo maestro.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/catalogo-master"
+            className="border border-neon/30 bg-neon/10 hover:bg-neon hover:text-[#020705] text-neon px-3.5 py-2 rounded-xl text-xs font-semibold transition-all"
+          >
+            🎛️ Variantes & Canales →
+          </Link>
+          <Link
+            href="/admin/productos/nuevo"
+            className="bg-neon text-[#020705] px-4 py-2 rounded-xl text-xs font-bold hover:bg-white transition-all shadow-[0_0_10px_rgba(0,255,179,0.3)]"
+          >
+            + Nuevo producto
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl overflow-hidden overflow-x-auto">

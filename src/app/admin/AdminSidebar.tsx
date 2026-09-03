@@ -15,6 +15,7 @@ const GRUPOS = [
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/productos', label: '🌿 Catálogo Master', exact: false, roles: ['admin', 'bodega'] as Rol[] },
+      { href: '/admin/catalogo-master', label: '🎛️ Canales & Precios', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/categorias', label: '🏷️ Categorías', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/entregas', label: '📅 Entregas & Días', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/zonas', label: '🚚 Zonas de Envío', exact: false, roles: ['admin'] as Rol[] },
