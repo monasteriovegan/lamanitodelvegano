@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { normalizeConversationLabels } from '@/lib/crm/conversation-labels';
 
 export async function PATCH(
   request: Request,
@@ -16,11 +17,17 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid_origin' }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null) as { personal?: boolean; aiEnabled?: boolean; humanTakeover?: boolean } | null;
+  const body = await request.json().catch(() => null) as {
+    personal?: boolean;
+    aiEnabled?: boolean;
+    humanTakeover?: boolean;
+    labels?: string[];
+  } | null;
   if (!body || (
     typeof body.personal !== 'boolean'
     && typeof body.aiEnabled !== 'boolean'
     && typeof body.humanTakeover !== 'boolean'
+    && !Array.isArray(body.labels)
   )) {
     return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
   }
@@ -35,21 +42,28 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   if (!conversation) return NextResponse.json({ error: 'conversation_not_found' }, { status: 404 });
 
-  const labels = new Set<string>(Array.isArray(conversation.labels) ? conversation.labels : []);
-  const currentPersonal = Boolean(conversation.metadata?.personal || labels.has('personal'));
+  const currentLabels = normalizeConversationLabels(conversation.labels);
+  const currentPersonal = Boolean(conversation.metadata?.personal || currentLabels.includes('personal'));
   const nextPersonal = typeof body.personal === 'boolean' ? body.personal : currentPersonal;
   if (body.aiEnabled === true && nextPersonal) {
     return NextResponse.json({ error: 'personal_contact_ai_blocked' }, { status: 409 });
   }
+
+  let nextLabels = Array.isArray(body.labels)
+    ? normalizeConversationLabels(body.labels)
+    : currentLabels;
+  if (nextPersonal && !nextLabels.includes('personal')) nextLabels = [...nextLabels, 'personal'];
+  if (!nextPersonal) nextLabels = nextLabels.filter((label) => label !== 'personal');
 
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { updated_at: now };
   let metadata = conversation.metadata && typeof conversation.metadata === 'object' ? { ...conversation.metadata } : {};
   let metadataChanged = false;
 
+  if (Array.isArray(body.labels) || typeof body.personal === 'boolean') {
+    patch.labels = nextLabels;
+  }
   if (typeof body.personal === 'boolean') {
-    body.personal ? labels.add('personal') : labels.delete('personal');
-    patch.labels = Array.from(labels);
     metadata = { ...metadata, personal: body.personal };
     metadataChanged = true;
     if (body.personal) patch.ai_enabled = false;
@@ -85,6 +99,7 @@ export async function PATCH(
 
   return NextResponse.json({
     ok: true,
+    labels: nextLabels,
     personal: nextPersonal,
     aiEnabled: nextPersonal ? false : (typeof body.aiEnabled === 'boolean' ? body.aiEnabled : Boolean(conversation.ai_enabled)),
     humanTakeover: typeof body.humanTakeover === 'boolean' ? body.humanTakeover : Boolean(conversation.human_takeover),
