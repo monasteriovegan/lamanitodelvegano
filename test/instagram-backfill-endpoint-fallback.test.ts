@@ -5,16 +5,18 @@ import test from 'node:test';
 
 const source = readFileSync(join(process.cwd(), 'src/lib/meta/instagram-backfill.ts'), 'utf8');
 
-test('backfill puede cambiar de endpoint si Page conversations devuelve Timeout', () => {
+test('backfill prioriza Instagram Login para recuperar conversaciones', () => {
+  assert.match(source, /getInstagramLoginCredential/);
+  assert.match(source, /graph\.instagram\.com/);
+  assert.match(source, /instagram_business_manage_messages|instagram_login/i);
+});
+
+test('backfill conserva Facebook Login como fallback si Instagram Login no está disponible', () => {
+  assert.match(source, /getActiveCredential/);
   assert.match(source, /discoverConversationSource/);
-  assert.match(source, /businessInstagramId/);
   assert.match(source, /targetId:\s*['"]me['"]/);
   assert.match(source, /targetId:\s*input\.pageId/);
   assert.match(source, /targetId:\s*input\.businessInstagramId/);
-});
-
-test('backfill conserva fallback de versión Graph sin usar un token distinto', () => {
   assert.match(source, /v25\.0/);
   assert.match(source, /v24\.0/);
-  assert.doesNotMatch(source, /graph\.instagram\.com/);
 });
