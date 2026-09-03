@@ -7,8 +7,10 @@ const autoSale = readFileSync(new URL('../src/lib/orders/instagram-auto-sale.ts'
 const orders = readFileSync(new URL('../src/lib/repositories/orders-repository.ts', import.meta.url), 'utf8');
 
 test('conversation sale validates catalog items even when no configured shipping zone matches', () => {
-  assert.match(sale, /if \(items\.length\) \{/);
+  assert.match(sale, /catalogItems\.length/);
+  assert.match(sale, /calcularPedido/);
   assert.match(sale, /zonaId: zone\?\.id \|\| null/);
+  assert.match(sale, /customUnitPrice/);
 });
 
 test('Instagram auto-sale can preserve an explicit transcript total as custom shipping', () => {
