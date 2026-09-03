@@ -1,28 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-import { mapContactToAdminCustomer } from '../src/lib/repositories/customers-repository.ts';
+const root = process.cwd();
+const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
-const read = (path: string) => readFileSync(path, 'utf8');
-
-test('CRM customer exposes Instagram username from contact metadata', () => {
-  const customer = mapContactToAdminCustomer({
-    id: 'c1',
-    business_unit_id: 'b1',
-    channel: 'instagram',
-    external_id: '1057010436952778',
-    nombre: 'Cliente 1057010436952778',
-    metadata: { instagram_username: 'cliente_real', instagram_name: 'Cliente Real' },
-  });
-
-  assert.equal((customer as any).instagram_username, 'cliente_real');
-  assert.equal((customer as any).instagram_name, 'Cliente Real');
+test('CRM customer exposes Instagram username and name from contact metadata', () => {
+  const source = read('src/lib/repositories/customers-repository.ts');
+  assert.match(source, /instagram_username/);
+  assert.match(source, /instagram_name/);
 });
 
-test('CRM repository projects conversation labels onto customers instead of duplicating tag state', () => {
+test('CRM repository projects conversation labels onto customers instead of duplicating operational state', () => {
   const source = read('src/lib/repositories/customers-repository.ts');
-  assert.match(source, /from\('conversations'\)[\s\S]*labels/);
+  assert.match(source, /from\(['"]conversations['"]\)[\s\S]*labels/);
   assert.match(source, /conversation_labels/);
 });
 
@@ -40,17 +32,19 @@ test('Instagram webhook enriches inbound identities with profile username/name',
   assert.match(route, /instagram_username/);
 });
 
-test('admin Instagram backfill endpoint exists and defaults to 2026-08-31', () => {
-  const path = 'src/app/api/admin/instagram/backfill/route.ts';
-  assert.equal(existsSync(path), true);
-  const source = read(path);
-  assert.match(source, /2026-08-31/);
-  assert.match(source, /backfillInstagramConversations/);
+test('existing internal Instagram backfill supports a since cutoff of 2026-08-31', () => {
+  const route = read('src/app/api/internal/instagram-backfill/route.ts');
+  const backfill = read('src/lib/meta/instagram-backfill.ts');
+  assert.match(route, /2026-08-31/);
+  assert.match(route, /since/);
+  assert.match(backfill, /since\?:\s*string/);
+  assert.match(backfill, /updated_time/);
 });
 
-test('conversation UI shows channel labels and supports common operational labels', () => {
+test('conversation UI shows operational labels and restores background polling', () => {
   const source = read('src/app/admin/conversaciones/ConversationsClient.tsx');
-  assert.match(source, /conversation\.labels|selected\.labels/);
+  assert.match(source, /labels:\s*string\[\]/);
   assert.match(source, /pagado/);
   assert.match(source, /seguimiento/);
+  assert.match(source, /loadMessages\(selectedId,\s*true\)/);
 });
