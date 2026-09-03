@@ -42,7 +42,7 @@ test('existing internal Instagram backfill supports a since cutoff of 2026-08-31
 });
 
 test('conversation UI shows operational labels and restores background polling', () => {
-  const source = read('src/app/admin/conversaciones/ConversationsClient.tsx');
+  const source = read('src/app/admin/conversaciones/ConversationsClientV2.tsx');
   assert.match(source, /labels:\s*string\[\]/);
   assert.match(source, /pagado/);
   assert.match(source, /seguimiento/);
