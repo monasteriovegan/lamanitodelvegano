@@ -12,11 +12,13 @@ import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import type { CheckoutRequest } from '@/types/domain';
 
 type DraftItem = {
-  productId: string;
+  productId: string | null;
   productName: string;
   quantity: number;
   format: string | null;
   variety: string | null;
+  customUnitPrice: number | null;
+  isCustom: boolean;
 };
 
 export type ConversationSaleDraft = {
@@ -32,6 +34,7 @@ export type ConversationSaleDraft = {
   paymentEvidence: boolean;
   zoneId: string | null;
   zoneName: string | null;
+  explicitShippingCost: number | null;
   items: DraftItem[];
   transcriptTotal: number | null;
   calculated: { subtotal: number; shipping: number; total: number } | null;
@@ -67,6 +70,11 @@ function chileDate() {
 
 function cleanString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function cleanPositiveMoney(value: unknown): number | null {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : null;
 }
 
 function cleanPayment(value: unknown): ConversationSaleDraft['paymentMethod'] {
@@ -123,10 +131,14 @@ export async function prepareConversationSaleDraft(
   if (zonesError) throw zonesError;
 
   const messages = [...(rawMessages || [])].reverse()
-    .filter((message: any) => cleanString(message.body))
-    .map((message: any) => {
+    .flatMap((message: any) => {
       const actor = message.direction === 'inbound' ? 'CLIENTE' : 'NEGOCIO';
-      return `${actor}: ${compact(message.body, 800)}`;
+      const body = cleanString(message.body);
+      if (body) return [`${actor}: ${compact(body, 800)}`];
+      if (message.direction === 'inbound' && ['image', 'document'].includes(String(message.message_type || ''))) {
+        return [`${actor}: [COMPROBANTE O ARCHIVO ADJUNTO]`];
+      }
+      return [];
     });
   const transcript = compact(messages.join('\n'), 14000);
   if (!transcript) throw new Error('conversation_has_no_text');
@@ -146,7 +158,9 @@ export async function prepareConversationSaleDraft(
   const runtime = await getAgentRuntimeConfig(db, 'remy', {
     provider: 'groq', model: 'openai/gpt-oss-20b', executionMode: 'api',
   });
-  if (!runtime.enabled || runtime.executionMode !== 'api') throw new Error('remy_runtime_unavailable');
+  // La extracción administrativa de pedidos es independiente de si Remy está
+  // habilitado para responder al cliente. Apagar respuestas nunca debe apagar CRM/pedidos.
+  if (runtime.executionMode !== 'api') throw new Error('order_extraction_runtime_unavailable');
 
   const tool = {
     name: 'extract_sale',
@@ -162,6 +176,7 @@ export async function prepareConversationSaleDraft(
         paymentMethod: { type: 'string', enum: ['transfer', 'mercadopago', 'flow', 'whatsapp', 'unknown'] },
         paymentEvidence: { type: 'boolean', description: 'Hay comprobante, confirmación de transferencia o evidencia textual de pago.' },
         zoneId: { type: 'string', description: 'ID exacto de una zona entregada en contexto, o vacío.' },
+        explicitShippingCost: { type: 'number', minimum: 0, description: 'Costo de despacho explícitamente acordado en el chat; 0 si no aparece.' },
         transcriptTotal: { type: 'number', minimum: 0 },
         notes: { type: 'string' },
         items: {
@@ -169,16 +184,18 @@ export async function prepareConversationSaleDraft(
           items: {
             type: 'object',
             properties: {
-              productId: { type: 'string' },
+              productId: { type: 'string', description: 'ID exacto del catálogo o vacío si es un producto personalizado fuera de catálogo.' },
+              productName: { type: 'string', description: 'Nombre explícito del producto vendido.' },
               quantity: { type: 'number', minimum: 1 },
               format: { type: 'string' },
               variety: { type: 'string' },
+              customUnitPrice: { type: 'number', minimum: 0, description: 'Precio unitario explícito sólo para producto fuera de catálogo; 0 para catálogo.' },
             },
-            required: ['productId', 'quantity'],
+            required: ['productId', 'productName', 'quantity', 'format', 'variety', 'customUnitPrice'],
           },
         },
       },
-      required: ['saleDetected', 'customerName', 'address', 'comuna', 'deliveryDate', 'paymentMethod', 'paymentEvidence', 'zoneId', 'transcriptTotal', 'notes', 'items'],
+      required: ['saleDetected', 'customerName', 'address', 'comuna', 'deliveryDate', 'paymentMethod', 'paymentEvidence', 'zoneId', 'explicitShippingCost', 'transcriptTotal', 'notes', 'items'],
     },
   };
 
@@ -187,14 +204,16 @@ Reglas estrictas:
 - No respondas al cliente y no crees pedidos.
 - Usa solamente datos explícitos de la conversación, del contacto, catálogo y zonas entregadas.
 - Si la conversación no muestra una venta acordada, saleDetected=false.
-- productId debe ser exactamente uno de los IDs del catálogo. Si el producto no se puede asociar con seguridad, omítelo.
+- Para un producto del CATÁLOGO, productId debe ser exactamente su ID y customUnitPrice=0.
+- Si se vendió claramente un producto personalizado que NO está en catálogo, puedes incluirlo sólo cuando nombre y precio unitario estén explícitos en el chat: productId='', productName textual y customUnitPrice con ese precio. Nunca inventes ni estimes un precio.
 - quantity debe ser la cantidad comprada, no una cantidad mencionada como opción.
-- format y variety sólo si están explícitos y corresponden al producto; si no, usa vacío.
-- zoneId sólo si la conversación identifica claramente la zona (por nombre/dentro-fuera de Vespucio) o un costo de despacho que coincide inequívocamente con una zona. No infieras geografía por tu cuenta.
+- format y variety sólo si están explícitos y corresponden; si no, usa vacío.
+- zoneId sólo si el chat identifica inequívocamente una zona entregada. No infieras geografía por tu cuenta.
+- explicitShippingCost es el costo de despacho sólo cuando aparece explícitamente acordado en el chat; si no aparece, 0.
 - paymentMethod=transfer sólo si hablan explícitamente de transferencia/comprobante/datos bancarios.
-- paymentEvidence=true no significa que el sistema deba marcar pagado; un humano lo confirmará.
-- transcriptTotal es el total final explícito de la venta si aparece; si no, 0.
-- deliveryDate debe ser YYYY-MM-DD sólo si puede resolverse sin ambigüedad desde lo dicho en el chat.
+- paymentEvidence=true describe evidencia del chat; el sistema valida aparte si una respuesta humana confirmó el pago.
+- transcriptTotal es el total FINAL explícito si aparece; no sumes subtotales para inventarlo. Si no aparece, 0.
+- deliveryDate debe ser YYYY-MM-DD sólo si puede resolverse sin ambigüedad desde lo dicho en el chat. Frases como “un día antes del 18/09” sí pueden resolverse usando el año actual.
 Debes llamar a extract_sale una sola vez.`;
 
   const contactMetadata = contact?.metadata && typeof contact.metadata === 'object' ? contact.metadata : {};
@@ -211,7 +230,7 @@ Debes llamar a extract_sale una sola vez.`;
       canal: conversation.channel,
     })}\n\nCATÁLOGO:\n${JSON.stringify(catalog)}\n\nZONAS:\n${JSON.stringify(shippingZones)}\n\nCONVERSACIÓN:\n${transcript}` }],
     tools: [tool],
-    maxOutputTokens: 420,
+    maxOutputTokens: 560,
     temperature: 0,
   });
 
@@ -234,48 +253,75 @@ Debes llamar a extract_sale una sola vez.`;
   const items: DraftItem[] = Array.isArray(args.items)
     ? args.items.flatMap((raw: any) => {
       const productId = cleanString(raw?.productId);
-      const product = productMap.get(productId);
       const quantity = Math.max(0, Math.floor(Number(raw?.quantity || 0)));
-      if (!product || quantity < 1) return [];
-      const format = cleanString(raw?.format) || null;
-      const validFormat = format && product.formatos.includes(format) ? format : null;
+      if (quantity < 1) return [];
+
+      if (productId) {
+        const product = productMap.get(productId);
+        if (!product) return [];
+        const format = cleanString(raw?.format) || null;
+        const validFormat = format && product.formatos.includes(format) ? format : null;
+        return [{
+          productId,
+          productName: product.nombre,
+          quantity,
+          format: validFormat,
+          variety: cleanString(raw?.variety) || null,
+          customUnitPrice: null,
+          isCustom: false,
+        }];
+      }
+
+      const productName = cleanString(raw?.productName);
+      const customUnitPrice = cleanPositiveMoney(raw?.customUnitPrice);
+      if (!productName || customUnitPrice == null) return [];
       return [{
-        productId,
-        productName: product.nombre,
+        productId: null,
+        productName,
         quantity,
-        format: validFormat,
+        format: cleanString(raw?.format) || null,
         variety: cleanString(raw?.variety) || null,
+        customUnitPrice,
+        isCustom: true,
       }];
     })
     : [];
 
   const zoneId = cleanString(args.zoneId);
   const zone = zoneMap.get(zoneId) || null;
+  const explicitShippingCost = cleanPositiveMoney(args.explicitShippingCost);
   const phone = cleanString(contact?.phone || (conversation.channel === 'whatsapp' ? contact?.external_id || conversation.external_conversation_id : ''));
   const customerName = cleanString(args.customerName) || cleanString(contact?.nombre || contact?.display_name);
   const address = cleanString(args.address) || cleanString(contact?.direccion);
   const comuna = cleanString(args.comuna) || cleanString(contactMetadata.comuna);
   const paymentMethod = cleanPayment(args.paymentMethod);
-  const transcriptTotal = Number(args.transcriptTotal || 0) > 0 ? Math.round(Number(args.transcriptTotal)) : null;
+  const transcriptTotal = cleanPositiveMoney(args.transcriptTotal);
 
-  let calculated: ConversationSaleDraft['calculated'] = null;
-  if (items.length) {
+  const catalogItems = items.filter((item) => !item.isCustom && item.productId);
+  const customSubtotal = items
+    .filter((item) => item.isCustom && item.customUnitPrice != null)
+    .reduce((sum, item) => sum + Number(item.customUnitPrice) * item.quantity, 0);
+
+  let catalogCalculation: any = null;
+  if (catalogItems.length) {
     const request: CheckoutRequest = {
       cliente: { nombre: customerName || 'Cliente', direccion: address, telefono: phone, email: cleanString(contact?.email) },
-      items: items.map((item) => ({ productoId: item.productId, qty: item.quantity, formato: item.format, variedad: item.variety })),
+      items: catalogItems.map((item) => ({ productoId: String(item.productId), qty: item.quantity, formato: item.format, variedad: item.variety })),
       zonaId: zone?.id || null,
       cuponCode: null,
       metodoPago: paymentMethod === 'unknown' ? 'transfer' : paymentMethod,
       attribution: { utm_source: conversation.channel, utm_medium: 'manual_conversation' },
     };
     const calculation = await calcularPedido(request, business.id);
-    if (calculation.ok) {
-      calculated = {
-        subtotal: Number(calculation.subtotal || 0),
-        shipping: Number(calculation.costoEnvio || 0),
-        total: Number(calculation.total || 0),
-      };
-    }
+    if (calculation.ok) catalogCalculation = calculation;
+  }
+
+  let calculated: ConversationSaleDraft['calculated'] = null;
+  if (items.length && (!catalogItems.length || catalogCalculation)) {
+    const subtotal = Number(catalogCalculation?.subtotal || 0) + customSubtotal;
+    const shipping = explicitShippingCost
+      ?? Number(catalogCalculation?.costoEnvio ?? zone?.precio ?? 0);
+    calculated = { subtotal, shipping, total: subtotal + shipping };
   }
 
   const saleDetected = Boolean(args.saleDetected);
@@ -287,7 +333,7 @@ Debes llamar a extract_sale una sola vez.`;
   if (!address) missing.push('direccion');
   if (!comuna) missing.push('comuna');
   if (!cleanString(args.deliveryDate)) missing.push('fecha_entrega');
-  if (!zone) missing.push('zona_despacho');
+  if (!zone && explicitShippingCost == null) missing.push('zona_despacho');
   if (paymentMethod === 'unknown') missing.push('medio_pago');
   if (!calculated && items.length) missing.push('validacion_pedido');
   if (calculated && transcriptTotal && Math.abs(calculated.total - transcriptTotal) > 100) missing.push('total_no_coincide');
@@ -305,6 +351,7 @@ Debes llamar a extract_sale una sola vez.`;
     paymentEvidence: Boolean(args.paymentEvidence),
     zoneId: zone?.id || null,
     zoneName: zone?.nombre || null,
+    explicitShippingCost,
     items,
     transcriptTotal,
     calculated,
@@ -326,16 +373,17 @@ export async function confirmConversationSale(
     && draft.calculated
     && draft.transcriptTotal >= draft.calculated.subtotal,
   );
+  const canUseExplicitShipping = draft.explicitShippingCost != null;
   const allowedMissing = new Set<string>();
   if (options.allowMissingPhone) allowedMissing.add('telefono');
-  if (canUseTranscriptShipping) {
+  if (canUseTranscriptShipping || canUseExplicitShipping) {
     allowedMissing.add('zona_despacho');
     allowedMissing.add('total_no_coincide');
   }
   const blockingMissing = (draft.missing || []).filter((item) => !allowedMissing.has(item));
   if (!draft?.conversationId || !draft.saleDetected || blockingMissing.length) throw new Error('sale_draft_incomplete');
   if (!draft.items?.length || draft.paymentMethod === 'unknown') throw new Error('sale_draft_incomplete');
-  if (!draft.zoneId && !canUseTranscriptShipping) throw new Error('sale_draft_incomplete');
+  if (!draft.zoneId && !canUseTranscriptShipping && !canUseExplicitShipping) throw new Error('sale_draft_incomplete');
 
   const { data: conversation, error: conversationError } = await db
     .from('conversations')
@@ -352,6 +400,8 @@ export async function confirmConversationSale(
     ? { id: String(conversation.business_unit_id) }
     : await new BusinessRepository(db).requireDefault();
   const idempotencyKey = options.idempotencyKey || `conversation:${conversation.id}`;
+  const catalogItems = draft.items.filter((item) => !item.isCustom && item.productId);
+  const customItems = draft.items.filter((item) => item.isCustom && item.customUnitPrice != null);
 
   const request: CheckoutRequest = {
     idempotencyKey,
@@ -361,7 +411,7 @@ export async function confirmConversationSale(
       telefono: draft.phone,
       email: draft.email || '',
     },
-    items: draft.items.map((item) => ({ productoId: item.productId, qty: item.quantity, formato: item.format, variedad: item.variety })),
+    items: catalogItems.map((item) => ({ productoId: String(item.productId), qty: item.quantity, formato: item.format, variedad: item.variety })),
     zonaId: draft.zoneId,
     cuponCode: null,
     metodoPago: draft.paymentMethod,
@@ -371,13 +421,34 @@ export async function confirmConversationSale(
     },
   };
 
-  const calculation = await calcularPedido(request, business.id);
-  if (!calculation.ok) throw new Error(`checkout_validation_failed:${calculation.error || 'unknown'}`);
-  const subtotal = Number(calculation.subtotal || 0);
-  let shippingCost = Number(calculation.costoEnvio || 0);
-  let shippingZoneName = calculation.zonaNombre || draft.zoneName;
-  let total = Number(calculation.total || 0);
-  if (canUseTranscriptShipping && draft.transcriptTotal) {
+  let calculation: any = null;
+  if (catalogItems.length) {
+    calculation = await calcularPedido(request, business.id);
+    if (!calculation.ok) throw new Error(`checkout_validation_failed:${calculation.error || 'unknown'}`);
+  }
+
+  const resolvedCatalogItems = calculation?.itemsResueltos || [];
+  const customOrderItems = customItems.map((item) => ({
+    productoId: null,
+    nombre: item.productName,
+    qty: item.quantity,
+    precio: Number(item.customUnitPrice),
+    subtotal: Number(item.customUnitPrice) * item.quantity,
+    formato: item.format,
+    variedad: item.variety,
+    custom: true,
+  }));
+  const subtotal = Number(calculation?.subtotal || 0)
+    + customOrderItems.reduce((sum: number, item: any) => sum + Number(item.subtotal || 0), 0);
+
+  let shippingCost = draft.explicitShippingCost
+    ?? Number(calculation?.costoEnvio ?? draft.calculated?.shipping ?? 0);
+  let shippingZoneName = draft.explicitShippingCost != null
+    ? 'Despacho acordado por conversación'
+    : calculation?.zonaNombre || draft.zoneName;
+  let total = subtotal + shippingCost;
+
+  if (canUseTranscriptShipping && draft.transcriptTotal && draft.explicitShippingCost == null) {
     shippingCost = draft.transcriptTotal - subtotal;
     shippingZoneName = 'Despacho acordado por conversación';
     total = draft.transcriptTotal;
@@ -389,7 +460,12 @@ export async function confirmConversationSale(
   const orderRepository = new OrderRepository(db, capabilities);
   const transferPaid = draft.paymentMethod === 'transfer' && draft.paymentEvidence;
   const adminNotes = `Pedido confirmado desde conversación ${conversation.channel}. ${draft.notes || ''}`.trim();
-  const useConversationOrder = Boolean(options.allowMissingPhone || options.allowTranscriptShipping);
+  const useConversationOrder = Boolean(
+    options.allowMissingPhone
+    || options.allowTranscriptShipping
+    || customItems.length
+    || draft.explicitShippingCost != null,
+  );
   let customerId: string;
   let order: AdminOrder;
   let updated: AdminOrder;
@@ -407,8 +483,8 @@ export async function confirmConversationSale(
       customerPhone: draft.phone || null,
       address: draft.address || null,
       comuna: draft.comuna || null,
-      items: calculation.itemsResueltos || [],
-      stockItems: calculation.itemsResueltos || [],
+      items: [...resolvedCatalogItems, ...customOrderItems],
+      stockItems: resolvedCatalogItems,
       total,
       paymentMethod: draft.paymentMethod,
       paymentConfirmed: transferPaid,
@@ -422,6 +498,7 @@ export async function confirmConversationSale(
     });
     updated = order;
   } else {
+    if (!calculation) throw new Error('checkout_validation_failed:missing_calculation');
     const customerRepository = new CustomerRepository(db, capabilities);
     const customer = await customerRepository.upsertCheckoutContact(business.id, {
       email: draft.email || null,
@@ -440,7 +517,7 @@ export async function confirmConversationSale(
       customerPhone: draft.phone,
       address: draft.address,
       comuna: draft.comuna,
-      items: calculation.itemsResueltos || [],
+      items: resolvedCatalogItems,
       total,
       paymentMethod: draft.paymentMethod,
       shippingCost,
@@ -449,7 +526,7 @@ export async function confirmConversationSale(
       loyaltyDiscount: 0,
       loyaltyPointsRedeemed: 0,
       discountTotal: Number(calculation.descuentoCupon || 0),
-      stockItems: calculation.itemsResueltos || [],
+      stockItems: resolvedCatalogItems,
       attribution: request.attribution || {},
     });
     updated = await orderRepository.update(order.numeric_id, {
@@ -474,7 +551,7 @@ export async function confirmConversationSale(
   }
 
   const labels = Array.from(new Set([
-    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
     ...(transferPaid ? ['pagado'] : []),
   ]));
