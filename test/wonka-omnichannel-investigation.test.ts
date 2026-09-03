@@ -50,3 +50,11 @@ test('Wonka System Prompt: enforces critical investigation rule and selects tool
   assert.match(wonkaCode, /NUNCA inventes clientes, pagos, montos ni mensajes/);
   assert.match(wonkaCode, /add\('search_omnichannel_messages'/);
 });
+
+test('OCR Media Storage and Backfill: includes permanent storage helper and backfill runner', () => {
+  const ocrCode = read('src/lib/messaging/ocr.ts');
+  assert.match(ocrCode, /persistMediaToStorage/);
+  assert.match(ocrCode, /omnichannel-media/);
+  assert.match(ocrCode, /runHistoricalMediaBackfill/);
+  assert.match(ocrCode, /matchesFor22950/);
+});

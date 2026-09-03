@@ -4,6 +4,7 @@ import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-r
 import { ConversationRepository } from '@/lib/repositories/conversations-repository';
 import { MessageRepository } from '@/lib/repositories/messages-repository';
 import { resolveCustomer } from './identity';
+import { processInboundImageOcrAsync } from './ocr';
 import type { NormalizedMessage, PersistedMessage } from './types';
 
 export async function resolveBusinessUnitForMessage(
@@ -188,6 +189,13 @@ export async function persistMessage(
   try {
     const created = await messages.create(conversation.id, customerId, message);
     await updateTransportHealth(db, message);
+
+    if (message.message_type === 'image' && created?.id) {
+      void processInboundImageOcrAsync(db, created.id, message).catch((err) => {
+        console.error('image_ocr_background_error', { messageId: created.id, error: err });
+      });
+    }
+
     return {
       duplicate: false,
       conversationId: conversation.id,
