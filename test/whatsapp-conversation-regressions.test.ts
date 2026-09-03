@@ -42,7 +42,7 @@ test('WhatsApp auto-sale has an explicit pickup path that does not require check
 
 test('WhatsApp Business App echoes are eligible for payment reconciliation without invoking Remy', () => {
   const source = readFileSync(new URL('../src/lib/messaging/whatsapp-webhook-handlers.ts', import.meta.url), 'utf8');
-  assert.match(source, /isAppEcho[\s\S]*deps\.autoSale/);
+  assert.match(source, /isAppEcho[\s\S]*attemptAutoSale/);
 });
 
 test('WABA subscription explicitly requests SMB message echoes alongside messages', () => {
