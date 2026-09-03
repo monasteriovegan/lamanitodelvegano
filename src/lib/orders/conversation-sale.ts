@@ -251,7 +251,7 @@ Debes llamar a extract_sale una sola vez.`;
   const productMap = new Map(catalog.map((product) => [product.id, product]));
   const zoneMap = new Map(shippingZones.map((zone) => [zone.id, zone]));
   const items: DraftItem[] = Array.isArray(args.items)
-    ? args.items.flatMap((raw: any) => {
+    ? args.items.flatMap((raw: any): DraftItem[] => {
       const productId = cleanString(raw?.productId);
       const quantity = Math.max(0, Math.floor(Number(raw?.quantity || 0)));
       if (quantity < 1) return [];
