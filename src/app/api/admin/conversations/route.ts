@@ -74,7 +74,7 @@ export async function GET(request: Request) {
       customerName: contact?.nombre || null,
       instagramUsername,
       instagramName,
-      labels,
+      labels: Array.isArray(row.labels) ? row.labels.map(String) : [],
       phone: row.channel === 'whatsapp' ? (contact?.phone || contact?.external_id || row.external_conversation_id) : null,
       email: contact?.email || null,
       externalId: contact?.external_id || row.external_conversation_id,
