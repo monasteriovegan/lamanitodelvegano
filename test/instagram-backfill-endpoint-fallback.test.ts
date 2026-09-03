@@ -16,6 +16,11 @@ test('backfill histórico conserva el Instagram asset canónico para resolver el
   assert.match(source, /routingBusinessInstagramId|businessInstagramId/);
 });
 
+test('backfill conserva el username real de Instagram para identificar al cliente', () => {
+  assert.match(source, /username/);
+  assert.match(source, /usernames/);
+});
+
 test('backfill conserva Facebook Login como fallback si Instagram Login no está disponible', () => {
   assert.match(source, /getActiveCredential/);
   assert.match(source, /discoverConversationSource/);
