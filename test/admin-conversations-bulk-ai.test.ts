@@ -25,7 +25,7 @@ test('bulk-enable-ai solo toca whatsapp/instagram y solo los que están apagados
 });
 
 test('el panel muestra un estado combinado por conversación y un botón de reactivación masiva', () => {
-  const client = read('src/app/admin/conversaciones/ConversationsClient.tsx');
+  const client = read('src/app/admin/conversaciones/ConversationsClientV2.tsx');
   assert.match(client, /function conversationAiState/);
   assert.match(client, /bulk-enable-ai/);
   assert.match(client, /pausadas`/);
