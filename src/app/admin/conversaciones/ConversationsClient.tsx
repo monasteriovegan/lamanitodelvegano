@@ -39,6 +39,16 @@ function remainingWindow(expiresAt: string | null) {
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
   return { open: true, label: `${hours} h ${minutes} min restantes` };
 }
+// Combines the 4 independent switches (global, per-conversation, human
+// takeover, personal) into a single at-a-glance state, so you don't have to
+// open a conversation to know whether Remy is actually going to answer it.
+function conversationAiState(conversation: Conversation, aiGlobalEnabled: boolean) {
+  if (conversation.personal) return { dot: '⚪', label: 'Personal', hint: 'Contacto personal: excluido del CRM y de Remy.' };
+  if (conversation.humanTakeover) return { dot: '🔵', label: 'Tomado por humano', hint: 'Un humano tomó esta conversación. Remy está pausado hasta liberarla.' };
+  if (conversation.channel === 'whatsapp' && !aiGlobalEnabled) return { dot: '⚪', label: 'Pausado (global)', hint: 'El interruptor global de WhatsApp IA está apagado. Afecta a todas las conversaciones por igual.' };
+  if (!conversation.aiEnabled) return { dot: '🟠', label: 'Pausado aquí', hint: 'Apagaste a Remy en esta conversación puntual. Actívalo con el botón "Habilitar Remy" o con "Reactivar en todas".' };
+  return { dot: '🟢', label: conversation.channel === 'whatsapp' ? 'Remy activo' : 'Remy listo', hint: 'Remy va a responder automáticamente a los próximos mensajes de este chat.' };
+}
 
 export default function ConversationsClient() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -53,11 +63,15 @@ export default function ConversationsClient() {
   const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<AiSettings>({ enabled: false, provider: 'gemini', model: 'gemini-2.5-flash', providers: {} });
   const [savingAi, setSavingAi] = useState(false);
+  const [bulkEnabling, setBulkEnabling] = useState(false);
 
   const visibleConversations = useMemo(() => filter === 'all' ? conversations : conversations.filter((item) => item.channel === filter), [conversations, filter]);
   const selected = useMemo(() => conversations.find((conversation) => conversation.id === selectedId) || null, [conversations, selectedId]);
   const windowState = useMemo(() => remainingWindow(selected?.serviceWindowExpiresAt || null), [selected?.serviceWindowExpiresAt]);
   const hasConnectedProvider = useMemo(() => Object.values(ai.providers || {}).some(Boolean), [ai.providers]);
+  const pausedIndividuallyCount = useMemo(() => conversations.filter((item) => (
+    (item.channel === 'whatsapp' || item.channel === 'instagram') && !item.aiEnabled && !item.personal
+  )).length, [conversations]);
 
   const loadConversations = useCallback(async () => {
     const response = await fetch('/api/admin/conversations', { cache: 'no-store' });
@@ -121,6 +135,23 @@ export default function ConversationsClient() {
     finally { setSavingAi(false); }
   };
 
+  const bulkEnableAi = async () => {
+    if (bulkEnabling || pausedIndividuallyCount === 0) return;
+    const confirmed = window.confirm(
+      `Esto va a reactivar Remy en ${pausedIndividuallyCount} conversación${pausedIndividuallyCount === 1 ? '' : 'es'} donde lo apagaste manualmente. `
+      + 'No afecta a las conversaciones marcadas como Personal ni a las que tiene tomadas un humano. ¿Continuar?',
+    );
+    if (!confirmed) return;
+    setBulkEnabling(true); setError(null);
+    try {
+      const response = await fetch('/api/admin/conversations/bulk-enable-ai', { method: 'POST' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'No se pudo reactivar Remy en las conversaciones');
+      await loadConversations();
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo reactivar Remy en las conversaciones'); }
+    finally { setBulkEnabling(false); }
+  };
+
   const patchConversation = async (patch: { personal?: boolean; aiEnabled?: boolean; humanTakeover?: boolean }) => {
     if (!selected || updating) return;
     setUpdating(true); setError(null);
@@ -158,9 +189,19 @@ export default function ConversationsClient() {
       <PageHeader eyebrow="✦ Omnicanal" title="Conversaciones" action={
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           <span className="rounded-full border border-neon/30 bg-neon/10 px-3 py-1.5 text-neon font-semibold">WhatsApp + Instagram + Web</span>
-          <button onClick={() => void toggleGlobalAi()} disabled={savingAi || (!hasConnectedProvider && !ai.enabled)} className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
+          <button onClick={() => void toggleGlobalAi()} disabled={savingAi || (!hasConnectedProvider && !ai.enabled)} title="Prende o apaga a Remy para TODO WhatsApp de una. No afecta los interruptores individuales de cada conversación." className={`rounded-full border px-3 py-1.5 font-semibold transition-colors disabled:opacity-40 ${ai.enabled ? 'border-neon/50 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/60'}`}>
             {ai.enabled ? '🤖 WhatsApp IA global ON' : '🤖 WhatsApp IA global OFF'}
           </button>
+          {pausedIndividuallyCount > 0 && (
+            <button
+              onClick={() => void bulkEnableAi()}
+              disabled={bulkEnabling}
+              title="Reactiva el interruptor individual de Remy en todas las conversaciones donde lo apagaste a mano. No toca conversaciones Personales ni tomadas por un humano."
+              className="rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 font-semibold text-amber-200 transition-colors disabled:opacity-40"
+            >
+              {bulkEnabling ? 'Reactivando…' : `🔄 Reactivar Remy en las ${pausedIndividuallyCount} pausadas`}
+            </button>
+          )}
         </div>
       } />
 
@@ -168,7 +209,7 @@ export default function ConversationsClient() {
         <div className={`text-[10px] px-2.5 py-2 rounded-lg ${hasConnectedProvider ? 'text-neon bg-neon/10' : 'text-amber-200 bg-amber-400/10'}`}>
           {hasConnectedProvider ? 'Proveedor IA conectado' : 'Falta conectar un proveedor IA'}
         </div>
-        <div className="text-[10px] text-white/45">El modelo de Remy se administra en <b>Agentes</b>. Este interruptor solo habilita o bloquea la automatización global de WhatsApp.</div>
+        <div className="text-[10px] text-white/45">El modelo de Remy se administra en <b>Agentes</b>. Este interruptor solo habilita o bloquea la automatización global de WhatsApp — cada conversación además tiene su propio interruptor individual (columna izquierda y botón &quot;Habilitar Remy&quot; en cada chat).</div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -184,9 +225,11 @@ export default function ConversationsClient() {
           <div className="max-h-[720px] overflow-y-auto">
             {!loading && visibleConversations.length === 0 ? <EmptyState emoji="💬" texto="Aún no hay conversaciones en este canal." /> : visibleConversations.map((conversation) => {
               const active = conversation.id === selectedId; const meta = channelMeta(conversation.channel);
+              const aiState = conversationAiState(conversation, ai.enabled);
               return <button key={conversation.id} onClick={() => setSelectedId(conversation.id)} className={`w-full text-left px-4 py-4 border-b border-white/5 ${active ? 'bg-neon/10' : 'hover:bg-white/[0.03]'}`}>
-                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-bold text-white truncate">{meta.icon} {conversation.name}</div><div className="text-[10px] text-white/40 mt-0.5 truncate">{conversation.channel === 'whatsapp' && conversation.phone ? `+${conversation.phone.replace(/^\+/, '')}` : meta.label}{conversation.personal ? ' · Personal' : ''}{conversation.humanTakeover ? ' · 👤 Humano' : conversation.aiEnabled ? ' · 🤖 Remy' : ''}</div></div><div className="text-[9px] text-white/35">{formatDate(conversation.lastMessageAt)}</div></div>
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-sm font-bold text-white truncate">{meta.icon} {conversation.name}</div><div className="text-[10px] text-white/40 mt-0.5 truncate">{conversation.channel === 'whatsapp' && conversation.phone ? `+${conversation.phone.replace(/^\+/, '')}` : meta.label}</div></div><div className="text-[9px] text-white/35 text-right shrink-0"><div>{formatDate(conversation.lastMessageAt)}</div></div></div>
                 <div className="mt-2 text-xs text-white/55 truncate">{conversation.lastDirection === 'outbound' ? 'Tú: ' : ''}{conversation.lastMessage || 'Sin mensajes'}</div>
+                <div title={aiState.hint} className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-white/50">{aiState.dot} {aiState.label}</div>
               </button>;
             })}
           </div>
@@ -197,12 +240,24 @@ export default function ConversationsClient() {
             <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-start justify-between gap-3">
               <div><div className="font-display font-bold text-white">{channelMeta(selected.channel).icon} {selected.name}</div><div className="text-xs text-muted mt-1">{selected.channel === 'whatsapp' && selected.phone ? `+${selected.phone.replace(/^\+/, '')}` : selected.externalId} · {channelMeta(selected.channel).label}</div><div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${windowState.open ? 'bg-neon/10 text-neon border border-neon/20' : 'bg-amber-400/10 text-amber-200 border border-amber-400/20'}`}>{windowState.open ? '🟢' : '🟠'} {windowState.label}</div></div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {selected.channel !== 'web' && <button onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })} disabled={updating || selected.personal || selected.humanTakeover} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
-                <button onClick={() => void patchConversation({ humanTakeover: !selected.humanTakeover })} disabled={updating || selected.personal} className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.humanTakeover ? 'border-sky-300/40 bg-sky-300/10 text-sky-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.humanTakeover ? '👤 Liberar a Remy' : '👤 Tomar conversación'}</button>
-                <button onClick={() => void patchConversation({ personal: !selected.personal })} disabled={updating} className={`rounded-lg border px-2.5 py-1.5 text-[10px] ${selected.personal ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.personal ? '👤 Personal / No CRM' : 'Marcar como personal'}</button>
+                {selected.channel !== 'web' && <button
+                  onClick={() => void patchConversation({ aiEnabled: !selected.aiEnabled })}
+                  disabled={updating || selected.personal || selected.humanTakeover}
+                  title={selected.personal ? 'No puedes activar Remy: esta conversación está marcada como Personal.' : selected.humanTakeover ? 'No puedes activar Remy: un humano tiene tomada esta conversación. Libérala primero con "Liberar a Remy".' : 'Solo afecta a esta conversación. El interruptor global de WhatsApp está más arriba.'}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.aiEnabled ? 'border-neon/40 bg-neon/10 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}
+                >{selected.aiEnabled ? '🤖 Remy habilitado' : '🤖 Habilitar Remy'}</button>}
+                <button
+                  onClick={() => void patchConversation({ humanTakeover: !selected.humanTakeover })}
+                  disabled={updating || selected.personal}
+                  title={selected.personal ? 'Las conversaciones personales no pasan por el CRM ni por Remy.' : selected.humanTakeover ? 'Vuelve a habilitar a Remy para esta conversación (según su interruptor individual).' : 'Pausa a Remy en esta conversación hasta que la liberes.'}
+                  className={`rounded-lg border px-2.5 py-1.5 text-[10px] disabled:opacity-40 ${selected.humanTakeover ? 'border-sky-300/40 bg-sky-300/10 text-sky-200' : 'border-white/10 bg-white/5 text-white/50'}`}
+                >{selected.humanTakeover ? '👤 Liberar a Remy' : '👤 Tomar conversación'}</button>
+                <button onClick={() => void patchConversation({ personal: !selected.personal })} disabled={updating} title="Las conversaciones personales quedan fuera del CRM y nunca las contesta Remy, sin importar los otros interruptores." className={`rounded-lg border px-2.5 py-1.5 text-[10px] ${selected.personal ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/5 text-white/50'}`}>{selected.personal ? '👤 Personal / No CRM' : 'Marcar como personal'}</button>
                 <div className="text-right text-[10px] text-white/45"><div>CRM: {selected.personal ? 'excluido' : selected.crmStatus}</div><div>IA: {selected.channel === 'whatsapp' ? (ai.enabled && selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'activa' : 'inactiva') : (selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'preparada' : 'inactiva')}{selected.humanTakeover ? ' · humano' : ''}</div></div>
               </div>
             </div>
+            {selected.personal && <div className="px-5 pb-3 -mt-1 text-[10px] text-amber-200/80">👤 Marcada como Personal: no puedes activar Remy ni la toma humana mientras esté así. Desmárcala primero si quieres automatizarla.</div>}
+            {!selected.personal && selected.humanTakeover && <div className="px-5 pb-3 -mt-1 text-[10px] text-sky-200/80">🔵 Tomada por un humano: el botón &quot;Habilitar Remy&quot; queda bloqueado hasta que la liberes.</div>}
 
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3 bg-black/10">
               {loadingMessages ? <div className="text-center text-xs text-muted py-8">Cargando conversación...</div> : messages.length === 0 ? <EmptyState emoji="✉️" texto="Esta conversación todavía no tiene mensajes." /> : messages.map((message) => {
