@@ -111,6 +111,13 @@ export async function POST(request: Request) {
       if (!result.duplicate && shouldAttemptInstagramAutoSale(message)) {
         try {
           const synced = await autoRegisterInstagramConversationSale(db, result.conversationId);
+          console.info('instagram_autosale_result', {
+            conversationId: result.conversationId,
+            status: synced.status,
+            missing: synced.missing || [],
+            orderId: synced.orderId || null,
+            paymentStatus: synced.paymentStatus || null,
+          });
           if (synced.status === 'synced') ordersSynced += 1;
         } catch (error) {
           console.error('instagram_order_auto_sync_failed', {
