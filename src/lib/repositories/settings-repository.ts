@@ -9,7 +9,11 @@ export type SafeAiSettings = {
 };
 
 export class SettingsRepository {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
 
   async getSiteSettings(): Promise<JsonRecord | null> {
     const { data, error } = await this.db.from('ajustes').select('id,data').eq('id', 'global').maybeSingle();

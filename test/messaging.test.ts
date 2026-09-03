@@ -234,3 +234,13 @@ test('migración omnicanal permanece transaccional, aditiva y con IA apagada', (
   assert.match(source, /automatic_ai_enabled\s+boolean\s+not\s+null\s+default\s+false/i);
   assert.match(source, /automatic_ai_enabled=false/i);
 });
+
+test('los eventos de estado nunca se insertan como mensajes independientes en la persistencia', () => {
+  const source = readFileSync(
+    new URL('../src/lib/messaging/messages.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /if\s*\(\s*message\.message_type\.startsWith\('status:'\)\s*\)/);
+  assert.match(source, /updateTransportHealth/);
+  assert.match(source, /duplicate:\s*true/);
+});

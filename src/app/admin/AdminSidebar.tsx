@@ -8,66 +8,40 @@ type Rol = 'admin' | 'soporte' | 'bodega';
 
 const GRUPOS = [
   {
-    label: null,
-    tabs: [{ href: '/admin', label: '🏠 Inicio', exact: true, roles: ['admin', 'soporte', 'bodega'] as Rol[] }],
-  },
-  {
-    label: 'Director',
+    label: 'Operación',
     tabs: [
-      { href: '/admin/wonka', label: '🎩 Wonka Hub', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/agentes', label: '🤖 Agentes & modelos', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/computer', label: '🖥️ Synthetiq Computer', exact: false, roles: ['admin'] as Rol[] },
-    ],
-  },
-  {
-    label: 'Catálogo',
-    tabs: [
-      { href: '/admin/productos', label: '🌿 Productos', exact: false, roles: ['admin', 'bodega'] as Rol[] },
-      { href: '/admin/categorias', label: '🏷️ Categorías', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/destacados', label: '⭐ Destacados', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/temporadas', label: '🍂 Temporadas', exact: false, roles: ['admin'] as Rol[] },
-    ],
-  },
-  {
-    label: 'Gastronomía',
-    tabs: [
-      { href: '/admin/ingredientes', label: '🥕 Ingredientes', exact: false, roles: ['admin', 'bodega'] as Rol[] },
-      { href: '/admin/recetas', label: '🍳 Recetas & Costos', exact: false, roles: ['admin'] as Rol[] },
-    ],
-  },
-  {
-    label: 'Comercio',
-    tabs: [
+      { href: '/admin', label: '🏠 Inicio', exact: true, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
+      { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
-      { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
-      { href: '/admin/reservas', label: '📅 Reservas', exact: false, roles: ['admin', 'soporte'] as Rol[] },
-      { href: '/admin/zonas', label: '🚚 Envíos', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/entregas', label: '📅 Días de Entrega', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/metricas', label: '📊 Métricas', exact: false, roles: ['admin'] as Rol[] },
-    ],
-  },
-  {
-    label: 'Marketing',
-    tabs: [
-      { href: '/admin/media', label: '🎬 Creativos Meta', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/productos', label: '🌿 Catálogo Master', exact: false, roles: ['admin', 'bodega'] as Rol[] },
+      { href: '/admin/categorias', label: '🏷️ Categorías', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/entregas', label: '📅 Entregas & Días', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/zonas', label: '🚚 Zonas de Envío', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/metricas', label: '📊 Ventas & Métricas', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/cupones', label: '🎟️ Cupones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
+      { href: '/admin/recetas', label: '🍳 Recetas & Costos', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/ingredientes', label: '🥕 Ingredientes', exact: false, roles: ['admin', 'bodega'] as Rol[] },
+      { href: '/admin/media', label: '🎬 Creativos Meta', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/promo-flyer', label: '📢 Promo Flyer', exact: false, roles: ['admin'] as Rol[] },
     ],
   },
   {
-    label: 'Contenido',
+    label: 'Wonka / Inteligencia',
     tabs: [
-      { href: '/admin/blog', label: '✍️ Blog del Taller', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/mensajes', label: '✉️ Mensajes de Contacto', exact: false, roles: ['admin', 'soporte'] as Rol[] },
+      { href: '/admin/wonka', label: '🎩 Wonka Hub', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/agentes', label: '🤖 Agentes & Modelos', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/computer', label: '🖥️ Synthetiq Computer', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/uso-costos', label: '💸 Automatizaciones & Costos', exact: false, roles: ['admin'] as Rol[] },
     ],
   },
   {
-    label: 'Sistema',
+    label: 'Configuración & Contenido',
     tabs: [
-      { href: '/admin/uso-costos', label: '💸 Uso & Costos', exact: false, roles: ['admin'] as Rol[] },
-      { href: '/admin/ajustes', label: '⚙️ Ajustes', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/integraciones', label: '🔌 Integraciones', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/ajustes', label: '⚙️ Configuración', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/blog', label: '✍️ Blog', exact: false, roles: ['admin'] as Rol[] },
+      { href: '/admin/mensajes', label: '✉️ Contacto Web', exact: false, roles: ['admin', 'soporte'] as Rol[] },
     ],
   },
 ];

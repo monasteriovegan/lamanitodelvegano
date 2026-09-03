@@ -63,7 +63,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
 
   const orderRepository = new OrderRepository(supabase);
   const customerRepository = new CustomerRepository(supabase);
-  const [orders, recent, customers, { data: lowStock }] = await Promise.all([
+  const [orders, recent, customers, { data: lowStock }, { data: rawConversations }] = await Promise.all([
     orderRepository.list({ createdAfter: inicio.toISOString() }),
     orderRepository.list({ limit: 6 }),
     customerRepository.list(),
@@ -72,14 +72,24 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
       .select('id, nombre, stock, maneja_stock, activo')
       .eq('maneja_stock', true)
       .eq('activo', true)
-      .lte('stock', 3)
+      .lte('stock', 3),
+    supabase
+      .from('conversations')
+      .select('id, last_direction, unread_count, personal, status')
+      .neq('personal', true)
   ]);
   const cCount = customers.length;
+  const customersWithPurchases = customers.filter((c) => (c.total_orders || 0) > 0).length;
+
+  const pendingConversations = (rawConversations || []).filter(
+    (c) => c.last_direction === 'inbound' || (c.unread_count || 0) > 0
+  ).length;
 
   const allOrders = orders;
   
   // Filtrar pedidos pagados/completados para el cálculo de ingresos
   const paidOrders = allOrders.filter((o) => ['confirmed', 'processing', 'shipped', 'delivered'].includes(o.status));
+  const pendingOrders = allOrders.filter((o) => o.status === 'pending').length;
   const ventasPeriodo = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalPedidos = allOrders.length;
   const ticketPromedio = paidOrders.length > 0 ? Math.round(ventasPeriodo / paidOrders.length) : 0;
@@ -153,12 +163,59 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
         }
       />
 
-      {/* KPI Stats */}
+      {/* KPI Stats Accionables */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Ventas del período" value={`$${ventasPeriodo.toLocaleString('es-CL')}`} accento="neon" />
-        <StatCard label="Cantidad pedidos" value={String(totalPedidos)} accento="gold" />
-        <StatCard label="Ticket promedio" value={`$${ticketPromedio.toLocaleString('es-CL')}`} accento="am" />
-        <StatCard label="Clientes totales" value={String(cCount || 0)} accento="neon" />
+        <Link href="/admin/conversaciones" className="block transition-transform hover:-translate-y-0.5">
+          <div className="bg-white/[0.03] border border-white/10 hover:border-neon/40 rounded-2xl p-4.5 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-muted mb-2">
+              <span>💬 Chats por Responder</span>
+              <span className="text-[10px] text-neon">Ver →</span>
+            </div>
+            <div className={`font-display font-black text-2xl ${pendingConversations > 0 ? 'text-amber-300' : 'text-white'}`}>
+              {pendingConversations}
+            </div>
+            <p className="text-[10px] text-white/40 mt-1">Inbounds esperando respuesta</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/pedidos" className="block transition-transform hover:-translate-y-0.5">
+          <div className="bg-white/[0.03] border border-white/10 hover:border-neon/40 rounded-2xl p-4.5 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-muted mb-2">
+              <span>📦 Pedidos por Confirmar</span>
+              <span className="text-[10px] text-neon">Ver →</span>
+            </div>
+            <div className={`font-display font-black text-2xl ${pendingOrders > 0 ? 'text-amber-300' : 'text-white'}`}>
+              {pendingOrders}
+            </div>
+            <p className="text-[10px] text-white/40 mt-1">De {totalPedidos} pedidos en período</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/metricas" className="block transition-transform hover:-translate-y-0.5">
+          <div className="bg-white/[0.03] border border-white/10 hover:border-neon/40 rounded-2xl p-4.5 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-muted mb-2">
+              <span>💰 Ventas del Período</span>
+              <span className="text-[10px] text-neon">Métricas →</span>
+            </div>
+            <div className="font-display font-black text-2xl text-neon">
+              ${ventasPeriodo.toLocaleString('es-CL')}
+            </div>
+            <p className="text-[10px] text-white/40 mt-1">Ticket prom: ${ticketPromedio.toLocaleString('es-CL')}</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/clientes" className="block transition-transform hover:-translate-y-0.5">
+          <div className="bg-white/[0.03] border border-white/10 hover:border-neon/40 rounded-2xl p-4.5 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-muted mb-2">
+              <span>👥 Clientes CRM</span>
+              <span className="text-[10px] text-neon">CRM →</span>
+            </div>
+            <div className="font-display font-black text-2xl text-white">
+              {cCount} <span className="text-xs text-white/40 font-normal">contactos</span>
+            </div>
+            <p className="text-[10px] text-emerald-400 mt-1">✓ {customersWithPurchases} con compras realizadas</p>
+          </div>
+        </Link>
       </div>
 
       {/* Operational Breakdown */}
@@ -167,9 +224,10 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
           const count = statusCounts[status];
           const hasCount = count > 0;
           return (
-            <div
+            <Link
               key={status}
-              className={`border rounded-xl p-3.5 text-center transition-all ${
+              href={`/admin/pedidos?estado=${status.toLowerCase()}`}
+              className={`border rounded-xl p-3.5 text-center transition-all block hover:border-neon/40 ${
                 hasCount
                   ? 'bg-white/[0.04] border-[rgba(0,255,179,0.2)] shadow-[0_2px_10px_rgba(0,255,179,0.02)]'
                   : 'bg-white/[0.01] border-white/5 opacity-50'
@@ -185,7 +243,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
               >
                 {count}
               </p>
-            </div>
+            </Link>
           );
         })}
       </div>

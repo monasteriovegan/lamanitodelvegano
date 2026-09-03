@@ -119,6 +119,23 @@ export interface Cupon {
   expira_at: string | null;
 }
 
+export interface PackSelectionItem {
+  optionGroupId: string;
+  optionGroupName: string;
+  optionValueId: string;
+  code: string;
+  label: string;
+  quantity: number;
+}
+
+export interface ItemPedidoOptions {
+  notes?: string | null;
+  selections?: PackSelectionItem[];
+  variantId?: string;
+  variantSku?: string;
+  campaignTag?: string;
+}
+
 export interface ItemCarrito {
   productoId: string;
   nombre: string;
@@ -127,6 +144,11 @@ export interface ItemCarrito {
   emoji?: string;
   formato?: string | null;
   variedad?: string | null;
+  variantId?: string;
+  variantSku?: string;
+  selections?: PackSelectionItem[];
+  campaignTag?: string;
+  notas?: string | null;
 }
 
 export interface ClienteInfo {
@@ -150,6 +172,7 @@ export interface Pedido {
   zonaEnvio: string | null;
   costoEnvio: number;
   metodoPago: string | null;
+  notas?: string | null;
 }
 
 // Payload que el cliente manda a /api/checkout — SOLO intenciones, nunca precios finales.
@@ -157,13 +180,23 @@ export interface Pedido {
 export interface CheckoutRequest {
   idempotencyKey?: string;
   cliente: ClienteInfo;
-  items: { productoId: string; qty: number; formato?: string | null; variedad?: string | null }[];
+  items: {
+    productoId: string;
+    qty: number;
+    variantId?: string;
+    formato?: string | null;
+    variedad?: string | null;
+    selections?: { optionValueId: string; quantity: number }[];
+    campaignTag?: string;
+    notas?: string | null;
+  }[];
   zonaId: string | null;
   cuponCode?: string | null;
   fechaDespachoIdx?: number;
   canjearPuntos?: boolean;
   pinFidelidad?: string;
   metodoPago: 'mercadopago' | 'flow' | 'whatsapp' | 'transfer';
+  notas?: string | null;
   attribution?: {
     fbclid?: string;
     fbc?: string;
@@ -198,6 +231,8 @@ export interface OrderItem {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  notas?: string | null;
+  opciones?: PackSelectionItem[] | ItemPedidoOptions | null;
   created_at?: string;
 }
 

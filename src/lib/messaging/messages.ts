@@ -134,6 +134,16 @@ export async function persistMessage(
   const statusResult = await applyProviderStatus(db, message);
   if (statusResult) return statusResult;
 
+  if (message.message_type.startsWith('status:')) {
+    await updateTransportHealth(db, message);
+    return {
+      duplicate: true,
+      conversationId: '',
+      customerId: null,
+      messageId: null,
+    };
+  }
+
   const messages = new MessageRepository(db);
   const existing = await messages.findDuplicate(message);
   if (existing) {

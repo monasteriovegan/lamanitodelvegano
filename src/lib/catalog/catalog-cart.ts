@@ -21,11 +21,12 @@ export interface CatalogCartItem {
   variantSku?: string;
   selections?: CatalogCartSelection[];
   campaignTag?: string;
+  notas?: string | null;
 }
 
 export function toCatalogCartItem(
   line: ResolvedCatalogLine,
-  options: { emoji?: string; campaignTag?: string } = {},
+  options: { emoji?: string; campaignTag?: string; notas?: string | null } = {},
 ): CatalogCartItem {
   const selections = line.selections.map((selection) => ({ ...selection }));
   return {
@@ -42,6 +43,7 @@ export function toCatalogCartItem(
     variantSku: line.variantSku,
     selections,
     campaignTag: options.campaignTag,
+    notas: options.notas || null,
   };
 }
 

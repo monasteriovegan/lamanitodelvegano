@@ -239,12 +239,12 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
 
       <div className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm text-white">
-          <input type="checkbox" name="gluten_free" defaultChecked={producto?.gluten_free ?? true} />
-          Sin gluten
+          <input type="checkbox" name="gluten_free" defaultChecked={producto?.gluten_free ?? false} />
+          Sin gluten (solo si certificado)
         </label>
         <label className="flex items-center gap-2 text-sm text-white">
-          <input type="checkbox" name="nut_free" defaultChecked={producto?.nut_free ?? true} />
-          Sin nueces
+          <input type="checkbox" name="nut_free" defaultChecked={producto?.nut_free ?? false} />
+          Sin nueces (solo si certificado)
         </label>
         <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" name="is_new" defaultChecked={producto?.is_new ?? false} />

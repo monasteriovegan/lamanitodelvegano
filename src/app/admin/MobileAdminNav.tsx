@@ -17,25 +17,23 @@ const primary = [
 ];
 
 const more = [
-  { href: '/admin/wonka', icon: '🎩', label: 'Wonka Hub' },
-  { href: '/admin/agentes', icon: '🤖', label: 'Agentes & modelos' },
-  { href: '/admin/computer', icon: '🖥️', label: 'Synthetiq Computer' },
-  { href: '/admin/uso-costos', icon: '💸', label: 'Uso & Costos' },
-  { href: '/admin/productos', icon: '🌿', label: 'Productos' },
+  { href: '/admin/productos', icon: '🌿', label: 'Catálogo Master' },
   { href: '/admin/categorias', icon: '🏷️', label: 'Categorías' },
-  { href: '/admin/destacados', icon: '⭐', label: 'Destacados' },
-  { href: '/admin/temporadas', icon: '🍂', label: 'Temporadas' },
-  { href: '/admin/ingredientes', icon: '🥕', label: 'Ingredientes' },
-  { href: '/admin/recetas', icon: '🍳', label: 'Recetas & Costos' },
-  { href: '/admin/reservas', icon: '📅', label: 'Reservas' },
+  { href: '/admin/entregas', icon: '🗓️', label: 'Entregas & Días' },
   { href: '/admin/zonas', icon: '🚚', label: 'Envíos' },
-  { href: '/admin/entregas', icon: '🗓️', label: 'Días de Entrega' },
-  { href: '/admin/metricas', icon: '📊', label: 'Métricas' },
+  { href: '/admin/metricas', icon: '📊', label: 'Ventas & Métricas' },
   { href: '/admin/cupones', icon: '🎟️', label: 'Cupones' },
-  { href: '/admin/blog', icon: '✍️', label: 'Blog' },
-  { href: '/admin/mensajes', icon: '✉️', label: 'Contacto' },
-  { href: '/admin/ajustes', icon: '⚙️', label: 'Ajustes' },
+  { href: '/admin/recetas', icon: '🍳', label: 'Recetas & Costos' },
+  { href: '/admin/ingredientes', icon: '🥕', label: 'Ingredientes' },
+  { href: '/admin/media', icon: '🎬', label: 'Creativos Meta' },
+  { href: '/admin/wonka', icon: '🎩', label: 'Wonka Hub' },
+  { href: '/admin/agentes', icon: '🤖', label: 'Agentes & Modelos' },
+  { href: '/admin/computer', icon: '🖥️', label: 'Synthetiq Computer' },
+  { href: '/admin/uso-costos', icon: '💸', label: 'Automatizaciones' },
   { href: '/admin/integraciones', icon: '🔌', label: 'Integraciones' },
+  { href: '/admin/ajustes', icon: '⚙️', label: 'Configuración' },
+  { href: '/admin/blog', icon: '✍️', label: 'Blog' },
+  { href: '/admin/mensajes', icon: '✉️', label: 'Contacto Web' },
 ];
 
 function active(pathname: string, href: string, exact?: boolean) { return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`); }

@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     db.from('omnichannel_messages')
       .select('conversation_id,body,direction,status,created_at,sent_at,message_type')
       .in('conversation_id', conversationIds)
+      .not('message_type', 'like', 'status:%')
       .order('created_at', { ascending: false })
       .limit(1000),
   ]);
@@ -40,6 +41,7 @@ export async function GET(request: Request) {
   const lastMessageMap = new Map<string, any>();
   const lastInboundMap = new Map<string, string>();
   for (const message of messages || []) {
+    if (message.message_type?.startsWith('status:')) continue;
     if (!lastMessageMap.has(message.conversation_id)) lastMessageMap.set(message.conversation_id, message);
     if (message.direction === 'inbound' && !lastInboundMap.has(message.conversation_id)) {
       lastInboundMap.set(message.conversation_id, message.sent_at || message.created_at);

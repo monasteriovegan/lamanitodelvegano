@@ -7,7 +7,11 @@ import { decryptMetaToken } from '@/lib/meta/token-crypto';
 type MetaAssetType = 'instagram_account' | 'whatsapp_phone_number';
 
 export class MetaConnectionsRepository {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
 
   async resolveBusinessUnitForMessage(message: NormalizedMessage): Promise<string | null> {
     const asset = metaAssetReference(message);

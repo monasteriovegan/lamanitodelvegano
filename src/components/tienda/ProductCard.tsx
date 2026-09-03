@@ -5,6 +5,7 @@ import type { Producto } from '@/types/domain';
 import { useCart } from '@/lib/cart/CartContext';
 import { itemKey } from '@/lib/cart/CartContext';
 import { trackAddToCart } from '@/lib/analytics/client';
+import { formatPriceSummary } from '@/lib/catalog/price-summary';
 
 const TAG_STYLES: Record<string, string> = {
   nuevo: 'bg-v3 text-white',
@@ -82,11 +83,16 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
         <div className="flex items-center justify-between">
           <div>
             <span className="font-body text-[14.5px] text-neon font-bold">
-              ${producto.precio.toLocaleString('es-CL')}
+              {formatPriceSummary(producto).formattedDisplayPrice}
             </span>
-            {producto.precio_anterior && (
+            {formatPriceSummary(producto).formattedOriginalPrice && (
               <span className="block text-[9px] text-gray-500 line-through">
-                ${producto.precio_anterior.toLocaleString('es-CL')}
+                {formatPriceSummary(producto).formattedOriginalPrice}
+              </span>
+            )}
+            {formatPriceSummary(producto).packSummary && (
+              <span className="block text-[9px] text-neon/80 font-semibold mt-0.5">
+                {formatPriceSummary(producto).packSummary}
               </span>
             )}
           </div>

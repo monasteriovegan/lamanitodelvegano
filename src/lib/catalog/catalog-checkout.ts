@@ -11,6 +11,7 @@ export interface CatalogCheckoutItemIntent {
   formato?: string | null;
   variedad?: string | null;
   clientPrice?: number;
+  notas?: string | null;
 }
 export type CatalogCheckoutItemResult =
   | { ok: true; item: CatalogCartItem }
@@ -34,6 +35,7 @@ export function resolveCatalogCheckoutItem(
     item: toCatalogCartItem(result.line, {
       emoji: product.emoji || '🌱',
       campaignTag: intent.campaignTag,
+      notas: intent.notas,
     }),
   };
 }

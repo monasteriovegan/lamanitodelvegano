@@ -11,7 +11,11 @@ export type BusinessUnit = {
 };
 
 export class BusinessRepository {
-  constructor(private readonly db: SupabaseClient) {}
+  private readonly db: SupabaseClient;
+
+  constructor(db: SupabaseClient) {
+    this.db = db;
+  }
 
   async getDefault(): Promise<BusinessUnit | null> {
     const { data, error } = await this.db

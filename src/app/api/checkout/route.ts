@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     discountTotal: (calculo.descuentoCupon || 0) + descuentoFidelidad,
     stockItems: calculo.itemsResueltos || [],
     attribution: body.attribution || {},
+    notes: body.notas || null,
   });
 
   if (body.cliente.email) {

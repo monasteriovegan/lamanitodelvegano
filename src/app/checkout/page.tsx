@@ -21,6 +21,7 @@ function CheckoutContent() {
   const [direccion, setDireccion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  const [notas, setNotas] = useState('');
   const [attribution, setAttribution] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -121,10 +122,12 @@ function CheckoutContent() {
             campaignTag: i.campaignTag,
             formato: i.formato,
             variedad: i.variedad,
+            notas: i.notas || null,
           })),
           zonaId: zonaId || null,
           cuponCode: cuponCode || null,
           metodoPago,
+          notas: notas.trim() || null,
           attribution,
         }),
       });
@@ -251,6 +254,19 @@ function CheckoutContent() {
               value={cuponCode}
               onChange={(e) => setCuponCode(e.target.value.toUpperCase())}
               className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+            />
+          </div>
+
+          <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
+            <h2 className="text-sm font-bold text-white mb-1.5">Instrucciones de entrega / Comentarios</h2>
+            <p className="text-xs text-white/50 mb-3">Horario preferido, indicaciones del lugar o notas para tu pedido.</p>
+            <textarea
+              rows={2}
+              maxLength={500}
+              placeholder="Ej: Entregar después de las 18:00, tocar timbre depto 402, etc."
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white resize-none outline-none focus:border-neon"
             />
           </div>
 

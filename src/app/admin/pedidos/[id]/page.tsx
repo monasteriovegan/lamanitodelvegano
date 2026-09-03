@@ -78,6 +78,16 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
             </div>
           </div>
 
+          {/* Comentarios e Instrucciones del Pedido */}
+          {order.notes && (
+            <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-4.5 text-amber-200 shadow-sm">
+              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider mb-1.5 text-amber-300">
+                <span>📝</span> Instrucciones / Comentarios del Cliente
+              </div>
+              <p className="text-sm text-white font-medium whitespace-pre-wrap leading-relaxed">{order.notes}</p>
+            </div>
+          )}
+
           {/* Desglose de Productos */}
           <div className="bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-2xl p-5">
             <h2 className="text-xs font-display font-bold text-neon uppercase tracking-widest mb-4">
@@ -87,21 +97,39 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-white/10 text-[11px] text-muted uppercase tracking-wider">
-                    <th className="py-2.5">Producto</th>
+                    <th className="py-2.5">Producto & Composición</th>
                     <th className="py-2.5 text-center">Cant.</th>
                     <th className="py-2.5 text-right">Precio Unit.</th>
                     <th className="py-2.5 text-right">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {(order.order_items || []).map((item: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="py-3 text-white font-medium">{item.product_name}</td>
-                      <td className="py-3 text-center text-muted font-mono">{item.quantity}</td>
-                      <td className="py-3 text-right text-muted">{fmtCLP(item.unit_price)}</td>
-                      <td className="py-3 text-right text-white font-bold">{fmtCLP(item.subtotal)}</td>
-                    </tr>
-                  ))}
+                  {(order.items || order.order_items || []).map((item: any, idx: number) => {
+                    const variedad = item.variedad || (Array.isArray(item.selections) ? item.selections.map((s: any) => `${s.quantity}× ${s.label}`).join(', ') : null);
+                    const itemNotas = item.notas;
+                    return (
+                      <tr key={idx} className="align-top">
+                        <td className="py-3 text-white">
+                          <div className="font-semibold text-sm">{item.product_name || item.nombre}</div>
+                          {item.formato && <span className="inline-block mt-0.5 text-[11px] text-neon/80 bg-neon/10 px-2 py-0.5 rounded-md font-mono">{item.formato}</span>}
+                          {variedad && (
+                            <div className="mt-1 text-xs text-white/70 bg-white/[0.03] border border-white/10 rounded-lg p-2 font-mono">
+                              <span className="text-white/40 block text-[10px] uppercase font-bold tracking-wider">Composición:</span>
+                              {variedad}
+                            </div>
+                          )}
+                          {itemNotas && (
+                            <div className="mt-1 text-xs text-amber-200/90 italic">
+                              Obs: {itemNotas}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 text-center text-muted font-mono">{item.quantity || item.qty || 1}</td>
+                        <td className="py-3 text-right text-muted">{fmtCLP(item.unit_price || item.precio)}</td>
+                        <td className="py-3 text-right text-white font-bold">{fmtCLP(item.subtotal || (item.precio * (item.qty || 1)))}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

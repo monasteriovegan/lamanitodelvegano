@@ -73,6 +73,7 @@ export type CheckoutOrderInput = {
   discountTotal: number;
   stockItems: JsonRecord[];
   attribution: JsonRecord;
+  notes?: string | null;
 };
 
 export type ConversationOrderInput = {
@@ -345,6 +346,11 @@ export class OrderRepository {
     if (error) throw error;
     const pedidoId = Number((data as JsonRecord)?.pedido_id);
     if (!Number.isInteger(pedidoId)) throw new Error('checkout_create_order_v2 no devolvió pedido_id integer.');
+
+    if (input.notes) {
+      await this.db.from('pedidos').update({ notas: input.notes }).eq('id', pedidoId);
+    }
+
     const order = await this.getById(pedidoId);
     if (!order) throw new Error('El checkout fue creado pero no pudo recuperarse.');
     return order;

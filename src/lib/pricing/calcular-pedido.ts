@@ -97,6 +97,7 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
       emoji: prod.emoji || '🌱',
       formato: reqItem.formato || null,
       variedad: reqItem.variedad || null,
+      notas: reqItem.notas || null,
     });
   }
 
