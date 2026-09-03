@@ -132,9 +132,12 @@ async function loadMessageDetails(input: {
   return messages.sort((a, b) => new Date(a?.created_time || 0).getTime() - new Date(b?.created_time || 0).getTime());
 }
 
-function counterpartyFromParticipants(row: ConversationRow, businessInstagramId: string) {
+function counterpartyFromParticipants(row: ConversationRow, businessIds: Set<string>) {
   const participants = Array.isArray(row.participants?.data) ? row.participants!.data! : [];
-  return participants.find((item) => String(item?.id || '') && String(item.id) !== businessInstagramId) || null;
+  return participants.find((item) => {
+    const id = String(item?.id || '');
+    return id && !businessIds.has(id);
+  }) || null;
 }
 
 function paymentRelevant(text: string) {
@@ -166,9 +169,16 @@ async function run(request: Request) {
 
   try {
     const businessUnitId = process.env.MANITO_BUSINESS_UNIT_ID || DEFAULT_BUSINESS_UNIT_ID;
-    const credential = await new MetaConnectionsRepository(db).getInstagramLoginCredential(businessUnitId);
+    const repository = new MetaConnectionsRepository(db);
+    const [credential, routingCredential] = await Promise.all([
+      repository.getInstagramLoginCredential(businessUnitId),
+      repository.getActiveCredential(businessUnitId, 'instagram_account'),
+    ]);
     const secretBearer = credential.accessToken;
     const businessInstagramId = credential.externalId;
+    const businessIds = new Set(
+      [String(credential.externalId || ''), String(routingCredential.externalId || '')].filter(Boolean),
+    );
     const version = process.env.META_GRAPH_VERSION || 'v26.0';
 
     const rows = await listWindow({ version, businessInstagramId, secretBearer, offset, limit });
@@ -177,7 +187,7 @@ async function run(request: Request) {
     for (const row of rows) {
       const conversationId = String(row?.id || '');
       if (!conversationId) continue;
-      const participant = counterpartyFromParticipants(row, businessInstagramId);
+      const participant = counterpartyFromParticipants(row, businessIds);
       const userId = String(participant?.id || '');
       const profile = userId
         ? await profileForParticipant({ version, userId, secretBearer })
@@ -193,7 +203,7 @@ async function run(request: Request) {
           .map((message: any) => {
             const fromId = String(message?.from?.id || '');
             return {
-              direction: fromId === businessInstagramId ? 'outbound' as const : 'inbound' as const,
+              direction: businessIds.has(fromId) ? 'outbound' as const : 'inbound' as const,
               at: message?.created_time ? String(message.created_time) : null,
               text: String(message?.message || ''),
             };
