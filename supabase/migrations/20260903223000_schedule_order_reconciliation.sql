@@ -26,7 +26,7 @@ begin
 
   response := extensions.http((
     'POST'::extensions.http_method,
-    'https://lamanitodelvegano.cl/api/internal/reconcile-pending-sales?limit=50&hours=72'::varchar,
+    'https://lamanitodelvegano-monasteriovegans-projects.vercel.app/api/internal/reconcile-pending-sales?limit=50&hours=72'::varchar,
     array[
       extensions.http_header('x-order-reconcile-key', reconcile_key),
       extensions.http_header('user-agent', 'lmv-order-reconciler/1.0')
