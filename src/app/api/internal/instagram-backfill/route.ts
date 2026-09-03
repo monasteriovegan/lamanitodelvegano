@@ -4,6 +4,8 @@ import { backfillInstagramConversations } from '@/lib/meta/instagram-backfill';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_SINCE = '2026-08-31';
+
 function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -32,9 +34,18 @@ async function runBackfill(request: Request) {
     return Response.json({ error: 'invalid_user_id' }, { status: 400 });
   }
 
+  const since = url.searchParams.get('since') || DEFAULT_SINCE;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || !Number.isFinite(new Date(`${since}T00:00:00Z`).getTime())) {
+    return Response.json({ error: 'invalid_since' }, { status: 400 });
+  }
+
+  const requestedLimit = Number(url.searchParams.get('limit') || 50);
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.floor(requestedLimit), 100)) : 50;
+
   try {
     const result = await backfillInstagramConversations(db, {
-      limit: 3,
+      limit,
+      since,
       ...(userId ? { userId } : {}),
     });
     return Response.json({ ok: true, ...result });
