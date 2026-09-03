@@ -178,7 +178,7 @@ async function confirmWhatsappPickupSale(
     })),
     zonaId: null,
     cuponCode: null,
-    metodoPago: draft.paymentMethod === 'unknown' ? 'transfer' : draft.paymentMethod,
+    metodoPago: draft.paymentMethod,
     attribution: { utm_source: 'whatsapp', utm_medium: 'whatsapp_conversation_auto' },
   }, conversation.business_unit_id);
   if (!calculation.ok || !calculation.itemsResueltos?.length) {
