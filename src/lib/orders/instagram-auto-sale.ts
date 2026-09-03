@@ -1,21 +1,20 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { NormalizedMessage } from '@/lib/messaging/types';
 import { confirmConversationSale, prepareConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import {
+  hasBusinessPaymentConfirmation,
+  hasCustomerNewOrderSignal,
+  shouldAttemptInstagramAutoSale,
+  type InstagramPaymentMessage,
+} from '@/lib/orders/instagram-auto-sale-signals';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 
-const CUSTOMER_SALE_SIGNAL = /confirm(?:o|ar)|quiero\s+comprar|me\s+llevo|haz(?:me)?\s+el\s+pedido|pedido|transfer(?:encia|[ií])|comprobante|pag(?:o|u[eé]|ado)|direcci[oó]n|despacho|entrega/i;
-const CUSTOMER_NEW_ORDER_SIGNAL = /quiero\s+(?:comprar|pedir|otra|otro)|me\s+llevo|haz(?:me)?\s+el\s+pedido|nuevo\s+pedido|otra\s+(?:barra|caja|box)|otro\s+(?:producto|pedido)/i;
-const CUSTOMER_FULFILLMENT_SIGNAL = /(?:\+?56[\s.\-]*)?9(?:[\s.\-]*\d){8}|calle|avenida|av\.?\s|pasaje|depto|departamento|casa\s|comuna|providencia|ñuñoa|nunoa|macul|la\s+reina|las\s+condes|vitacura|santiago|san\s+miguel|la\s+florida|peñalol[eé]n|penalolen|maip[uú]|pudahuel|quilicura|huechuraba/i;
-const BUSINESS_SALE_SIGNAL = /pedido|confirmad[oa]|agendad[oa]|reservad[oa]|pago|transferencia|recibid[oa]|listo/i;
-const BUSINESS_PAYMENT_CONFIRMED = /(?:pago|transferencia|abono).{0,40}(?:recibid[oa]|confirmad[oa]|correct[oa]|ok)|(?:recibid[oa]|confirmad[oa]).{0,40}(?:pago|transferencia|abono)/i;
+export { shouldAttemptInstagramAutoSale };
+
 const CHILE_MOBILE = /(?:\+?56[\s.\-]*)?9(?:[\s.\-]*\d){8}/g;
 
-type MessageRow = {
+type MessageRow = InstagramPaymentMessage & {
   id: string;
-  direction: 'inbound' | 'outbound' | string;
-  body: string | null;
-  payload: Record<string, any> | null;
   created_at?: string | null;
   order_id?: number | null;
 };
@@ -34,15 +33,6 @@ export type InstagramAutoSaleResult = {
   paymentStatus?: string | null;
 };
 
-export function shouldAttemptInstagramAutoSale(message: NormalizedMessage) {
-  if (message.channel !== 'instagram' || !message.text?.trim()) return false;
-  if (!['text', 'postback'].includes(message.message_type)) return false;
-
-  const text = message.text.trim();
-  if (message.direction === 'outbound') return BUSINESS_SALE_SIGNAL.test(text);
-  return CUSTOMER_SALE_SIGNAL.test(text) || CUSTOMER_FULFILLMENT_SIGNAL.test(text);
-}
-
 export function extractPhoneFromMessages(messages: MessageRow[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const body = String(messages[index]?.body || '');
@@ -53,26 +43,6 @@ export function extractPhoneFromMessages(messages: MessageRow[]) {
     if (digits.length === 9 && digits.startsWith('9')) return `56${digits}`;
   }
   return '';
-}
-
-function isHumanInstagramEcho(message: MessageRow) {
-  if (message.direction !== 'outbound') return false;
-  const payload = message.payload && typeof message.payload === 'object' ? message.payload : {};
-  return payload.sender_type === 'human' || payload?.raw?.is_echo === true;
-}
-
-function hasBusinessPaymentConfirmation(messages: MessageRow[]) {
-  return messages.some((message) => {
-    if (!isHumanInstagramEcho(message)) return false;
-    return BUSINESS_PAYMENT_CONFIRMED.test(String(message.body || ''));
-  });
-}
-
-function hasCustomerNewOrderSignal(messages: MessageRow[]) {
-  return messages.some((message) => (
-    message.direction === 'inbound'
-    && CUSTOMER_NEW_ORDER_SIGNAL.test(String(message.body || ''))
-  ));
 }
 
 async function linkMessagesToOrder(db: SupabaseClient, conversationId: string, orderId: number) {
@@ -119,7 +89,7 @@ async function reconcileExistingInstagramOrderPayment(
 
   await linkMessagesToOrder(db, conversation.id, orderId);
   const labels = Array.from(new Set([
-    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []),
+    ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
     'pagado',
   ]));
@@ -143,7 +113,7 @@ async function loadConversationMessages(
 ) {
   let query = db
     .from('omnichannel_messages')
-    .select('id,direction,body,payload,created_at,order_id')
+    .select('id,direction,body,message_type,payload,created_at,order_id')
     .eq('conversation_id', conversationId);
   if (onlyUnlinkedMessages) query = query.is('order_id', null);
   const { data, error } = await query
@@ -190,18 +160,19 @@ export async function autoRegisterInstagramConversationSale(
   const extractedPhone = draft.phone || extractPhoneFromMessages(messages);
   const draftHasMissing = draft.missing.length > 0;
   const missingWithoutPhone = draft.missing.filter((item) => item !== 'telefono');
-  const explicitTranscriptShipping = Boolean(draft.transcriptTotal && draft.calculated && draft.transcriptTotal >= draft.calculated.subtotal);
+  const explicitTranscriptShipping = Boolean(
+    draft.transcriptTotal
+    && draft.calculated
+    && draft.transcriptTotal >= draft.calculated.subtotal,
+  );
   const toleratedMissing = new Set<string>();
-  if (explicitTranscriptShipping) {
+  if (explicitTranscriptShipping || draft.explicitShippingCost != null) {
     toleratedMissing.add('zona_despacho');
     toleratedMissing.add('total_no_coincide');
   }
   const missing = (draftHasMissing ? missingWithoutPhone : []).filter((item) => !toleratedMissing.has(item));
   if (missing.length) return { status: 'pending', missing: draft.missing };
 
-  // A customer-supplied receipt can support creating the order, but automatic
-  // paid status requires an explicit human outbound acknowledgement from the
-  // Instagram business account in this same, still-unlinked order cycle.
   const businessPaymentConfirmed = draft.paymentMethod === 'transfer'
     && hasBusinessPaymentConfirmation(messages);
 
