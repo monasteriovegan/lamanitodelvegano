@@ -39,10 +39,12 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
   const clientesFiltrados = customers.filter((c: any) => {
     if (!buscarLower) return true;
     const name = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`;
+    const instagramUsername = String(c.metadata?.instagram_username || '').toLowerCase();
     const nameMatch = name.toLowerCase().includes(buscarLower);
+    const usernameMatch = instagramUsername.includes(buscarLower);
     const emailMatch = (c.email || '').toLowerCase().includes(buscarLower);
     const phoneMatch = (c.phone || c.whatsapp || '').toLowerCase().includes(buscarLower);
-    return nameMatch || emailMatch || phoneMatch;
+    return nameMatch || usernameMatch || emailMatch || phoneMatch;
   });
 
   return (
@@ -62,7 +64,7 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
         <input
           name="buscar"
           defaultValue={buscar}
-          placeholder="Buscar por nombre, email, teléfono..."
+          placeholder="Buscar por nombre, @Instagram, email, teléfono..."
           className="flex-1 min-w-[240px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon"
         />
 
@@ -115,6 +117,7 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                 const crmStage = c.stage || c.crm_status || 'new';
                 const est = ESTADO_CRM_MAP[crmStage] || { label: crmStage, tono: 'neutro' };
                 const fullName = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre';
+                const instagramUsername = String(c.metadata?.instagram_username || '').trim();
                 const inicial = (fullName[0] || c.email?.[0] || '?').toUpperCase();
                 const cleanPhone = (c.phone || c.whatsapp || '').replace(/\D/g, '');
 
@@ -132,6 +135,9 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                           <p className="font-semibold text-white text-sm">
                             {fullName}
                           </p>
+                          {instagramUsername && fullName !== instagramUsername && (
+                            <p className="text-[11px] text-fuchsia-300 font-semibold">{instagramUsername}</p>
+                          )}
                           <p className="text-[10px] text-muted">
                             Creado: {c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '—'}
                           </p>
@@ -140,6 +146,9 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-col gap-0.5 text-xs">
+                        {instagramUsername && (
+                          <span className="text-fuchsia-300">🟣 Instagram {instagramUsername}</span>
+                        )}
                         {c.email && <span className="text-white/80">{c.email}</span>}
                         {c.phone && (
                           <div className="flex items-center gap-1.5">
