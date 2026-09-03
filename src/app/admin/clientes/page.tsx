@@ -35,14 +35,17 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
   const supabase = createSupabaseServiceClient();
   const customers = await new CustomerRepository(supabase).list({ crmStatus: estado });
 
-  const buscarLower = buscar.toLowerCase().trim();
+  const buscarLower = buscar.toLowerCase().trim().replace(/^@/, '');
   const clientesFiltrados = customers.filter((c: any) => {
     if (!buscarLower) return true;
     const name = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`;
     const nameMatch = name.toLowerCase().includes(buscarLower);
     const emailMatch = (c.email || '').toLowerCase().includes(buscarLower);
     const phoneMatch = (c.phone || c.whatsapp || '').toLowerCase().includes(buscarLower);
-    return nameMatch || emailMatch || phoneMatch;
+    const instagramMatch = (c.instagram_username || '').toLowerCase().includes(buscarLower)
+      || (c.instagram_name || '').toLowerCase().includes(buscarLower);
+    const labelMatch = (c.conversation_labels || []).some((label: string) => label.toLowerCase().includes(buscarLower));
+    return nameMatch || emailMatch || phoneMatch || instagramMatch || labelMatch;
   });
 
   return (
@@ -57,12 +60,11 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
         <Badge tono="neon">{clientesFiltrados.length} clientes registrados</Badge>
       </div>
 
-      {/* Buscador y Filtros */}
       <form method="GET" action="/admin/clientes" className="flex flex-wrap gap-2.5 mb-6">
         <input
           name="buscar"
           defaultValue={buscar}
-          placeholder="Buscar por nombre, email, teléfono..."
+          placeholder="Buscar nombre, teléfono, @Instagram o etiqueta…"
           className="flex-1 min-w-[240px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon"
         />
 
@@ -96,7 +98,6 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
         )}
       </form>
 
-      {/* Tabla de Clientes */}
       <div className="bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left border-collapse">
@@ -117,24 +118,35 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                 const fullName = c.full_name || c.nombre || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre';
                 const inicial = (fullName[0] || c.email?.[0] || '?').toUpperCase();
                 const cleanPhone = (c.phone || c.whatsapp || '').replace(/\D/g, '');
+                const labels = Array.isArray(c.conversation_labels) ? c.conversation_labels : [];
 
                 return (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-white/[0.03] transition-colors text-texto"
-                  >
+                  <tr key={c.id} className="hover:bg-white/[0.03] transition-colors text-texto">
                     <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3">
                         <div className="w-8 h-8 rounded-full bg-neon/20 border border-neon/40 flex items-center justify-center font-bold text-neon text-xs font-mono">
                           {inicial}
                         </div>
-                        <div>
-                          <p className="font-semibold text-white text-sm">
-                            {fullName}
-                          </p>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white text-sm">{fullName}</p>
+                          {c.instagram_username && (
+                            <p className="text-[11px] text-fuchsia-300 font-mono">@{c.instagram_username}</p>
+                          )}
+                          {c.instagram_name && c.instagram_name !== fullName && (
+                            <p className="text-[10px] text-white/50">Instagram: {c.instagram_name}</p>
+                          )}
                           <p className="text-[10px] text-muted">
                             Creado: {c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '—'}
                           </p>
+                          {labels.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {labels.map((label: string) => (
+                                <span key={label} className="text-[9px] rounded-full border border-neon/20 bg-neon/10 text-neon px-1.5 py-0.5">
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -151,11 +163,12 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                                 rel="noopener noreferrer"
                                 className="text-neon hover:underline text-[10px] font-bold"
                               >
-                                💬 Chat
+                                💬 WhatsApp
                               </a>
                             )}
                           </div>
                         )}
+                        {c.instagram_username && <span className="text-fuchsia-300">🟣 Instagram · @{c.instagram_username}</span>}
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-center font-semibold text-white/80 font-mono">
@@ -168,12 +181,20 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
                       <Badge tono={est.tono}>{est.label}</Badge>
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <Link
-                        href={`/admin/clientes/${c.id}`}
-                        className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all inline-block"
-                      >
-                        Ver Ficha →
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/admin/conversaciones?customer=${encodeURIComponent(c.id)}`}
+                          className="bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all inline-block"
+                        >
+                          💬 Conversación
+                        </Link>
+                        <Link
+                          href={`/admin/clientes/${c.id}`}
+                          className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all inline-block"
+                        >
+                          Ver Ficha →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
