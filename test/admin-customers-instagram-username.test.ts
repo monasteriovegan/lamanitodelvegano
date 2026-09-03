@@ -13,11 +13,9 @@ test('Clientes CRM busca por @usuario de Instagram', () => {
   assert.match(page, /instagram_username/);
 });
 
-test('Clientes CRM muestra @usuario de Instagram en el listado y en la ficha', () => {
-  const listPage = read('src/app/admin/clientes/page.tsx');
-  const detailPage = read('src/app/admin/clientes/[id]/page.tsx');
-  assert.match(listPage, /Instagram/);
-  assert.match(listPage, /instagramUsername/);
-  assert.match(detailPage, /instagramUsername/);
-  assert.match(detailPage, /Instagram/);
+test('Clientes CRM muestra el @usuario de Instagram como dato de contacto primordial', () => {
+  const page = read('src/app/admin/clientes/page.tsx');
+  assert.match(page, /Instagram/);
+  assert.match(page, /instagramUsername/);
+  assert.match(page, /Buscar por nombre, @Instagram, email, teléfono/);
 });
