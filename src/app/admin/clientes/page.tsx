@@ -44,6 +44,7 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
     const phoneMatch = (c.phone || c.whatsapp || '').toLowerCase().includes(buscarLower);
     return nameMatch || emailMatch || phoneMatch;
   });
+  const clientesConPedidos = clientesFiltrados.filter((c: any) => Number(c.total_orders || 0) > 0).length;
 
   return (
     <div className="max-w-[1100px] w-full">
@@ -54,7 +55,9 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
           </p>
           <h1 className="font-display font-bold text-3xl text-white">Clientes</h1>
         </div>
-        <Badge tono="neon">{clientesFiltrados.length} clientes registrados</Badge>
+        <Badge tono="neon">
+          {clientesFiltrados.length} contactos CRM · {clientesConPedidos} clientes con pedidos
+        </Badge>
       </div>
 
       {/* Buscador y Filtros */}
@@ -183,7 +186,7 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
         </div>
 
         {clientesFiltrados.length === 0 && (
-          <EmptyState emoji="👥" texto="No se encontraron clientes registrados." />
+          <EmptyState emoji="👥" texto="No se encontraron contactos CRM." />
         )}
       </div>
     </div>
