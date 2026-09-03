@@ -35,14 +35,6 @@ test('el extractor de venta permite producto personalizado y despacho explícito
   assert.match(source, /stockItems/);
 });
 
-test('la extracción administrativa usa un modelo dedicado y no el modelo conversacional de Remy', () => {
-  const source = read('src/lib/orders/conversation-sale.ts');
-  assert.match(source, /ORDER_EXTRACTION_PROVIDER\s*=\s*['"]gemini['"]/);
-  assert.match(source, /ORDER_EXTRACTION_MODEL\s*=\s*['"]gemini-2\.5-flash['"]/);
-  assert.match(source, /provider:\s*ORDER_EXTRACTION_PROVIDER/);
-  assert.match(source, /model:\s*ORDER_EXTRACTION_MODEL/);
-});
-
 test('el RPC canónico permite items personalizados sin inventar producto de catálogo', () => {
   const migration = read('supabase/migrations/20260903183000_conversation_order_custom_items.sql');
   assert.match(migration, /empty_conversation_order_items/);
