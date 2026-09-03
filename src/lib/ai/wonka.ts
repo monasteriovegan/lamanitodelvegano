@@ -114,7 +114,13 @@ export async function runWonkaChat(
   if (!runtime.enabled) throw new Error('wonka_runtime_disabled');
   if (runtime.executionMode !== 'api') throw new Error(`wonka_execution_mode_not_supported:${runtime.executionMode}`);
   if (!['gemini', 'groq'].includes(runtime.provider)) throw new Error(`wonka_provider_not_supported:${runtime.provider}`);
-  const model = String(runtime.model || (runtime.provider === 'groq' ? 'openai/gpt-oss-20b' : DEFAULT_MODEL)).trim();
+  const model = String(
+    runtime.model && runtime.model !== 'openai/gpt-oss-20b'
+      ? runtime.model
+      : runtime.provider === 'groq'
+        ? 'llama-3.3-70b-versatile'
+        : DEFAULT_MODEL
+  ).trim();
   const budget = getAgentContextBudget('wonka', runtime.metadata);
 
   let businessUnitId = input.businessUnitId || null;

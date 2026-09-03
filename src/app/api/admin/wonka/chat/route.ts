@@ -265,7 +265,14 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, userMessage: inserted.data, assistantMessage: saved.data, pendingTool: result.pendingTool || null });
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'wonka_failed';
-    console.error('wonka_chat_failed', { detail });
-    return Response.json({ error: detail }, { status: 502 });
+    console.error('wonka_chat_failed', { detail, adminId: admin.id, threadId: thread.id });
+
+    // Mensaje amigable para el usuario final sin exponer códigos de error internos como provider_generate_failed:*
+    const friendlyError = 'Wonka no pudo completar la solicitud en este momento debido a un inconveniente temporal con el proveedor de IA. Por favor intenta de nuevo.';
+    return Response.json({
+      ok: false,
+      error: friendlyError,
+      detail: process.env.NODE_ENV === 'development' ? detail : undefined,
+    }, { status: 502 });
   }
 }

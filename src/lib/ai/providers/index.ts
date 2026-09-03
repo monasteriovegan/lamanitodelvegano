@@ -57,17 +57,23 @@ type ProviderCredential = {
   baseUrl?: string | null;
 };
 
-function sanitizeSchema(schema: any): any {
+function sanitizeSchema(schema: any, provider?: string): any {
   if (!schema || typeof schema !== 'object') return schema;
-  if (Array.isArray(schema)) return schema.map(sanitizeSchema);
-  const allowed = new Set(['type', 'description', 'properties', 'required', 'enum', 'items', 'additionalProperties', 'minimum', 'maximum', 'minLength', 'maxLength']);
+  if (Array.isArray(schema)) return schema.map((s) => sanitizeSchema(s, provider));
+  const allowed = new Set(['type', 'description', 'properties', 'required', 'enum', 'items', 'minimum', 'maximum', 'minLength', 'maxLength']);
+  if (provider !== 'groq') {
+    allowed.add('additionalProperties');
+  }
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(schema)) {
     if (!allowed.has(key)) continue;
     if (key === 'properties' && value && typeof value === 'object') {
-      clean.properties = Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([name, child]) => [name, sanitizeSchema(child)]));
-    } else if (key === 'items') clean.items = sanitizeSchema(value);
+      clean.properties = Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([name, child]) => [name, sanitizeSchema(child, provider)]));
+    } else if (key === 'items') clean.items = sanitizeSchema(value, provider);
     else clean[key] = value;
+  }
+  if (!clean.properties && clean.type === 'object') {
+    clean.properties = {};
   }
   return clean;
 }
@@ -98,83 +104,88 @@ async function resolveCredential(db: SupabaseClient, provider: string): Promise<
 }
 
 function normalizeGeminiUsage(raw: any): ProviderUsage {
-  const inputTokens = Number(raw?.promptTokenCount || 0);
-  const outputTokens = Number(raw?.candidatesTokenCount || 0);
-  const thinkingTokens = Number(raw?.thoughtsTokenCount || 0);
-  const cachedInputTokens = Number(raw?.cachedContentTokenCount || 0);
-  const toolTokens = Number(raw?.toolUsePromptTokenCount || 0);
-  const totalTokens = Number(raw?.totalTokenCount || inputTokens + outputTokens + thinkingTokens);
-  return { inputTokens, outputTokens, thinkingTokens, cachedInputTokens, toolTokens, totalTokens };
+  return {
+    inputTokens: Number(raw?.promptTokenCount || 0),
+    outputTokens: Number(raw?.candidatesTokenCount || 0),
+    thinkingTokens: Number(raw?.thoughtsTokenCount || 0),
+    cachedInputTokens: Number(raw?.cachedContentTokenCount || 0),
+    toolTokens: 0,
+    totalTokens: Number(raw?.totalTokenCount || 0),
+  };
 }
 
 function normalizeOpenAiUsage(raw: any): ProviderUsage {
-  const inputTokens = Number(raw?.prompt_tokens || raw?.input_tokens || 0);
-  const completionTotal = Number(raw?.completion_tokens || raw?.output_tokens || 0);
-  const thinkingTokens = Number(raw?.completion_tokens_details?.reasoning_tokens || raw?.output_tokens_details?.reasoning_tokens || 0);
-  const outputTokens = Math.max(0, completionTotal - thinkingTokens);
-  const cachedInputTokens = Number(raw?.prompt_tokens_details?.cached_tokens || raw?.input_tokens_details?.cached_tokens || 0);
-  const totalTokens = Number(raw?.total_tokens || inputTokens + completionTotal);
-  return { inputTokens, outputTokens, thinkingTokens, cachedInputTokens, toolTokens: 0, totalTokens };
+  return {
+    inputTokens: Number(raw?.prompt_tokens || 0),
+    outputTokens: Number(raw?.completion_tokens || 0),
+    thinkingTokens: Number(raw?.completion_tokens_details?.reasoning_tokens || 0),
+    cachedInputTokens: Number(raw?.prompt_tokens_details?.cached_tokens || 0),
+    toolTokens: 0,
+    totalTokens: Number(raw?.total_tokens || 0),
+  };
 }
 
-function parseJsonArgs(value: unknown): Record<string, unknown> {
-  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== 'string' || !value.trim()) return {};
+function parseJsonArgs(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw !== 'string' || !raw.trim()) return {};
   try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
   }
 }
 
-function parseToolContent(content: string | undefined) {
-  const text = String(content || '');
-  try { return JSON.parse(text); } catch { return text; }
-}
-
 async function callGemini(credential: ProviderCredential, input: ProviderCallInput): Promise<ProviderResponse> {
-  const contents: any[] = [];
-  for (const message of input.messages) {
+  const contents = input.messages.map((message) => {
     if (message.role === 'user') {
-      contents.push({ role: 'user', parts: [{ text: message.content || '' }] });
-      continue;
+      return { role: 'user', parts: [{ text: message.content || '' }] };
     }
     if (message.role === 'assistant') {
       const parts: any[] = [];
       if (message.content) parts.push({ text: message.content });
-      for (const call of message.toolCalls || []) parts.push({ functionCall: { name: call.name, args: call.args } });
-      contents.push({ role: 'model', parts: parts.length ? parts : [{ text: '' }] });
-      continue;
+      for (const call of message.toolCalls || []) {
+        parts.push({ functionCall: { name: call.name, args: call.args || {} } });
+      }
+      return { role: 'model', parts: parts.length ? parts : [{ text: '' }] };
     }
-    if (message.role === 'tool') {
-      const part = { functionResponse: { name: message.name || 'tool', response: { result: parseToolContent(message.content) } } };
-      const last = contents[contents.length - 1];
-      if (last?.role === 'user' && Array.isArray(last.parts) && last.parts.every((item: any) => item?.functionResponse)) last.parts.push(part);
-      else contents.push({ role: 'user', parts: [part] });
-    }
-  }
+    return {
+      role: 'user',
+      parts: [{
+        functionResponse: {
+          name: message.name || 'tool',
+          response: { output: message.content || '' },
+        },
+      }],
+    };
+  });
 
   const payload: Record<string, unknown> = {
-    systemInstruction: { parts: [{ text: input.systemPrompt }] },
     contents,
     generationConfig: {
       temperature: input.temperature ?? 0.2,
       maxOutputTokens: input.maxOutputTokens,
     },
   };
+
+  if (input.systemPrompt) {
+    payload.systemInstruction = { parts: [{ text: input.systemPrompt }] };
+  }
   if (input.tools?.length) {
-    payload.tools = [{ functionDeclarations: input.tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: sanitizeGeminiSchema(tool.inputSchema),
-    })) }];
+    payload.tools = [{
+      functionDeclarations: input.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: sanitizeGeminiSchema(tool.inputSchema),
+      })),
+    }];
   }
 
   const started = Date.now();
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent`, {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent?key=${encodeURIComponent(credential.apiKey)}`;
+  const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': credential.apiKey },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     cache: 'no-store',
   });
@@ -209,24 +220,25 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
 
   const messages: any[] = [{ role: 'system', content: input.systemPrompt }];
   for (const message of input.messages) {
-    if (message.role === 'user') messages.push({ role: 'user', content: message.content || '' });
-    else if (message.role === 'assistant') {
-      messages.push({
+    if (message.role === 'user') {
+      messages.push({ role: 'user', content: message.content || '' });
+    } else if (message.role === 'assistant') {
+      const assistantMsg: Record<string, unknown> = {
         role: 'assistant',
-        content: message.content || null,
-        ...(message.toolCalls?.length ? {
-          tool_calls: message.toolCalls.map((call) => ({
-            id: call.id,
-            type: 'function',
-            function: { name: call.name, arguments: JSON.stringify(call.args || {}) },
-          })),
-        } : {}),
-      });
+        content: message.content || '',
+      };
+      if (message.toolCalls?.length) {
+        assistantMsg.tool_calls = message.toolCalls.map((call) => ({
+          id: call.id,
+          type: 'function',
+          function: { name: call.name, arguments: JSON.stringify(call.args || {}) },
+        }));
+      }
+      messages.push(assistantMsg);
     } else {
       messages.push({
         role: 'tool',
-        tool_call_id: message.toolCallId,
-        name: message.name,
+        tool_call_id: message.toolCallId || `${input.provider}_tool_${Date.now()}`,
         content: message.content || '',
       });
     }
@@ -234,24 +246,39 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
 
   const isQwen = input.model.startsWith('qwen/');
   const isGptOss = input.model.startsWith('openai/gpt-oss-');
+  const isReasoning = input.model.startsWith('o1') || input.model.startsWith('o3');
+
   const payload: Record<string, unknown> = {
     model: input.model,
     messages,
     temperature: input.temperature ?? 0.2,
-    max_completion_tokens: input.maxOutputTokens,
   };
+
+  if (isReasoning) {
+    payload.max_completion_tokens = input.maxOutputTokens;
+  } else {
+    payload.max_tokens = input.maxOutputTokens;
+  }
+
   if (isQwen) payload.reasoning_effort = 'none';
   if (isGptOss) {
     payload.reasoning_effort = 'low';
     payload.reasoning_format = 'hidden';
   }
+
   if (input.tools?.length) {
     payload.tools = input.tools.map((tool) => ({
       type: 'function',
-      function: { name: tool.name, description: tool.description, parameters: sanitizeSchema(tool.inputSchema) },
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: sanitizeSchema(tool.inputSchema, input.provider),
+      },
     }));
     payload.tool_choice = 'auto';
-    payload.parallel_tool_calls = !isGptOss;
+    if (input.provider !== 'groq' && !isGptOss) {
+      payload.parallel_tool_calls = true;
+    }
   }
 
   const started = Date.now();
@@ -263,7 +290,8 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    console.error('ai_provider_error', { provider: input.provider, status: response.status, detail: String(body?.error?.message || '').slice(0, 500) });
+    const errorMsg = String(body?.error?.message || '').slice(0, 500);
+    console.error('ai_provider_error', { provider: input.provider, status: response.status, detail: errorMsg });
     throw new Error(`provider_generate_failed:${input.provider}:${response.status}`);
   }
 
@@ -287,11 +315,47 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
   };
 }
 
-export async function callAiProvider(db: SupabaseClient, input: ProviderCallInput): Promise<ProviderResponse> {
-  const credential = await resolveCredential(db, input.provider);
-  if (input.provider === 'gemini') return callGemini(credential, input);
-  if (input.provider === 'groq') return callOpenAiCompatible(credential, input);
-  throw new Error(`unsupported_provider:${input.provider}`);
+export async function callAiProvider(
+  db: SupabaseClient,
+  input: ProviderCallInput,
+  options: { allowFallback?: boolean } = { allowFallback: true },
+): Promise<ProviderResponse> {
+  const allowFallback = options.allowFallback !== false;
+
+  try {
+    const credential = await resolveCredential(db, input.provider);
+    if (input.provider === 'gemini') return await callGemini(credential, input);
+    if (input.provider === 'groq') return await callOpenAiCompatible(credential, input);
+    throw new Error(`unsupported_provider:${input.provider}`);
+  } catch (error) {
+    if (allowFallback && input.provider !== 'gemini') {
+      const errDetail = error instanceof Error ? error.message : String(error);
+      console.warn('ai_provider_fallback_triggered', {
+        fromProvider: input.provider,
+        fromModel: input.model,
+        fallbackProvider: 'gemini',
+        fallbackModel: 'gemini-2.5-flash',
+        reason: errDetail,
+      });
+
+      try {
+        const geminiCred = await resolveCredential(db, 'gemini');
+        return await callGemini(geminiCred, {
+          ...input,
+          provider: 'gemini',
+          model: 'gemini-2.5-flash',
+        });
+      } catch (fallbackError) {
+        console.error('ai_provider_fallback_failed', {
+          fallbackProvider: 'gemini',
+          error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        });
+        throw error;
+      }
+    }
+
+    throw error;
+  }
 }
 
 export async function getProviderConnectionStatus(db: SupabaseClient) {
