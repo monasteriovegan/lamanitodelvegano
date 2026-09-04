@@ -12,6 +12,9 @@ type PedidoPago = {
   telefono: string | null;
   customer_email: string | null;
   total: number | null;
+  external_token: string | null;
+  payment_status: string | null;
+  metodopago: string | null;
 };
 
 function defaultOrigin() {
@@ -23,7 +26,7 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
   const { data, error } = await db
     .from('pedidos')
-    .select('id,nombre_cliente,telefono,customer_email,total')
+    .select('id,nombre_cliente,telefono,customer_email,total,external_token,payment_status,metodopago')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -32,20 +35,39 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   return data as PedidoPago;
 }
 
+async function existingMercadoPagoPreference(token: string, externalToken: string | null) {
+  const preferenceId = String(externalToken || '').startsWith('mp_pref:')
+    ? String(externalToken).slice('mp_pref:'.length)
+    : '';
+  if (!preferenceId) return null;
+  const response = await fetch(`https://api.mercadopago.com/checkout/preferences/${encodeURIComponent(preferenceId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const body = await response.json().catch(() => ({}));
+  return body?.init_point ? String(body.init_point) : null;
+}
+
 export async function createPaymentLink(
   db: SupabaseClient,
   input: { pedidoId: string | number; provider: PaymentProvider; origin?: string | null },
 ) {
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
+  if (pedido.payment_status === 'paid') throw new Error('payment_already_paid');
 
   if (input.provider === 'mercadopago') {
+    if (String(pedido.metodopago || '').toLowerCase() !== 'mercadopago') throw new Error('payment_method_mismatch');
     const token = await resolveMercadoPagoAccessToken(db);
     if (!token) throw new Error('mercadopago_not_configured');
 
-    // Mercado Pago cobra exactamente el total que el servidor ya calculó y
-    // persistió. Esto incluye despacho, cupones y descuentos de fidelidad y
-    // evita reconstruir un total distinto a partir de precios de línea.
+    const existingUrl = await existingMercadoPagoPreference(token, pedido.external_token);
+    if (existingUrl) return { provider: input.provider, url: existingUrl, reused: true };
+
+    // El proveedor cobra exactamente el total canónico persistido por servidor.
+    // No reconstruimos el monto desde líneas porque despacho/cupones/fidelidad ya
+    // están incluidos en pedidos.total.
     const mpItems = [{
       title: `Pedido #${pedido.id} - La Manito Del Vegano`,
       quantity: 1,
@@ -75,8 +97,15 @@ export async function createPaymentLink(
       cache: 'no-store',
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body?.init_point) throw new Error(`mercadopago_link_failed:${response.status}`);
-    return { provider: input.provider, url: String(body.init_point) };
+    if (!response.ok || !body?.init_point || !body?.id) throw new Error(`mercadopago_link_failed:${response.status}`);
+
+    const { error: tokenError } = await db.from('pedidos')
+      .update({ external_token: `mp_pref:${String(body.id)}` })
+      .eq('id', pedido.id)
+      .neq('payment_status', 'paid');
+    if (tokenError) throw tokenError;
+
+    return { provider: input.provider, url: String(body.init_point), reused: false };
   }
 
   const { data: config } = await db
@@ -107,6 +136,7 @@ export async function createPaymentLink(
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body?.url || !body?.token) throw new Error(`flow_link_failed:${response.status}`);
 
-  await db.from('pedidos').update({ external_token: String(body.token) }).eq('id', pedido.id);
+  const { error: tokenError } = await db.from('pedidos').update({ external_token: String(body.token) }).eq('id', pedido.id);
+  if (tokenError) throw tokenError;
   return { provider: input.provider, url: `${body.url}?token=${body.token}` };
 }
