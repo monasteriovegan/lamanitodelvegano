@@ -86,26 +86,37 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       };
       if (effectiveStatus === 'paid') update.estado = 'Pagado';
-      const { error: updateError } = await db.from('pedidos').update(update).eq('id', pedidoId);
+
+      // Compare-and-set: Mercado Pago puede entregar el mismo webhook en paralelo.
+      // Solo la entrega que todavía encuentre el estado anterior gana la transición;
+      // las demás quedan como no-op y no duplican historial ni notificaciones.
+      const { data: updatedOrder, error: updateError } = await db.from('pedidos')
+        .update(update)
+        .eq('id', pedidoId)
+        .eq('payment_status', currentPaymentStatus)
+        .select('id')
+        .maybeSingle();
       if (updateError) throw updateError;
 
-      await db.from('order_status_history').insert({
-        pedido_id: pedidoId,
-        old_status: String(pedido.estado || 'Pendiente'),
-        new_status: effectiveStatus === 'paid' ? 'Pagado' : String(pedido.estado || 'Pendiente'),
-        payment_status: effectiveStatus,
-        notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
-      });
+      if (updatedOrder) {
+        await db.from('order_status_history').insert({
+          pedido_id: pedidoId,
+          old_status: String(pedido.estado || 'Pendiente'),
+          new_status: effectiveStatus === 'paid' ? 'Pagado' : String(pedido.estado || 'Pendiente'),
+          payment_status: effectiveStatus,
+          notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
+        });
 
-      if (beforeOrder) {
-        try {
-          const afterOrder = await repo.getById(pedidoId);
-          if (afterOrder) await notifyOrderTransitions(db, beforeOrder, afterOrder);
-        } catch (notificationError) {
-          console.error('mercadopago_customer_notification_failed', {
-            pedidoId,
-            reason: notificationError instanceof Error ? notificationError.message : 'unknown',
-          });
+        if (beforeOrder) {
+          try {
+            const afterOrder = await repo.getById(pedidoId);
+            if (afterOrder) await notifyOrderTransitions(db, beforeOrder, afterOrder);
+          } catch (notificationError) {
+            console.error('mercadopago_customer_notification_failed', {
+              pedidoId,
+              reason: notificationError instanceof Error ? notificationError.message : 'unknown',
+            });
+          }
         }
       }
     }
