@@ -6,11 +6,11 @@ import test from 'node:test';
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('order reconciliation cron is configured in Vercel every five minutes', () => {
+test('order reconciliation cron is configured as a Hobby-compatible daily safety net', () => {
   const config = JSON.parse(read('vercel.json')) as { crons?: Array<{ path: string; schedule: string }> };
   const cron = (config.crons || []).find((entry) => entry.path === '/api/cron/reconcile-pending-sales');
   assert.ok(cron, 'missing reconcile cron');
-  assert.equal(cron.schedule, '*/5 * * * *');
+  assert.equal(cron.schedule, '0 8 * * *');
 });
 
 test('order reconciliation cron route requires CRON_SECRET and uses fixed bounded reconciliation', () => {
