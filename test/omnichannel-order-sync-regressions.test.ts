@@ -36,19 +36,22 @@ test('el extractor de venta permite producto personalizado y despacho explícito
 });
 
 test('venta confirmada no desaparece si un producto fuera de catálogo no trae precio legible', () => {
-  const source = read('src/lib/orders/conversation-sale.ts');
+  const fallback = read('src/lib/orders/confirmed-offcatalog-review.ts');
   const instagram = read('src/lib/orders/instagram-auto-sale.ts');
-  assert.match(source, /requiresPricingReview/);
-  assert.match(source, /precio_producto_personalizado/);
-  assert.match(source, /pricing_review_required/);
-  assert.match(instagram, /allowPricingReview:\s*businessPaymentConfirmed/);
+  assert.match(fallback, /requiresPricingReview/);
+  assert.match(fallback, /customUnitPrice:\s*candidate\.customUnitPrice \?\? 0/);
+  assert.match(fallback, /REQUIERE REVISIÓN PRECIO\/TOTAL/);
+  assert.match(fallback, /no marcar transferencia como pagada/);
+  assert.match(instagram, /augmentConfirmedOffCatalogDraft\(db, draft, messages\)/);
+  assert.match(instagram, /pricingReview \? 'flagged_for_review' : 'synced'/);
 });
 
 test('si hay un total final explícito se puede resolver una única línea fuera de catálogo por residual', () => {
-  const source = read('src/lib/orders/conversation-sale.ts');
-  assert.match(source, /unresolvedCustomItems/);
-  assert.match(source, /residual/);
-  assert.match(source, /transcriptTotal/);
+  const fallback = read('src/lib/orders/confirmed-offcatalog-review.ts');
+  assert.match(fallback, /unresolvedCustomItems\.length === 1/);
+  assert.match(fallback, /const residual = Number\(draft\.transcriptTotal\) - Number\(draft\.calculated\.total\) - explicitCandidateSubtotal/);
+  assert.match(fallback, /unresolved\.customUnitPrice = roundedUnitPrice/);
+  assert.match(fallback, /transcriptTotal: pricingReview \? null : draft\.transcriptTotal/);
 });
 
 test('el RPC canónico permite items personalizados sin inventar producto de catálogo', () => {
