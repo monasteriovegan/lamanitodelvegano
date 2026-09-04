@@ -11,10 +11,7 @@ type PedidoPago = {
   nombre_cliente: string | null;
   telefono: string | null;
   customer_email: string | null;
-  items: Array<{ nombre?: string; precio?: number; qty?: number }> | null;
   total: number | null;
-  costo_envio: number | null;
-  shipping_zone_name: string | null;
 };
 
 function defaultOrigin() {
@@ -26,11 +23,12 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
   const { data, error } = await db
     .from('pedidos')
-    .select('id,nombre_cliente,telefono,customer_email,items,total,costo_envio,shipping_zone_name')
+    .select('id,nombre_cliente,telefono,customer_email,total')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('order_not_found');
+  if (!Number.isFinite(Number(data.total)) || Number(data.total) <= 0) throw new Error('invalid_order_total');
   return data as PedidoPago;
 }
 
@@ -40,26 +38,20 @@ export async function createPaymentLink(
 ) {
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
-  const items = Array.isArray(pedido.items) ? pedido.items : [];
 
   if (input.provider === 'mercadopago') {
     const token = await resolveMercadoPagoAccessToken(db);
     if (!token) throw new Error('mercadopago_not_configured');
 
-    const mpItems = items.map((item) => ({
-      title: String(item.nombre || 'Producto'),
-      quantity: Math.max(1, Number(item.qty || 1)),
-      unit_price: Number(item.precio || 0),
+    // Mercado Pago cobra exactamente el total que el servidor ya calculó y
+    // persistió. Esto incluye despacho, cupones y descuentos de fidelidad y
+    // evita reconstruir un total distinto a partir de precios de línea.
+    const mpItems = [{
+      title: `Pedido #${pedido.id} - La Manito Del Vegano`,
+      quantity: 1,
+      unit_price: Number(pedido.total),
       currency_id: 'CLP',
-    }));
-    if (Number(pedido.costo_envio || 0) > 0) {
-      mpItems.push({
-        title: `Despacho: ${pedido.shipping_zone_name || 'Zona seleccionada'}`,
-        quantity: 1,
-        unit_price: Number(pedido.costo_envio || 0),
-        currency_id: 'CLP',
-      });
-    }
+    }];
 
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
