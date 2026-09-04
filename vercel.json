@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/reconcile-pending-sales",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
