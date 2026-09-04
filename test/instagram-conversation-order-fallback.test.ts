@@ -27,11 +27,13 @@ test('conversation confirmation uses a dedicated conversation-order transaction'
   assert.match(orders, /conversation_create_order_v1/);
 });
 
-test('conversation confirmation always persists the canonical conversation_orders link', () => {
-  assert.match(sale, /from\('conversation_orders'\)/);
-  assert.match(sale, /conversation_id:\s*conversation\.id/);
-  assert.match(sale, /pedido_id:\s*order\.numeric_id/);
-  assert.match(sale, /onConflict:\s*'conversation_id,pedido_id'/);
+test('database guard always mirrors conversations.order_id into conversation_orders', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260904004500_conversation_order_link_guard.sql', import.meta.url), 'utf8');
+  assert.match(sql, /conversation_orders/i);
+  assert.match(sql, /new\.order_id/i);
+  assert.match(sql, /on conflict \(conversation_id, pedido_id\) do nothing/i);
+  assert.match(sql, /after insert or update of order_id/i);
+  assert.match(sql, /where c\.order_id is not null/i);
 });
 
 test('conversation order RPC keeps phone and shipping zone optional without weakening web checkout', () => {
