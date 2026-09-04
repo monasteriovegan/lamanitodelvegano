@@ -11,10 +11,10 @@ type PedidoPago = {
   nombre_cliente: string | null;
   telefono: string | null;
   customer_email: string | null;
-  items: Array<{ nombre?: string; precio?: number; qty?: number }> | null;
   total: number | null;
-  costo_envio: number | null;
-  shipping_zone_name: string | null;
+  external_token: string | null;
+  payment_status: string | null;
+  metodopago: string | null;
 };
 
 function defaultOrigin() {
@@ -26,12 +26,27 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
   const { data, error } = await db
     .from('pedidos')
-    .select('id,nombre_cliente,telefono,customer_email,items,total,costo_envio,shipping_zone_name')
+    .select('id,nombre_cliente,telefono,customer_email,total,external_token,payment_status,metodopago')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error('order_not_found');
+  if (!Number.isFinite(Number(data.total)) || Number(data.total) <= 0) throw new Error('invalid_order_total');
   return data as PedidoPago;
+}
+
+async function existingMercadoPagoPreference(token: string, externalToken: string | null) {
+  const preferenceId = String(externalToken || '').startsWith('mp_pref:')
+    ? String(externalToken).slice('mp_pref:'.length)
+    : '';
+  if (!preferenceId) return null;
+  const response = await fetch(`https://api.mercadopago.com/checkout/preferences/${encodeURIComponent(preferenceId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const body = await response.json().catch(() => ({}));
+  return body?.init_point ? String(body.init_point) : null;
 }
 
 export async function createPaymentLink(
@@ -40,26 +55,25 @@ export async function createPaymentLink(
 ) {
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
-  const items = Array.isArray(pedido.items) ? pedido.items : [];
+  if (pedido.payment_status === 'paid') throw new Error('payment_already_paid');
 
   if (input.provider === 'mercadopago') {
+    if (String(pedido.metodopago || '').toLowerCase() !== 'mercadopago') throw new Error('payment_method_mismatch');
     const token = await resolveMercadoPagoAccessToken(db);
     if (!token) throw new Error('mercadopago_not_configured');
 
-    const mpItems = items.map((item) => ({
-      title: String(item.nombre || 'Producto'),
-      quantity: Math.max(1, Number(item.qty || 1)),
-      unit_price: Number(item.precio || 0),
+    const existingUrl = await existingMercadoPagoPreference(token, pedido.external_token);
+    if (existingUrl) return { provider: input.provider, url: existingUrl, reused: true };
+
+    // El proveedor cobra exactamente el total canónico persistido por servidor.
+    // No reconstruimos el monto desde líneas porque despacho/cupones/fidelidad ya
+    // están incluidos en pedidos.total.
+    const mpItems = [{
+      title: `Pedido #${pedido.id} - La Manito Del Vegano`,
+      quantity: 1,
+      unit_price: Number(pedido.total),
       currency_id: 'CLP',
-    }));
-    if (Number(pedido.costo_envio || 0) > 0) {
-      mpItems.push({
-        title: `Despacho: ${pedido.shipping_zone_name || 'Zona seleccionada'}`,
-        quantity: 1,
-        unit_price: Number(pedido.costo_envio || 0),
-        currency_id: 'CLP',
-      });
-    }
+    }];
 
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -83,8 +97,15 @@ export async function createPaymentLink(
       cache: 'no-store',
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok || !body?.init_point) throw new Error(`mercadopago_link_failed:${response.status}`);
-    return { provider: input.provider, url: String(body.init_point) };
+    if (!response.ok || !body?.init_point || !body?.id) throw new Error(`mercadopago_link_failed:${response.status}`);
+
+    const { error: tokenError } = await db.from('pedidos')
+      .update({ external_token: `mp_pref:${String(body.id)}` })
+      .eq('id', pedido.id)
+      .neq('payment_status', 'paid');
+    if (tokenError) throw tokenError;
+
+    return { provider: input.provider, url: String(body.init_point), reused: false };
   }
 
   const { data: config } = await db
@@ -115,6 +136,7 @@ export async function createPaymentLink(
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body?.url || !body?.token) throw new Error(`flow_link_failed:${response.status}`);
 
-  await db.from('pedidos').update({ external_token: String(body.token) }).eq('id', pedido.id);
+  const { error: tokenError } = await db.from('pedidos').update({ external_token: String(body.token) }).eq('id', pedido.id);
+  if (tokenError) throw tokenError;
   return { provider: input.provider, url: `${body.url}?token=${body.token}` };
 }

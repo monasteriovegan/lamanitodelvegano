@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'mercadopago_not_configured' }, { status: 503 });
 
   try {
-    // La API de Mercado Pago es la fuente de verdad: nunca confiamos en monto/status del webhook.
+    // Mercado Pago API es la fuente de verdad; nunca confiamos en monto/status del body del webhook.
     const payment = await getMercadoPagoPayment(token, paymentId);
     const pedidoId = Number(payment?.external_reference);
     if (!Number.isInteger(pedidoId) || pedidoId <= 0) return NextResponse.json({ ok: true, ignored: true });
@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
 
     const nextPaymentStatus = mapMercadoPagoPaymentStatus(payment?.status);
     const currentPaymentStatus = String(pedido.payment_status || 'pending');
-    // Un intento fallido/pending nunca puede degradar un pedido ya pagado. Un reembolso sí.
     const effectiveStatus = currentPaymentStatus === 'paid' && (nextPaymentStatus === 'pending' || nextPaymentStatus === 'failed')
       ? 'paid'
       : nextPaymentStatus;
@@ -98,8 +97,6 @@ export async function POST(req: NextRequest) {
         notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
       });
 
-      // El aviso al cliente es best-effort: nunca hacemos fallar el webhook de pago
-      // por un problema temporal de WhatsApp o email.
       if (beforeOrder) {
         try {
           const afterOrder = await repo.getById(pedidoId);
@@ -111,8 +108,12 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+    }
 
-      if (effectiveStatus === 'paid') await sendPaidPurchaseToMeta(db, pedidoId);
+    // Se intenta en toda entrega cuyo estado efectivo sea paid. La función CAPI
+    // deduplica por purchase_<orderId> y reintenta sólo pending/failed.
+    if (effectiveStatus === 'paid') {
+      await sendPaidPurchaseToMeta(db, pedidoId);
     }
 
     return NextResponse.json({ ok: true });

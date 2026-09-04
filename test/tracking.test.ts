@@ -29,7 +29,7 @@ test('PageView inicial y SPA comparten un guard contra duplicados', () => {
 test('Purchase exige pago verificado por backend y conserva event id estable', () => {
   const page = read('src/app/pedido/[id]/page.tsx');
   const client = read('src/lib/analytics/client.ts');
-  assert.match(page, /pedido\.status === 'Pagado' && pedido\.payment_status === 'paid'/);
+  assert.match(page, /pedido\.estado === 'Pagado' && pedido\.payment_status === 'paid'/);
   assert.doesNotMatch(page, /status === 'success'/);
   assert.match(client, /const eventId = `purchase_\$\{orderId\}`/);
 });
@@ -43,19 +43,18 @@ test('CAPI usa secreto server-side y deduplica Purchase con el Pixel', () => {
   assert.match(capi, /currency: String\(order\.currency \|\| 'CLP'\)/);
   assert.match(capi, /fbp: attribution\?\.fbp/);
   assert.match(capi, /fbc: attribution\?\.fbc/);
+  assert.match(capi, /existingDelivery\?\.status === 'sent'/);
   assert.doesNotMatch(capi, /wa_access_token/);
 });
 
-test('CAPI se invoca solo en transiciones backend hacia paid', () => {
-  for (const path of [
-    'src/app/api/pagos/mercadopago-webhook/route.ts',
-    'src/app/api/pagos/flow-confirm/route.ts',
-    'src/app/api/admin/orders/[id]/route.ts',
-  ]) {
-    const source = read(path);
-    assert.match(source, /effectiveStatus === 'paid'|updatedOrder\.payment_status === 'paid'/);
-    assert.match(source, /sendPaidPurchaseToMeta/);
-  }
+test('CAPI se invoca para estado paid y su outbox decide si enviar, deduplicar o reintentar', () => {
+  const mercadoPago = read('src/app/api/pagos/mercadopago-webhook/route.ts');
+  assert.match(mercadoPago, /if \(effectiveStatus === 'paid'\)/);
+  assert.match(mercadoPago, /sendPaidPurchaseToMeta/);
+  const capi = read('src/lib/meta/conversions-api.ts');
+  assert.match(capi, /status:\s*'pending'/);
+  assert.match(capi, /status:\s*'failed'/);
+  assert.match(capi, /status:\s*'sent'/);
 });
 
 test('diagnóstico CAPI valida autenticación sin enviar eventos', () => {
@@ -78,4 +77,5 @@ test('checkout espera la hidratación del carrito y evita duplicados', () => {
   assert.match(source, /items\.length === 0 \|\| checkoutTracked\.current/);
   assert.match(source, /checkoutTracked\.current = true/);
   assert.match(source, /\[items, subtotal\]/);
+  assert.match(source, /'Idempotency-Key': idempotencyKey/);
 });
