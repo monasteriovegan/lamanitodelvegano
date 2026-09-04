@@ -33,3 +33,13 @@ test('prompts de ventas declaran explícitamente su única función obligatoria'
   assert.match(sale, /Debes llamar a extract_sale una sola vez/);
   assert.match(offcatalog, /Debes llamar a extract_missing_offcatalog_items una sola vez/);
 });
+
+test('extracción obligatoria de ventas evita truncar llamadas estructuradas de Gemini', () => {
+  const provider = read('src/lib/ai/providers/index.ts');
+  const sale = read('src/lib/orders/conversation-sale.ts');
+
+  assert.match(provider, /thinkingBudget:\s*0/);
+  assert.match(provider, /MALFORMED_FUNCTION_CALL/);
+  assert.match(provider, /Math\.max\(input\.maxOutputTokens,\s*2048\)/);
+  assert.match(sale, /maxOutputTokens:\s*1600/);
+});
