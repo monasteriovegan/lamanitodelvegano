@@ -23,6 +23,7 @@ El resultado debe servir igual para Fiestas Patrias, Navidad, San Valentín o cu
 4. Al finalizar o desactivar una temporada, el override deja de aplicarse automáticamente.
 5. Todos los canales consumen el mismo catálogo efectivo: Web, WhatsApp, Instagram y Remy.
 6. La administración queda scoped por `business_unit_id`; no se agregan conceptos específicos de La Manito al modelo genérico.
+7. El stock físico sigue teniendo una sola fuente de verdad. Esta tarea no crea un segundo inventario estacional que pueda desincronizarse.
 
 ## Modelo de datos
 
@@ -32,7 +33,6 @@ Agregar `season_variant_overrides`:
 - `variant_id uuid not null` → `product_variants.id`
 - `price_override integer null`
 - `compare_at_price_override integer null`
-- `capacity_override integer null`
 - `is_active boolean not null default true`
 - timestamps
 - PK/unique `(season_id, variant_id)`
@@ -41,13 +41,16 @@ Reglas:
 
 - `price_override >= 0` cuando exista.
 - `compare_at_price_override >= effective price` cuando exista.
-- `capacity_override >= 0` cuando exista.
 - Al borrar temporada, borrar overrides.
 - El precio maestro nunca se actualiza desde el editor de temporada.
 
 `season_products` sigue siendo responsable de pertenencia del producto, orden, destacado y visibilidad Web/WhatsApp/Instagram/Remy.
 
-`capacity_override` es un límite opcional de campaña; el stock físico maestro sigue siendo la fuente de inventario. La disponibilidad efectiva nunca puede exceder el stock maestro cuando el producto maneja stock.
+### Stock / cupos
+
+El stock permanece en `product_variants.stock` / catálogo maestro y el editor de temporada lo muestra como referencia. No se agrega en este cierre un `stock_override` o contador de cupo temporal separado, porque eso duplicaría inventario y requeriría conciliación adicional con pedidos/cancelaciones.
+
+Si más adelante un cliente SaaS necesita cupos de preventa independientes del stock físico, se diseña como una capacidad opcional separada con su propio ledger. No se deja un campo semánticamente incompleto en esta versión.
 
 ## Resolución del catálogo efectivo
 
@@ -61,7 +64,7 @@ Para cada variante devuelve:
 
 - precio efectivo = `price_override ?? variant.price`
 - precio anterior efectivo = `compare_at_price_override ?? variant.compareAtPrice`
-- cupo efectivo = mínimo entre stock maestro disponible y `capacity_override` cuando ambos existan
+- stock = stock maestro de la variante
 - activo únicamente si producto, variante, temporada y vínculo están activos/visibles para el canal
 
 La función no muta filas maestras.
@@ -94,7 +97,7 @@ Ese editor reutiliza la UI útil que hoy vive en `/admin/catalogo-master`, pero 
 
 Por producto permitirá:
 
-- activo maestro (solo como referencia/acción explícita, no implícita)
+- estado del producto maestro en modo informativo
 - visible Web
 - visible WhatsApp
 - visible Instagram
@@ -103,7 +106,7 @@ Por producto permitirá:
 - precio normal maestro en modo lectura
 - precio temporal opcional
 - precio anterior/promocional opcional
-- cupo temporal opcional
+- stock maestro en modo lectura
 - opciones/sabores activos
 
 El mensaje de UI debe distinguir claramente `Precio maestro` de `Precio de esta temporada`.
@@ -137,7 +140,7 @@ Así la promoción visible es consistente en toda la web.
 
 ### Página de temporada
 
-`CampaignCatalog` recibe el catálogo efectivo de esa temporada, por lo que las variantes muestran automáticamente precios/cupos temporales sin alterar el Master.
+`CampaignCatalog` recibe el catálogo efectivo de esa temporada, por lo que las variantes muestran automáticamente precios temporales sin alterar el Master.
 
 ## Canales y Remy
 
@@ -156,10 +159,13 @@ Los precios actualmente aprobados de Fiestas Patrias se mantienen como valores e
 
 Durante la migración:
 
-1. conservar `product_variants.price` como precio maestro actual salvo donde exista evidencia de que fue modificado exclusivamente por la campaña;
-2. crear overrides estacionales solo cuando el precio/cupo sea específico de Fiestas Patrias;
-3. mantener vínculos y visibilidad existentes de `season_products`;
-4. verificar que la página `/fiestas-patrias-2026` conserva exactamente los precios/variantes aprobados.
+1. no inventar un precio maestro histórico que no esté respaldado por datos;
+2. copiar a overrides estacionales los precios efectivos de las variantes de Fiestas Patrias que hoy administra la pantalla específica, conservando el valor visible actual;
+3. no cambiar `product_variants.price` durante esa migración;
+4. mantener vínculos y visibilidad existentes de `season_products`;
+5. verificar que la página `/fiestas-patrias-2026` conserva exactamente los precios/variantes aprobados.
+
+Esto introduce la separación correcta hacia adelante sin alterar retrospectivamente precios maestros sin evidencia. Los productos pueden permanecer en el Master aunque una temporada quede finalizada; su exposición pública sigue las reglas de canal/temporada existentes.
 
 No se borran productos ni temporadas históricas.
 
@@ -193,6 +199,7 @@ No se borran productos ni temporadas históricas.
 10. Fiestas Patrias conserva precios y variantes aprobados después de la migración.
 11. Sidebar ya no muestra `Canales & Precios`; muestra `Temporadas & Colecciones`.
 12. `/admin/catalogo-master` redirige de forma compatible y no queda como módulo operativo independiente.
+13. Stock mostrado y descontado sigue proviniendo del Catálogo Master; no aparece un segundo contador estacional.
 
 ## Criterio de cierre
 
@@ -203,7 +210,7 @@ La tarea se considera terminada solo cuando:
 - cambios fusionados a `main`;
 - deployment production `READY`;
 - Catálogo Master mantiene los precios maestros;
-- Fiestas Patrias funciona mediante overrides genéricos;
+- Fiestas Patrias funciona mediante el editor genérico y sus overrides de precio;
 - se puede crear una segunda temporada de prueba sin código específico y luego eliminar/desactivar esa prueba;
 - las tarjetas de la home muestran promociones/packs correctamente;
 - sidebar y navegación reflejan la jerarquía final.
