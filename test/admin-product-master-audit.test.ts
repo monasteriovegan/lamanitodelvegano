@@ -16,7 +16,7 @@ test('Admin Master Audit: ProductoForm implements tri-state dietary selects with
   assert.match(formCode, /name="gluten_free"/);
   assert.match(formCode, /name="nut_free"/);
   assert.match(formCode, /Sin verificar \/ no afirmar \(null\)/);
-  assert.match(formCode, /Certificado libre de gluten \(true\)/);
+  assert.match(formCode, /Verificado libre de gluten \(true\)/);
   assert.match(formCode, /Contiene gluten \/ no apto \(false\)/);
 
   const actionsCode = read('src/app/admin/productos/actions.ts');

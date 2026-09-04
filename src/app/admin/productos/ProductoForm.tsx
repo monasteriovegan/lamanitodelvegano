@@ -253,7 +253,7 @@ export async function ProductoForm({ producto, variants = [], optionGroups = [],
             className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
           >
             <option value="" className="bg-[#0d1e16]">Sin verificar / no afirmar (null)</option>
-            <option value="true" className="bg-[#0d1e16]">Certificado libre de gluten (true)</option>
+            <option value="true" className="bg-[#0d1e16]">Verificado libre de gluten (true)</option>
             <option value="false" className="bg-[#0d1e16]">Contiene gluten / no apto (false)</option>
           </select>
         </div>
@@ -265,7 +265,7 @@ export async function ProductoForm({ producto, variants = [], optionGroups = [],
             className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
           >
             <option value="" className="bg-[#0d1e16]">Sin verificar / no afirmar (null)</option>
-            <option value="true" className="bg-[#0d1e16]">Certificado libre de nueces (true)</option>
+            <option value="true" className="bg-[#0d1e16]">Verificado libre de nueces (true)</option>
             <option value="false" className="bg-[#0d1e16]">Contiene nueces / no apto (false)</option>
           </select>
         </div>
