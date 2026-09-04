@@ -31,16 +31,16 @@ export async function GET(request: Request) {
     return Response.json({ error: 'invalid_message_id' }, { status: 400 });
   }
 
-  const { data: objectRow } = await db
-    .schema('storage')
-    .from('objects')
-    .select('name')
-    .eq('bucket_id', 'omnichannel-media')
-    .like('name', `%/${messageId}.%`)
-    .maybeSingle();
-  if (!objectRow?.name) return Response.json({ error: 'media_not_found' }, { status: 404 });
+  const bucket = db.storage.from('omnichannel-media');
+  for (const channel of ['whatsapp', 'instagram']) {
+    for (const ext of ['jpg', 'png', 'webp']) {
+      const path = `inbound/${channel}/${messageId}.${ext}`;
+      const { data, error } = await bucket.createSignedUrl(path, 120);
+      if (!error && data?.signedUrl) {
+        return Response.json({ ok: true, path, signedUrl: data.signedUrl });
+      }
+    }
+  }
 
-  const { data, error } = await db.storage.from('omnichannel-media').createSignedUrl(objectRow.name, 120);
-  if (error || !data?.signedUrl) return Response.json({ error: 'sign_failed' }, { status: 500 });
-  return Response.json({ ok: true, path: objectRow.name, signedUrl: data.signedUrl });
+  return Response.json({ error: 'media_not_found' }, { status: 404 });
 }
