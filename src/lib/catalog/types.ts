@@ -17,6 +17,13 @@ export interface CatalogVariant {
   imageUrl?: string | null;
 }
 
+export interface CatalogVariantOverride {
+  variantId: string;
+  priceOverride: number | null;
+  compareAtPriceOverride: number | null;
+  isActive: boolean;
+}
+
 export interface CatalogOptionValue {
   id: string;
   optionGroupId: string;
