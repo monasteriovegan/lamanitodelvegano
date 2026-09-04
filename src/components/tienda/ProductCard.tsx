@@ -24,6 +24,7 @@ const TAG_LABELS: Record<string, string> = {
 export function ProductCard({ producto, onOpenDetail }: { producto: Producto; onOpenDetail: () => void }) {
   const { items, addItem, changeQty } = useCart();
   const tieneFormatosOVariedades = !!(producto.gramaje?.trim() || producto.variedades?.trim());
+  const priceSummary = formatPriceSummary(producto);
 
   const key = itemKey({ productoId: producto.id, formato: null, variedad: null });
   const enCarrito = items.find((i) => itemKey(i) === key);
@@ -83,16 +84,16 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
         <div className="flex items-center justify-between">
           <div>
             <span className="font-body text-[14.5px] text-neon font-bold">
-              {formatPriceSummary(producto).formattedDisplayPrice}
+              {priceSummary.formattedDisplayPrice}
             </span>
-            {formatPriceSummary(producto).formattedOriginalPrice && (
+            {priceSummary.formattedOriginalPrice && (
               <span className="block text-[9px] text-gray-500 line-through">
-                {formatPriceSummary(producto).formattedOriginalPrice}
+                {priceSummary.formattedOriginalPrice}
               </span>
             )}
-            {formatPriceSummary(producto).packSummary && (
+            {priceSummary.packSummary && (
               <span className="block text-[9px] text-neon/80 font-semibold mt-0.5">
-                {formatPriceSummary(producto).packSummary}
+                🔥 {priceSummary.packSummary}
               </span>
             )}
           </div>
