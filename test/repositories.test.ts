@@ -143,10 +143,13 @@ test('migración v2 incluye índices para todas las FK críticas faltantes', () 
   ]) assert.match(source, new RegExp(`create index if not exists ${index}`));
 });
 
-test('capabilities no habilita checkout salvo schema v2 verificado', () => {
-  const source = read('src/lib/repositories/schema-capabilities.ts');
-  assert.match(source, /omnichannel-reconciled-v2/);
-  assert.match(source, /checkoutWrites:\s*reconciled\s*&&\s*source\.SUPABASE_CHECKOUT_SCHEMA_READY === 'true'/);
+test('capabilities expresa compatibilidad v2 y la disponibilidad de checkout se certifica contra la DB viva', () => {
+  const capabilities = read('src/lib/repositories/schema-capabilities.ts');
+  const readiness = read('src/lib/repositories/checkout-schema-readiness.ts');
+  assert.match(capabilities, /omnichannel-reconciled-v2/);
+  assert.match(capabilities, /checkoutWrites:\s*reconciled/);
+  assert.doesNotMatch(capabilities, /SUPABASE_CHECKOUT_SCHEMA_READY/);
+  assert.match(readiness, /checkout_schema_ready_v2/);
 });
 
 test('runtime src no consulta directamente tablas no canónicas', () => {
@@ -163,14 +166,13 @@ test('configuración de IA tiene default seguro OFF', () => {
   assert.doesNotMatch(source, /automatic_ai_enabled:\s*true/);
 });
 
-test('checkout pre-migración se bloquea antes de escribir', () => {
-  const capabilities = read('src/lib/repositories/schema-capabilities.ts');
+test('checkout pre-migración se bloquea por attestation real antes de calcular o escribir', () => {
   const checkout = read('src/app/api/checkout/route.ts');
-  assert.match(capabilities, /checkoutWrites:\s*reconciled\s*&&/);
-  assert.match(checkout, /if \(!capabilities\.checkoutWrites\)/);
+  assert.match(checkout, /verifyCheckoutSchemaReady/);
+  assert.match(checkout, /if \(!schemaReady\)/);
   assert.match(checkout, /SCHEMA_MIGRATION_REQUIRED/);
   assert.ok(
-    checkout.indexOf('if (!capabilities.checkoutWrites)') < checkout.indexOf('await calcularPedido'),
+    checkout.indexOf('if (!schemaReady)') < checkout.indexOf('await calcularPedido'),
     'el bloqueo debe ocurrir antes de cálculos o escrituras',
   );
 });
