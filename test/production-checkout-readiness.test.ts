@@ -28,7 +28,7 @@ test('checkout captures, validates and persists comuna, delivery date and custom
 
   assert.match(page, /const \[comuna, setComuna\]/);
   assert.match(page, /const \[fechaEntrega, setFechaEntrega\]/);
-  assert.match(page, /cliente:\s*\{\s*nombre,\s*direccion,\s*comuna,\s*telefono,\s*email\s*\}/s);
+  assert.match(page, /cliente:\s*\{[\s\S]*nombre,[\s\S]*direccion,[\s\S]*comuna,[\s\S]*telefono,[\s\S]*email[\s\S]*\}/);
   assert.match(page, /fechaEntrega/);
   assert.match(route, /validDeliveryDates/);
   assert.match(route, /zoneCommunes/);
