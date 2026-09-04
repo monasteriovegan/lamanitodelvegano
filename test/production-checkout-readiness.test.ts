@@ -9,29 +9,32 @@ function read(path: string) {
 test('checkout readiness is attested against the live reconciled schema instead of a stale manual flag', () => {
   const route = read('src/app/api/checkout/route.ts');
   const readiness = read('src/lib/repositories/checkout-schema-readiness.ts');
+  const capabilities = read('src/lib/repositories/schema-capabilities.ts');
   const migration = read('supabase/migrations/20260904040000_checkout_production_readiness.sql');
 
   assert.match(route, /verifyCheckoutSchemaReady/);
   assert.doesNotMatch(route, /SUPABASE_CHECKOUT_SCHEMA_READY/);
+  assert.doesNotMatch(capabilities, /SUPABASE_CHECKOUT_SCHEMA_READY/);
   assert.match(readiness, /checkout_schema_ready_v2/);
   assert.match(migration, /create or replace function public\.checkout_schema_ready_v2/i);
   assert.match(migration, /revoke all on function public\.checkout_schema_ready_v2/i);
   assert.match(migration, /grant execute on function public\.checkout_schema_ready_v2/i);
 });
 
-test('checkout captures and persists comuna, delivery date and customer notes', () => {
+test('checkout captures, validates and persists comuna, delivery date and customer notes before payment', () => {
   const page = read('src/app/checkout/page.tsx');
   const route = read('src/app/api/checkout/route.ts');
-  const repo = read('src/lib/repositories/orders-repository.ts');
   const migration = read('supabase/migrations/20260904040000_checkout_production_readiness.sql');
 
   assert.match(page, /const \[comuna, setComuna\]/);
   assert.match(page, /const \[fechaEntrega, setFechaEntrega\]/);
   assert.match(page, /cliente:\s*\{\s*nombre,\s*direccion,\s*comuna,\s*telefono,\s*email\s*\}/s);
   assert.match(page, /fechaEntrega/);
-  assert.match(route, /comuna:\s*body\.cliente\.comuna/);
-  assert.match(route, /deliveryDate:\s*body\.fechaEntrega/);
-  assert.match(repo, /p_delivery_date:\s*input\.deliveryDate/);
+  assert.match(route, /validDeliveryDates/);
+  assert.match(route, /zoneCommunes/);
+  assert.match(route, /fecha_entrega:\s*fechaEntrega/);
+  assert.match(route, /notas:\s*body\.notas\?\.trim\(\) \|\| null/);
+  assert.match(route, /deliveryDetailsError/);
   assert.match(migration, /add column if not exists notas text/i);
 });
 
@@ -58,11 +61,13 @@ test('Purchase is created only after paid and CAPI retries are idempotent', () =
   const migration = read('supabase/migrations/20260904040000_checkout_production_readiness.sql');
 
   assert.match(migration, /InitiateCheckout/);
-  assert.match(migration, /event_name\s*=\s*'Purchase'/i);
-  assert.match(capi, /purchase_\$\{order\.id\}/);
-  assert.match(capi, /status[^\n]*sent/);
-  assert.match(capi, /status[^\n]*failed/);
-  assert.match(webhook, /effectiveStatus === 'paid'/);
+  assert.match(migration, /new\.event_name = 'Purchase'/i);
+  assert.match(migration, /payment_status = 'paid'/i);
+  assert.match(capi, /const eventId = `purchase_\$\{order\.id\}`/);
+  assert.match(capi, /existingDelivery\?\.status === 'sent'/);
+  assert.match(capi, /status:\s*'failed'/);
+  assert.match(capi, /status:\s*'sent'/);
+  assert.match(webhook, /if \(effectiveStatus === 'paid'\)/);
   assert.match(webhook, /sendPaidPurchaseToMeta/);
 });
 
