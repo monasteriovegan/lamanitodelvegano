@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { autoRegisterInstagramConversationSale } from '@/lib/orders/instagram-auto-sale';
 import { autoRegisterWhatsappConversationSale } from '@/lib/orders/whatsapp-auto-sale';
 
-type ReconcileStatus = 'synced' | 'pending' | 'already_linked' | 'ignored' | 'failed';
+type ReconcileStatus = 'synced' | 'pending' | 'already_linked' | 'ignored' | 'failed' | 'flagged_for_review';
 
 type CandidateConversation = {
   id: string;

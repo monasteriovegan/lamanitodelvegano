@@ -27,7 +27,7 @@ type InstagramConversationRow = {
 };
 
 export type InstagramAutoSaleResult = {
-  status: 'ignored' | 'pending' | 'already_linked' | 'synced';
+  status: 'ignored' | 'pending' | 'already_linked' | 'synced' | 'flagged_for_review';
   orderId?: number;
   missing?: string[];
   paymentStatus?: string | null;
@@ -53,7 +53,7 @@ async function linkMessagesToOrder(db: SupabaseClient, conversationId: string, o
   if (error) throw error;
 }
 
-async function reconcileExistingInstagramOrderPayment(
+async function flagPossiblePaymentForAdminReview(
   db: SupabaseClient,
   conversation: InstagramConversationRow,
   messages: MessageRow[],
@@ -63,7 +63,7 @@ async function reconcileExistingInstagramOrderPayment(
 
   // If the still-unlinked cycle already contains a clear request for another
   // purchase, the payment acknowledgement may belong to that new sale. In that
-  // case do not mutate the previous order; let the normal new-order extractor run.
+  // case do not touch the previous order; let the normal new-order extractor run.
   if (hasCustomerNewOrderSignal(messages)) return null;
 
   const repo = new OrderRepository(db);
@@ -77,21 +77,25 @@ async function reconcileExistingInstagramOrderPayment(
     return { status: 'already_linked', orderId, paymentStatus: 'paid' };
   }
 
-  const note = [
-    before.admin_notes,
-    'Pago confirmado desde una respuesta humana del negocio en Instagram.',
-  ].filter(Boolean).join(' ');
-  const updated = await repo.update(orderId, {
-    status: 'confirmed',
-    payment_status: 'paid',
-    admin_notes: note,
-  });
+  // IMPORTANT: this never sets payment_status to 'paid'. Detecting
+  // confirmation-like language in the chat is only a suggestion for the
+  // admin to review — the definitive "paid" state requires an explicit
+  // admin action. See ConversationSaleConfirmOptions.adminConfirmedPayment
+  // in conversation-sale.ts for the one path that IS allowed to mark it paid.
+  const alreadyFlagged = String(before.admin_notes || '').includes('[Posible pago por transferencia detectado');
+  if (!alreadyFlagged) {
+    const note = [
+      before.admin_notes,
+      '[Posible pago por transferencia detectado en la conversación de Instagram — verificar y confirmar manualmente en el panel.]',
+    ].filter(Boolean).join(' ');
+    await repo.update(orderId, { admin_notes: note });
+  }
 
   await linkMessagesToOrder(db, conversation.id, orderId);
   const labels = Array.from(new Set([
     ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
-    'pagado',
+    'pago_por_verificar',
   ]));
   const { error: conversationError } = await db.from('conversations').update({
     labels,
@@ -100,9 +104,9 @@ async function reconcileExistingInstagramOrderPayment(
   if (conversationError) throw conversationError;
 
   return {
-    status: 'synced',
+    status: 'flagged_for_review',
     orderId,
-    paymentStatus: updated.payment_status || null,
+    paymentStatus: before.payment_status || null,
   };
 }
 
@@ -143,12 +147,12 @@ export async function autoRegisterInstagramConversationSale(
   }
 
   if (repeatOrder) {
-    const paymentReconciliation = await reconcileExistingInstagramOrderPayment(
+    const paymentFlag = await flagPossiblePaymentForAdminReview(
       db,
       conversation as InstagramConversationRow,
       messages,
     );
-    if (paymentReconciliation) return paymentReconciliation;
+    if (paymentFlag) return paymentFlag;
   }
 
   const draft = await prepareConversationSaleDraft(db, conversationId, {

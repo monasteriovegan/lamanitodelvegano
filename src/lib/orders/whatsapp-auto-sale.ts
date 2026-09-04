@@ -24,7 +24,7 @@ type WhatsappConversationRow = {
 };
 
 export type WhatsappAutoSaleResult = {
-  status: 'ignored' | 'pending' | 'already_linked' | 'synced';
+  status: 'ignored' | 'pending' | 'already_linked' | 'synced' | 'flagged_for_review';
   orderId?: number;
   missing?: string[];
   paymentStatus?: string | null;
@@ -64,7 +64,7 @@ async function linkConversationToOrder(
   await linkMessagesToOrder(db, conversation.id, orderId);
 }
 
-async function reconcileExistingWhatsappOrderPayment(
+async function flagPossiblePaymentForAdminReview(
   db: SupabaseClient,
   conversation: WhatsappConversationRow,
   messages: MessageRow[],
@@ -84,21 +84,26 @@ async function reconcileExistingWhatsappOrderPayment(
     return { status: 'already_linked', orderId, paymentStatus: 'paid' };
   }
 
-  const note = [
-    before.admin_notes,
-    'Pago confirmado desde una respuesta humana del negocio en WhatsApp.',
-  ].filter(Boolean).join(' ');
-  const updated = await repo.update(orderId, {
-    status: 'confirmed',
-    payment_status: 'paid',
-    admin_notes: note,
-  });
+  // IMPORTANT: this never sets payment_status to 'paid'. Detecting
+  // confirmation-like language in the chat is only a suggestion for the
+  // admin to review — the definitive "paid" state requires an explicit
+  // admin action (adminConfirmedPayment in conversation-sale.ts, set only
+  // from a real click in the admin panel's "Confirmar pedido y
+  // transferencia" button).
+  const alreadyFlagged = String(before.admin_notes || '').includes('[Posible pago por transferencia detectado');
+  if (!alreadyFlagged) {
+    const note = [
+      before.admin_notes,
+      '[Posible pago por transferencia detectado en la conversación de WhatsApp — verificar y confirmar manualmente en el panel.]',
+    ].filter(Boolean).join(' ');
+    await repo.update(orderId, { admin_notes: note });
+  }
 
   await linkMessagesToOrder(db, conversation.id, orderId);
   const labels = Array.from(new Set([
     ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
-    'pagado',
+    'pago_por_verificar',
   ]));
   const { error: conversationError } = await db.from('conversations').update({
     labels,
@@ -107,9 +112,9 @@ async function reconcileExistingWhatsappOrderPayment(
   if (conversationError) throw conversationError;
 
   return {
-    status: 'synced',
+    status: 'flagged_for_review',
     orderId,
-    paymentStatus: updated.payment_status || null,
+    paymentStatus: before.payment_status || null,
   };
 }
 
@@ -178,8 +183,13 @@ async function confirmWhatsappPickupSale(
     return { status: 'pending', missing: ['total_no_coincide'] };
   }
 
-  const paymentConfirmed = draft.paymentMethod === 'transfer'
+  // IMPORTANT: never auto-confirm payment from regex detection — same rule
+  // as everywhere else in the system. Evidence found here only becomes a
+  // note for the admin to review; the definitive "paid" state requires an
+  // explicit click on "Confirmar pedido y transferencia" in the panel.
+  const possiblePaymentEvidence = draft.paymentMethod === 'transfer'
     && hasBusinessPaymentConfirmation(messages);
+  const paymentConfirmed = false;
   const repo = new OrderRepository(db);
   const order = await repo.createConversationOrder({
     idempotencyKey,
@@ -201,7 +211,7 @@ async function confirmWhatsappPickupSale(
     shippingZoneName: 'Retiro acordado por conversación',
     deliveryDate: draft.deliveryDate || null,
     sourceChannel: 'whatsapp',
-    adminNotes: `Pedido confirmado desde conversación WhatsApp. Retiro acordado. ${draft.notes || ''}`.trim(),
+    adminNotes: `Pedido confirmado desde conversación WhatsApp. Retiro acordado. ${draft.notes || ''}${possiblePaymentEvidence ? ' [Posible pago por transferencia detectado — verificar y confirmar manualmente en el panel.]' : ''}`.trim(),
     attribution: { utm_source: 'whatsapp', utm_medium: 'whatsapp_conversation_auto' },
   });
 
@@ -234,12 +244,12 @@ export async function autoRegisterWhatsappConversationSale(
   }
 
   if (repeatOrder) {
-    const paymentReconciliation = await reconcileExistingWhatsappOrderPayment(
+    const paymentFlag = await flagPossiblePaymentForAdminReview(
       db,
       typedConversation,
       messages,
     );
-    if (paymentReconciliation) return paymentReconciliation;
+    if (paymentFlag) return paymentFlag;
   }
 
   const draft = await prepareConversationSaleDraft(db, conversationId, {
