@@ -56,13 +56,14 @@ test('un mismo chat de WhatsApp puede generar pedidos posteriores sin mezclar la
   assert.match(autoSale, /cycle:/);
 });
 
-test('confirmación humana de pago posterior actualiza el pedido de WhatsApp existente y no crea otro', () => {
+test('confirmación humana de pago posterior queda marcada para revisión, nunca marca pagado sola', () => {
   const autoSale = read('src/lib/orders/whatsapp-auto-sale.ts');
-  assert.match(autoSale, /reconcileExistingWhatsappOrderPayment/);
+  assert.match(autoSale, /flagPossiblePaymentForAdminReview/);
   assert.match(autoSale, /payment_status/);
-  assert.match(autoSale, /status:\s*['"]confirmed['"]/);
+  assert.doesNotMatch(autoSale, /payment_status:\s*['"]paid['"]/);
   assert.match(autoSale, /linkMessagesToOrder/);
   assert.match(autoSale, /hasCustomerNewOrderSignal/);
+  assert.match(autoSale, /pago_por_verificar/);
 });
 
 test('la extracción por lote de WhatsApp pasa por el mismo checkout atómico e idempotente que el resto del sitio', () => {

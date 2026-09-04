@@ -59,13 +59,14 @@ test('pedido de Instagram completa el mismo cliente CRM con teléfono y direcci�
   assert.match(conversationSale, /source_channel:\s*conversation\.channel/);
 });
 
-test('confirmación humana de pago posterior actualiza el pedido existente y no crea otro', () => {
+test('confirmación humana de pago posterior queda marcada para revisión, nunca marca pagado sola', () => {
   const autoSale = read('src/lib/orders/instagram-auto-sale.ts');
-  assert.match(autoSale, /reconcileExistingInstagramOrderPayment/);
+  assert.match(autoSale, /flagPossiblePaymentForAdminReview/);
   assert.match(autoSale, /payment_status/);
-  assert.match(autoSale, /status:\s*['"]confirmed['"]/);
+  assert.doesNotMatch(autoSale, /payment_status:\s*['"]paid['"]/);
   assert.match(autoSale, /linkMessagesToOrder/);
   assert.match(autoSale, /hasCustomerNewOrderSignal/);
+  assert.match(autoSale, /pago_por_verificar/);
 });
 
 test('backfill de Instagram consulta conversaciones desde Page ID y reutiliza persistencia canónica', () => {

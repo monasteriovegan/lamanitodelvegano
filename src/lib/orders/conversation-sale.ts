@@ -54,6 +54,12 @@ export type ConversationSaleConfirmOptions = {
   attributionMedium?: string;
   allowMissingPhone?: boolean;
   allowTranscriptShipping?: boolean;
+  // The ONLY way a transfer order can be created/updated as paid. Must come
+  // from an explicit admin action (the "Confirmar pedido y transferencia"
+  // button in /admin/conversaciones) — never from AI extraction or from
+  // regex-detecting confirmation language in the chat (draft.paymentEvidence
+  // is a *suggestion* surfaced to the admin, not a decision by itself).
+  adminConfirmedPayment?: boolean;
 };
 
 function compact(value: unknown, max = 12000) {
@@ -458,8 +464,9 @@ export async function confirmConversationSale(
 
   const capabilities = getSchemaCapabilities();
   const orderRepository = new OrderRepository(db, capabilities);
-  const transferPaid = draft.paymentMethod === 'transfer' && draft.paymentEvidence;
-  const adminNotes = `Pedido confirmado desde conversación ${conversation.channel}. ${draft.notes || ''}`.trim();
+  const transferPaid = draft.paymentMethod === 'transfer' && options.adminConfirmedPayment === true;
+  const suggestedPaid = draft.paymentMethod === 'transfer' && draft.paymentEvidence && !transferPaid;
+  const adminNotes = `Pedido confirmado desde conversación ${conversation.channel}. ${draft.notes || ''}${suggestedPaid ? ' [Posible pago por transferencia detectado en la conversación — verificar y confirmar manualmente en el panel.]' : ''}`.trim();
   const useConversationOrder = Boolean(
     options.allowMissingPhone
     || options.allowTranscriptShipping
@@ -554,6 +561,7 @@ export async function confirmConversationSale(
     ...(Array.isArray(conversation.labels) ? conversation.labels.map(String).filter((label) => label !== 'personal') : []),
     'pedido',
     ...(transferPaid ? ['pagado'] : []),
+    ...(suggestedPaid ? ['pago_por_verificar'] : []),
   ]));
   const { error: conversationUpdateError } = await db.from('conversations').update({
     order_id: order.numeric_id,
