@@ -19,6 +19,7 @@ export interface CatalogCartItem {
   variedad?: string | null;
   variantId?: string;
   variantSku?: string;
+  sku?: string;
   selections?: CatalogCartSelection[];
   campaignTag?: string;
   notas?: string | null;
@@ -41,6 +42,7 @@ export function toCatalogCartItem(
       : null,
     variantId: line.variantId,
     variantSku: line.variantSku,
+    sku: line.variantSku,
     selections,
     campaignTag: options.campaignTag,
     notas: options.notas || null,

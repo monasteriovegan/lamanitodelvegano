@@ -3,7 +3,17 @@
 import { useEffect } from 'react';
 import { trackPurchase } from '@/lib/analytics/client';
 
-type PurchaseItem = { productoId?: string; producto_id?: string; nombre?: string; name?: string; precio?: number; qty?: number };
+type PurchaseItem = {
+  sku?: string;
+  variantSku?: string;
+  variant_sku?: string;
+  productoId?: string;
+  producto_id?: string;
+  nombre?: string;
+  name?: string;
+  precio?: number;
+  qty?: number;
+};
 
 export function PurchaseTracking({ pedidoId, total, items }: { pedidoId: string; total: number; items: PurchaseItem[] }) {
   useEffect(() => {
@@ -13,7 +23,7 @@ export function PurchaseTracking({ pedidoId, total, items }: { pedidoId: string;
     trackPurchase(pedidoId, {
       value: total,
       items: items.map((item, index) => ({
-        id: item.productoId || item.producto_id || `${pedidoId}_${index}`,
+        id: item.sku || item.variantSku || item.variant_sku || item.productoId || item.producto_id || `${pedidoId}_${index}`,
         name: item.nombre || item.name || 'Producto',
         price: item.precio,
         quantity: item.qty,

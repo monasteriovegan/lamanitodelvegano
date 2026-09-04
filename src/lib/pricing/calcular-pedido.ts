@@ -89,6 +89,9 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
       precioUnitario = formatoMatch.precio;
     }
 
+    const catalogProduct = catalogById.get(reqItem.productoId);
+    const resolvedSku = prod.sku || catalogProduct?.variants?.[0]?.sku || catalogProduct?.sku || null;
+
     itemsResueltos.push({
       productoId: prod.id,
       nombre: prod.nombre,
@@ -98,6 +101,7 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
       formato: reqItem.formato || null,
       variedad: reqItem.variedad || null,
       notas: reqItem.notas || null,
+      sku: resolvedSku,
     });
   }
 

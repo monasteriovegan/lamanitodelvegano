@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { runtimeSiteUrl } from '@/lib/site-url';
+import { runtimeSiteUrl } from '../site-url.ts';
 
 type PurchaseItem = {
   sku?: string;
@@ -112,7 +112,35 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   }
 
   const items = (Array.isArray(order.items) ? order.items : []) as PurchaseItem[];
-  const contents = items.flatMap((item) => {
+  let resolvedItems = items;
+  const missingSku = items.some((i) => !i.sku && !i.variantSku && !i.variant_sku);
+  if (missingSku && items.length > 0) {
+    const productIds = items.map((i) => i.productoId || i.producto_id || i.id).filter(Boolean) as string[];
+    const variantIds = items.map((i: any) => i.variantId || i.variant_id).filter(Boolean) as string[];
+    const [prodsRes, varsRes] = await Promise.all([
+      productIds.length > 0 ? db.from('productos').select('id,sku').in('id', productIds) : { data: [] },
+      variantIds.length > 0 ? db.from('product_variants').select('id,sku').in('id', variantIds) : { data: [] },
+    ]);
+    const prodMap = new Map((prodsRes.data || []).map((p: any) => [p.id, p.sku]));
+    const varMap = new Map((varsRes.data || []).map((v: any) => [v.id, v.sku]));
+    resolvedItems = items.map((i: any) => {
+      const sku =
+        i.sku ||
+        i.variantSku ||
+        i.variant_sku ||
+        (i.variantId ? varMap.get(i.variantId) : null) ||
+        (i.variant_id ? varMap.get(i.variant_id) : null) ||
+        (i.productoId ? prodMap.get(i.productoId) : null) ||
+        (i.producto_id ? prodMap.get(i.producto_id) : null) ||
+        (i.id ? prodMap.get(i.id) : null) ||
+        i.productoId ||
+        i.producto_id ||
+        i.id;
+      return { ...i, sku };
+    });
+  }
+
+  const contents = resolvedItems.flatMap((item) => {
     const id = item.sku || item.variantSku || item.variant_sku || item.productoId || item.producto_id || item.id;
     if (!id) return [];
     return [{ id: String(id), quantity: Number(item.qty ?? item.quantity ?? 1) }];
@@ -157,27 +185,72 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
       cache: 'no-store',
     });
   } catch {
+    const metaCapiPayload = {
+      http_status: 0,
+      status: 'network_error',
+      accepted: false,
+      events_received: 0,
+      messages: ['network_error'],
+      fbtrace_id: null,
+      timestamp: new Date().toISOString(),
+      order_id: Number(order.id),
+      event_id: eventId,
+    };
     await db.from('conversion_events').update({
       status: 'failed',
-      provider_results: { meta_capi: { status: 'network_error' } },
+      provider_results: { meta_capi: metaCapiPayload },
     }).eq('business_unit_id', order.business_unit_id).eq('event_id', eventId);
     console.error('meta_capi_purchase_failed', { orderId: String(order.id), status: 'network_error' });
     return { sent: false, reason: 'request_failed' };
   }
 
+  let responseData: any = null;
+  try {
+    responseData = await response.json();
+  } catch {
+    responseData = null;
+  }
+
   if (!response.ok) {
+    const metaCapiPayload = {
+      http_status: response.status,
+      status: response.status,
+      accepted: false,
+      events_received: Number(responseData?.events_received || 0),
+      messages: Array.isArray(responseData?.messages)
+        ? responseData.messages
+        : responseData?.error?.message
+        ? [responseData.error.message]
+        : [],
+      fbtrace_id: responseData?.fbtrace_id || responseData?.error?.fbtrace_id || null,
+      timestamp: new Date().toISOString(),
+      order_id: Number(order.id),
+      event_id: eventId,
+    };
     await db.from('conversion_events').update({
       status: 'failed',
-      provider_results: { meta_capi: { status: response.status } },
+      provider_results: { meta_capi: metaCapiPayload },
     }).eq('business_unit_id', order.business_unit_id).eq('event_id', eventId);
     console.error('meta_capi_purchase_failed', { orderId: String(order.id), status: response.status });
     return { sent: false, reason: 'request_failed' };
   }
 
+  const metaCapiPayload = {
+    http_status: response.status,
+    status: response.status,
+    accepted: true,
+    events_received: Number(responseData?.events_received ?? 1),
+    messages: Array.isArray(responseData?.messages) ? responseData.messages : [],
+    fbtrace_id: responseData?.fbtrace_id || null,
+    timestamp: new Date().toISOString(),
+    order_id: Number(order.id),
+    event_id: eventId,
+  };
+
   const { error: sentError } = await db.from('conversion_events').update({
     status: 'sent',
     processed_at: new Date().toISOString(),
-    provider_results: { meta_capi: { status: response.status } },
+    provider_results: { meta_capi: metaCapiPayload },
   }).eq('business_unit_id', order.business_unit_id).eq('event_id', eventId);
   if (sentError) throw sentError;
 
