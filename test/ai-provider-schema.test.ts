@@ -21,9 +21,9 @@ test('provider fuerza y valida un tool que el prompt declara obligatorio', () =>
   const provider = read('src/lib/ai/providers/index.ts');
   assert.match(provider, /requiredToolName\?: string/);
   assert.match(provider, /resolveRequiredToolName/);
-  assert.match(provider, /Debes\\s\+llamar\\s\+a/);
+  assert.equal(provider.includes("new RegExp(`Debes\\\\s+llamar\\\\s+a"), true);
   assert.match(provider, /allowedFunctionNames:\s*\[requiredToolName\]/);
-  assert.match(provider, /tool_choice\s*=\s*\{\s*type:\s*'function'/s);
+  assert.match(provider, /payload\.tool_choice = \{ type: 'function', function: \{ name: requiredToolName \} \}/);
   assert.match(provider, /required_tool_missing/);
 });
 
