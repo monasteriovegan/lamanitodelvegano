@@ -8,7 +8,8 @@ const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('Groq Provider compatibility: uses max_tokens instead of max_completion_tokens for standard models', () => {
   const providersCode = read('src/lib/ai/providers/index.ts');
-  assert.match(providersCode, /payload\.max_tokens\s*=\s*input\.maxOutputTokens/);
+  assert.match(providersCode, /const requiredToolTokens = requiredToolName \? Math\.max\(input\.maxOutputTokens, 2048\) : input\.maxOutputTokens/);
+  assert.match(providersCode, /payload\.max_tokens\s*=\s*requiredToolTokens/);
 });
 
 test('Groq Provider compatibility: strips additionalProperties and omits parallel_tool_calls for Groq', () => {
