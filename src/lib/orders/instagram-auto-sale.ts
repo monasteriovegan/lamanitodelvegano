@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { confirmConversationSale, prepareConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import { augmentConfirmedOffCatalogDraft } from '@/lib/orders/confirmed-offcatalog-review';
 import {
   hasBusinessPaymentConfirmation,
   hasCustomerNewOrderSignal,
@@ -155,11 +156,29 @@ export async function autoRegisterInstagramConversationSale(
     if (paymentFlag) return paymentFlag;
   }
 
-  const draft = await prepareConversationSaleDraft(db, conversationId, {
+  let draft = await prepareConversationSaleDraft(db, conversationId, {
     allowExistingOrder: repeatOrder,
     onlyUnlinkedMessages,
   });
   if (!draft.saleDetected) return { status: 'pending', missing: draft.missing };
+
+  const businessPaymentConfirmed = draft.paymentMethod === 'transfer'
+    && hasBusinessPaymentConfirmation(messages);
+
+  // Una venta ya confirmada no puede desaparecer sólo porque una línea aún no
+  // exista en el catálogo activo. Hacemos una segunda pasada acotada para
+  // rescatar exclusivamente esos ítems y, si falta precio, crear el pedido con
+  // revisión explícita en vez de inventar el importe.
+  if (businessPaymentConfirmed) {
+    try {
+      draft = await augmentConfirmedOffCatalogDraft(db, draft, messages);
+    } catch (offCatalogError) {
+      console.error('instagram_confirmed_offcatalog_recovery_failed', {
+        conversationId,
+        reason: offCatalogError instanceof Error ? offCatalogError.message : 'unknown',
+      });
+    }
+  }
 
   const extractedPhone = draft.phone || extractPhoneFromMessages(messages);
   const draftHasMissing = draft.missing.length > 0;
@@ -176,9 +195,6 @@ export async function autoRegisterInstagramConversationSale(
   }
   const missing = (draftHasMissing ? missingWithoutPhone : []).filter((item) => !toleratedMissing.has(item));
   if (missing.length) return { status: 'pending', missing: draft.missing };
-
-  const businessPaymentConfirmed = draft.paymentMethod === 'transfer'
-    && hasBusinessPaymentConfirmation(messages);
 
   const firstCycleMessageId = messages[0]?.id;
   if (repeatOrder && !firstCycleMessageId) {
@@ -205,8 +221,9 @@ export async function autoRegisterInstagramConversationSale(
   if (result.duplicate) {
     return { status: 'already_linked', orderId: Number(result.orderId) };
   }
+  const pricingReview = String(draft.notes || '').includes('[REQUIERE REVISIÓN PRECIO/TOTAL:');
   return {
-    status: 'synced',
+    status: pricingReview ? 'flagged_for_review' : 'synced',
     orderId: Number(result.orderId),
     paymentStatus: result.paymentStatus || null,
   };
