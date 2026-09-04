@@ -19,7 +19,7 @@ test('order reconciliation cron route requires CRON_SECRET and uses fixed bounde
   assert.match(route, /Authorization|authorization/);
   assert.match(route, /Bearer/);
   assert.match(route, /reconcilePendingSales/);
-  assert.match(route, /limit:\s*50/);
+  assert.match(route, /limit:\s*10/);
   assert.match(route, /hours:\s*72/);
 });
 
