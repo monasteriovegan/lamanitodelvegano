@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = createSupabaseServiceClient();
-    const result = await reconcilePendingSales(db, { limit: 50, hours: 72 });
+    const result = await reconcilePendingSales(db, { limit: 10, hours: 72 });
     console.info('order_reconciliation_cron_complete', {
       scanned: result.scanned,
       synced: result.synced,

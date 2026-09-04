@@ -27,6 +27,15 @@ test('conversation confirmation uses a dedicated conversation-order transaction'
   assert.match(orders, /conversation_create_order_v1/);
 });
 
+test('database guard always mirrors conversations.order_id into conversation_orders', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260904004500_conversation_order_link_guard.sql', import.meta.url), 'utf8');
+  assert.match(sql, /conversation_orders/i);
+  assert.match(sql, /new\.order_id/i);
+  assert.match(sql, /on conflict \(conversation_id, pedido_id\) do nothing/i);
+  assert.match(sql, /after insert or update of order_id/i);
+  assert.match(sql, /where c\.order_id is not null/i);
+});
+
 test('conversation order RPC keeps phone and shipping zone optional without weakening web checkout', () => {
   const migrationDir = new URL('../supabase/migrations/', import.meta.url);
   const filename = readdirSync(migrationDir).find((name) => name.includes('conversation_order'));

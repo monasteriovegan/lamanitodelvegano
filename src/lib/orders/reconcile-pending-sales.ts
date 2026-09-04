@@ -13,6 +13,14 @@ type CandidateConversation = {
   updated_at: string | null;
 };
 
+type CandidateMessage = {
+  conversation_id: string;
+  direction: string | null;
+  message_type: string | null;
+  body: string | null;
+  payload: Record<string, unknown> | null;
+};
+
 export type ReconcilePendingSalesOptions = {
   limit?: number;
   hours?: number;
@@ -41,9 +49,33 @@ function boundedInteger(value: number | undefined, fallback: number, min: number
   return Math.max(min, Math.min(Math.trunc(numeric), max));
 }
 
+function normalizedLabels(labels: string[] | null | undefined) {
+  return new Set((labels || []).map((label) => String(label).trim().toLowerCase()));
+}
+
 function isPersonalOnly(labels: string[] | null | undefined) {
-  const normalized = new Set((labels || []).map((label) => String(label).trim().toLowerCase()));
+  const normalized = normalizedLabels(labels);
   return normalized.has('personal') && !normalized.has('pedido') && !normalized.has('pagado');
+}
+
+function hasCommercialLabel(labels: string[] | null | undefined) {
+  const normalized = normalizedLabels(labels);
+  return normalized.has('pedido') || normalized.has('pagado');
+}
+
+// Deliberately strict: this is a gate before invoking any LLM sale extraction.
+// It should prefer missing a weak lead over creating a false order.
+const paymentConfirmationPattern = /(?:\bconfirmad[oa]\b.{0,32}\b(?:pago|transferencia|comprobante)\b|\b(?:pago|transferencia|comprobante)\b.{0,32}\b(?:confirmad[oa]|recibid[oa]|correct[oa])\b)/i;
+
+function hasReceiptOcr(payload: Record<string, unknown> | null | undefined) {
+  return payload?.ocr_is_receipt === true;
+}
+
+function hasStrongMessageSignal(message: CandidateMessage) {
+  if (hasReceiptOcr(message.payload)) return true;
+  const body = String(message.body || '').trim();
+  if (body && paymentConfirmationPattern.test(body)) return true;
+  return false;
 }
 
 async function upsertAttempt(
@@ -70,7 +102,7 @@ export async function reconcilePendingSales(
   db: SupabaseClient,
   options: ReconcilePendingSalesOptions = {},
 ): Promise<ReconcilePendingSalesResult> {
-  const limit = boundedInteger(options.limit, 50, 1, 100);
+  const limit = boundedInteger(options.limit, 10, 1, 50);
   const hours = boundedInteger(options.hours, 72, 1, 168);
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
@@ -80,7 +112,7 @@ export async function reconcilePendingSales(
     .in('channel', ['instagram', 'whatsapp'])
     .gte('updated_at', since)
     .order('updated_at', { ascending: false })
-    .limit(Math.min(limit * 3, 300));
+    .limit(Math.min(limit * 8, 200));
   if (candidateError) throw candidateError;
 
   const typedCandidates = (rawCandidates || []) as CandidateConversation[];
@@ -92,9 +124,10 @@ export async function reconcilePendingSales(
   const ids = notPersonal.map((conversation) => conversation.id);
   const [{ data: unlinkedRows, error: unlinkedError }, { data: stateRows, error: stateError }] = await Promise.all([
     db.from('omnichannel_messages')
-      .select('conversation_id')
+      .select('conversation_id,direction,message_type,body,payload')
       .in('conversation_id', ids)
-      .is('order_id', null),
+      .is('order_id', null)
+      .gte('created_at', since),
     db.from('conversation_reconciliation_state')
       .select('conversation_id,attempts')
       .in('conversation_id', ids),
@@ -102,12 +135,23 @@ export async function reconcilePendingSales(
   if (unlinkedError) throw unlinkedError;
   if (stateError) throw stateError;
 
-  const hasUnlinkedMessages = new Set((unlinkedRows || []).map((row: { conversation_id: string }) => row.conversation_id));
+  const typedMessages = (unlinkedRows || []) as CandidateMessage[];
+  const hasUnlinkedMessages = new Set(typedMessages.map((row) => row.conversation_id));
+  const strongSignalConversationIds = new Set(
+    typedMessages.filter(hasStrongMessageSignal).map((row) => row.conversation_id),
+  );
+  for (const conversation of notPersonal) {
+    if (hasCommercialLabel(conversation.labels) && hasUnlinkedMessages.has(conversation.id)) {
+      strongSignalConversationIds.add(conversation.id);
+    }
+  }
+
   const attempts = new Map(
     (stateRows || []).map((row: { conversation_id: string; attempts: number }) => [row.conversation_id, Number(row.attempts || 0)]),
   );
 
   const candidates = notPersonal
+    .filter((conversation) => strongSignalConversationIds.has(conversation.id))
     .filter((conversation) => !conversation.order_id || hasUnlinkedMessages.has(conversation.id))
     .slice(0, limit);
 
