@@ -250,7 +250,6 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
       const { data: messages, error: msgErr } = await msgQuery;
       if (msgErr) throw msgErr;
 
-      // Buscar también si hay pedidos registrados con el mismo monto exacto
       let matchedOrders: any[] = [];
       if (normalizedAmountNum !== null) {
         const { data: orders } = await db.from('pedidos')
@@ -261,7 +260,6 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
         matchedOrders = orders || [];
       }
 
-      // Enriquecer con datos de conversación y contacto
       const convIds = Array.from(new Set((messages || []).map((m: any) => m.conversation_id).filter(Boolean)));
       const custIds = Array.from(new Set((messages || []).map((m: any) => m.customer_id).filter(Boolean)));
 
@@ -281,14 +279,8 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
         const ocrText = String(m.payload?.ocr_text || m.raw_payload?.ocr_text || '').toLowerCase();
         const fullSearchable = `${bodyText} ${ocrText}`;
 
-        if (rawQuery && !fullSearchable.includes(rawQuery.toLowerCase())) {
-          return false;
-        }
-
-        if (rawAmount && !amountVariants.some((v) => fullSearchable.includes(v.toLowerCase()))) {
-          return false;
-        }
-
+        if (rawQuery && !fullSearchable.includes(rawQuery.toLowerCase())) return false;
+        if (rawAmount && !amountVariants.some((v) => fullSearchable.includes(v.toLowerCase()))) return false;
         return true;
       }).slice(0, limit);
 
@@ -433,7 +425,6 @@ export async function runWonkaTool(db: SupabaseClient, toolName: string, args: a
           ],
           feeds: [{ id: 'feed-1', name: 'Feed Canónico CSV', schedule: { interval: 'hourly' }, url: 'https://lamanitodelvegano.cl/api/meta/catalog/feed', default_currency: 'CLP', latest_upload: { status: 'complete', num_detected_items: 10, num_persisted_items: 10, num_invalid_items: 0, error_count: 0, warning_count: 0 } }],
           pixel_connected: true,
-          pixel_id: pixelId,
           diagnostics: { status: 'healthy', issues: [] }
         };
       } else {
