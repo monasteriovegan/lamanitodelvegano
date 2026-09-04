@@ -153,6 +153,24 @@ function resolveRequiredToolName(input: ProviderCallInput): string | undefined {
 function ensureRequiredTool(response: ProviderResponse, input: ProviderCallInput): ProviderResponse {
   const requiredToolName = resolveRequiredToolName(input);
   if (requiredToolName && !response.toolCalls.some((call) => call.name === requiredToolName)) {
+    if (input.provider === 'gemini') {
+      const raw = response.raw as any;
+      const candidates = Array.isArray(raw?.candidates) ? raw.candidates : [];
+      console.error('gemini_required_tool_shape', {
+        requiredToolName,
+        candidateCount: candidates.length,
+        blockReason: raw?.promptFeedback?.blockReason || null,
+        candidates: candidates.slice(0, 3).map((candidate: any) => {
+          const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+          return {
+            finishReason: candidate?.finishReason || null,
+            contentRole: candidate?.content?.role || null,
+            partKeys: parts.slice(0, 10).map((part: any) => Object.keys(part || {}).sort()),
+            functionNames: parts.flatMap((part: any) => part?.functionCall?.name ? [String(part.functionCall.name)] : []),
+          };
+        }),
+      });
+    }
     throw new Error(`required_tool_missing:${input.provider}:${requiredToolName}`);
   }
   return response;
