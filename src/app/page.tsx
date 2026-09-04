@@ -5,6 +5,7 @@ import { CatalogoGrid } from '@/components/tienda/CatalogoGrid';
 import { PromoEspecial } from '@/components/tienda/PromoEspecial';
 import { getProductosActivos, getCategorias, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
 import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
+import { formatPriceSummary } from '@/lib/catalog/price-summary';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,36 +52,41 @@ export default async function HomePage() {
               ⭐ Destacados &amp; Ofertas
             </h2>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-              {destacados.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/productos/${p.slug}`}
-                  className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-neon"
-                  style={{ background: p.color_fondo || '#1B4332' }}
-                >
-                  <div className="h-[180px] flex items-center justify-center text-6xl relative">
-                    {p.imagen_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imagen_url} alt={p.nombre} className="absolute inset-0 w-full h-full object-cover" />
-                    ) : (
-                      p.emoji
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">
-                      <p className="font-display font-bold text-base text-white mb-0.5">{p.nombre}</p>
-                      <p className="text-sm text-neon font-bold mb-2">${p.precio.toLocaleString('es-CL')}</p>
-                      <span className="text-[11px] text-white/80 font-semibold">Ver producto</span>
+              {destacados.map((p) => {
+                const priceSummary = formatPriceSummary(p);
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/productos/${p.slug}`}
+                    className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-neon"
+                    style={{ background: p.color_fondo || '#1B4332' }}
+                  >
+                    <div className="h-[180px] flex items-center justify-center text-6xl relative">
+                      {p.imagen_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imagen_url} alt={p.nombre} className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        p.emoji
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">
+                        <p className="font-display font-bold text-base text-white mb-0.5">{p.nombre}</p>
+                        <div className="mb-2">
+                          <p className="text-sm text-neon font-bold">{priceSummary.formattedDisplayPrice}</p>
+                          {priceSummary.formattedOriginalPrice && <p className="text-[10px] text-white/45 line-through">{priceSummary.formattedOriginalPrice}</p>}
+                          {priceSummary.packSummary && <p className="mt-0.5 text-[10px] font-bold text-neon/90">🔥 {priceSummary.packSummary}</p>}
+                        </div>
+                        <span className="text-[11px] text-white/80 font-semibold">Ver producto</span>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
 
-
         <CatalogoGrid productos={productos} categorias={categorias} />
 
-        {/* TESTIMONIOS */}
         <p className="sec font-display font-extrabold text-xl text-white px-4 pt-8 pb-3">💬 Lo que dicen nuestros clientes</p>
         <div className="reswrap">
           <div className="res">
@@ -121,7 +127,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* INFO IMPORTANTE */}
         <p className="sec font-display font-extrabold text-xl text-white px-4 pt-8 pb-3">📦 Info importante</p>
         <div className="infog">
           <div className="ic"><div className="ii">⏰</div><div className="it">Programa tu pedido</div><div className="id">Mínimo 3 días para tu pedido</div></div>

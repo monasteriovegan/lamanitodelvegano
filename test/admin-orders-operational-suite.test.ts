@@ -151,10 +151,11 @@ test('Print template in OrderActions: renders clean customer receipt on top and 
   assert.match(actions, /mark_printed/);
 });
 
-test('Admin Navigation: includes Operación, Wonka / Inteligencia, and Configuración with Catálogo Master', () => {
+test('Admin Navigation: keeps Operación and intelligence while grouping reusable catalog tools', () => {
   const sidebar = read('src/app/admin/AdminSidebar.tsx');
   assert.match(sidebar, /Catálogo Master/);
-  assert.match(sidebar, /Canales & Precios/);
+  assert.match(sidebar, /Temporadas & Colecciones/);
+  assert.doesNotMatch(sidebar, /Canales & Precios/);
   assert.match(sidebar, /Wonka \/ Inteligencia/);
   assert.match(sidebar, /Operación/);
 });

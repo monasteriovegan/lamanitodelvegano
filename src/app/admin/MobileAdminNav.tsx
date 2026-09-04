@@ -18,6 +18,7 @@ const primary = [
 
 const more = [
   { href: '/admin/productos', icon: '🌿', label: 'Catálogo Master' },
+  { href: '/admin/temporadas', icon: '📅', label: 'Temporadas' },
   { href: '/admin/categorias', icon: '🏷️', label: 'Categorías' },
   { href: '/admin/entregas', icon: '🗓️', label: 'Entregas & Días' },
   { href: '/admin/zonas', icon: '🚚', label: 'Envíos' },

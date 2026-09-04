@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CatalogRepository } from './catalog-repository';
+import { applySeasonVariantOverrides, mapSeasonVariantOverride, seasonIsInWindow } from './seasonal-catalog';
 import type { CatalogCampaign, CatalogChannel } from './types';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
@@ -27,7 +28,7 @@ export async function loadCatalogCampaign(
     .eq(channelColumn, true)
     .maybeSingle();
   if (seasonError) throw seasonError;
-  if (!season) return null;
+  if (!season || !seasonIsInWindow(season.starts_at, season.ends_at)) return null;
 
   const { data: links, error: linksError } = await db.from('season_products')
     .select('product_id,is_featured,sort_order')
@@ -36,11 +37,21 @@ export async function loadCatalogCampaign(
     .order('sort_order', { ascending: true });
   if (linksError) throw linksError;
 
+  const { data: overrideRows, error: overrideError } = await db.from('season_variant_overrides')
+    .select('variant_id,price_override,compare_at_price_override,is_active')
+    .eq('business_unit_id', businessUnitId)
+    .eq('season_id', season.id)
+    .eq('is_active', true);
+  if (overrideError) throw overrideError;
+  const overrides = (overrideRows || []).map(mapSeasonVariantOverride);
+
   const products = await new CatalogRepository(db).listActive(businessUnitId);
   const productById = new Map(products.map((product) => [product.id, product]));
   const campaignProducts = (links || []).flatMap((link) => {
-    const product = productById.get(String(link.product_id));
-    return product ? [{ ...product, featured: Boolean(link.is_featured), sortOrder: Number(link.sort_order || 0) }] : [];
+    const master = productById.get(String(link.product_id));
+    if (!master) return [];
+    const product = applySeasonVariantOverrides(master, overrides);
+    return [{ ...product, featured: Boolean(link.is_featured), sortOrder: Number(link.sort_order || 0) }];
   });
 
   return {

@@ -23,7 +23,7 @@ export async function getProductosActivos(businessUnitId?: string | null): Promi
   const businessId = await resolveBusinessUnitId(businessUnitId);
   const { data, error } = await supabase
     .from('productos')
-    .select('*')
+    .select('*, product_variants(id,name,price,selection_quantity,is_active,sort_order)')
     .eq('business_unit_id', businessId)
     .eq('activo', true)
     .order('destacado', { ascending: false });
@@ -32,7 +32,22 @@ export async function getProductosActivos(businessUnitId?: string | null): Promi
     console.error('Error cargando productos:', error);
     return [];
   }
-  return (data || []).filter((p: any) => !/prueba/i.test(p.slug || '') && !/prueba/i.test(p.nombre || '')) as Producto[];
+  return (data || [])
+    .filter((p: any) => !/prueba/i.test(p.slug || '') && !/prueba/i.test(p.nombre || ''))
+    .map((p: any) => ({
+      ...p,
+      variants: (p.product_variants || [])
+        .filter((variant: any) => variant.is_active !== false)
+        .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+        .map((variant: any, index: number) => ({
+          id: String(variant.id),
+          name: String(variant.name),
+          price: Number(variant.price || 0),
+          selectionQuantity: Number(variant.selection_quantity || 0),
+          isDefault: index === 0,
+          active: true,
+        })),
+    })) as Producto[];
 }
 
 export async function getCategorias(): Promise<Categoria[]> {
