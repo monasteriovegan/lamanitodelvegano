@@ -185,13 +185,26 @@ export async function POST(req: NextRequest) {
     stockItems: calculo.itemsResueltos || [],
     attribution: body.attribution || {},
     notes: body.notas || null,
-    deliveryDate: fechaEntrega,
   });
+
+  // Estos campos operativos deben estar persistidos ANTES de devolver el ID al
+  // navegador. Si esto falla no se inicia Mercado Pago; un retry con la misma
+  // Idempotency-Key recupera el mismo pedido y vuelve a completar los datos.
+  const { error: deliveryDetailsError } = await supabase
+    .from('pedidos')
+    .update({
+      fecha_entrega: fechaEntrega,
+      notas: body.notas?.trim() || null,
+      comuna,
+      direccion: body.cliente.direccion,
+    })
+    .eq('id', Number(pedido.id));
+  if (deliveryDetailsError) throw deliveryDetailsError;
 
   if (body.cliente.email) {
     enviarEmail({
       to: body.cliente.email,
-      subject: `Pedido confirmado #${pedido.id.slice(0, 8)} — La Manito Del Vegano`,
+      subject: `Pedido recibido #${pedido.id.slice(0, 8)} — La Manito Del Vegano`,
       html: plantillaConfirmacionPedido({
         ...pedido,
         id: String(pedido.id),
