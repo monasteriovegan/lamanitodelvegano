@@ -47,6 +47,7 @@ export type ProviderCallInput = {
   systemPrompt: string;
   messages: ProviderMessage[];
   tools?: ProviderToolDefinition[];
+  requiredToolName?: string;
   maxOutputTokens: number;
   temperature?: number;
 };
@@ -136,7 +137,29 @@ function parseJsonArgs(raw: unknown): Record<string, unknown> {
   }
 }
 
+function resolveRequiredToolName(input: ProviderCallInput): string | undefined {
+  const tools = input.tools || [];
+  const explicit = String(input.requiredToolName || '').trim();
+  if (explicit) {
+    return tools.some((tool) => tool.name === explicit) ? explicit : undefined;
+  }
+  if (tools.length !== 1) return undefined;
+  const toolName = tools[0].name;
+  const escapedName = toolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const promptDeclaresRequiredTool = new RegExp(`Debes\\s+llamar\\s+a\\s+${escapedName}\\b`, 'i').test(input.systemPrompt || '');
+  return promptDeclaresRequiredTool ? toolName : undefined;
+}
+
+function ensureRequiredTool(response: ProviderResponse, input: ProviderCallInput): ProviderResponse {
+  const requiredToolName = resolveRequiredToolName(input);
+  if (requiredToolName && !response.toolCalls.some((call) => call.name === requiredToolName)) {
+    throw new Error(`required_tool_missing:${input.provider}:${requiredToolName}`);
+  }
+  return response;
+}
+
 async function callGemini(credential: ProviderCredential, input: ProviderCallInput): Promise<ProviderResponse> {
+  const requiredToolName = resolveRequiredToolName(input);
   const contents = input.messages.map((message) => {
     if (message.role === 'user') {
       return { role: 'user', parts: [{ text: message.content || '' }] };
@@ -179,6 +202,14 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
         parameters: sanitizeGeminiSchema(tool.inputSchema),
       })),
     }];
+    if (requiredToolName) {
+      payload.toolConfig = {
+        functionCallingConfig: {
+          mode: 'ANY',
+          allowedFunctionNames: [requiredToolName],
+        },
+      };
+    }
   }
 
   const started = Date.now();
@@ -217,6 +248,7 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
 
 async function callOpenAiCompatible(credential: ProviderCredential, input: ProviderCallInput): Promise<ProviderResponse> {
   if (!credential.baseUrl) throw new Error(`missing_provider_base_url:${input.provider}`);
+  const requiredToolName = resolveRequiredToolName(input);
 
   const messages: any[] = [{ role: 'system', content: input.systemPrompt }];
   for (const message of input.messages) {
@@ -275,7 +307,11 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
         parameters: sanitizeSchema(tool.inputSchema, input.provider),
       },
     }));
-    payload.tool_choice = 'auto';
+    if (requiredToolName) {
+      payload.tool_choice = { type: 'function', function: { name: requiredToolName } };
+    } else {
+      payload.tool_choice = 'auto';
+    }
     if (input.provider !== 'groq' && !isGptOss) {
       payload.parallel_tool_calls = true;
     }
@@ -324,8 +360,8 @@ export async function callAiProvider(
 
   try {
     const credential = await resolveCredential(db, input.provider);
-    if (input.provider === 'gemini') return await callGemini(credential, input);
-    if (input.provider === 'groq') return await callOpenAiCompatible(credential, input);
+    if (input.provider === 'gemini') return ensureRequiredTool(await callGemini(credential, input), input);
+    if (input.provider === 'groq') return ensureRequiredTool(await callOpenAiCompatible(credential, input), input);
     throw new Error(`unsupported_provider:${input.provider}`);
   } catch (error) {
     if (allowFallback && input.provider !== 'gemini') {
@@ -340,11 +376,12 @@ export async function callAiProvider(
 
       try {
         const geminiCred = await resolveCredential(db, 'gemini');
-        return await callGemini(geminiCred, {
+        const fallbackInput: ProviderCallInput = {
           ...input,
           provider: 'gemini',
           model: 'gemini-2.5-flash',
-        });
+        };
+        return ensureRequiredTool(await callGemini(geminiCred, fallbackInput), fallbackInput);
       } catch (fallbackError) {
         console.error('ai_provider_fallback_failed', {
           fallbackProvider: 'gemini',
