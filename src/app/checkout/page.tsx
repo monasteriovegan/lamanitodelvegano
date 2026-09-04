@@ -6,6 +6,7 @@ import { SiteShell } from '@/components/layout/SiteShell';
 import { useCart } from '@/lib/cart/CartContext';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { Zona } from '@/types/domain';
+import { formatDeliveryDateLabel } from '@/lib/pricing/fechas';
 import { trackContact, trackInitiateCheckout } from '@/lib/analytics/client';
 
 function CheckoutContent() {
@@ -16,6 +17,9 @@ function CheckoutContent() {
 
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [zonaId, setZonaId] = useState('');
+  const [comuna, setComuna] = useState('');
+  const [fechaEntrega, setFechaEntrega] = useState('');
+  const [deliveryDates, setDeliveryDates] = useState<string[]>([]);
   const [cuponCode, setCuponCode] = useState('');
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -47,8 +51,6 @@ function CheckoutContent() {
     return () => window.clearTimeout(updateId);
   }, []);
 
-  // InitiateCheckout / begin_checkout — una vez por carga de la página,
-  // con el valor real del carrito en ese momento.
   useEffect(() => {
     if (items.length === 0 || checkoutTracked.current) return;
     checkoutTracked.current = true;
@@ -57,6 +59,7 @@ function CheckoutContent() {
       value: subtotal,
     });
   }, [items, subtotal]);
+
   const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'flow' | 'whatsapp'>('mercadopago');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,14 +72,25 @@ function CheckoutContent() {
       .then(({ data }) => setZonas((data as Zona[]) || []));
   }, []);
 
-  // Guarda el carrito en progreso con debounce, solo cuando ya hay forma de
-  // contactar al cliente (email o teléfono) y hay al menos un producto.
-  // Es la base del recordatorio de carrito abandonado — no bloquea ni
-  // afecta el flujo de checkout si falla (fetch silencioso, sin await del
-  // resultado en el submit).
+  useEffect(() => {
+    if (!items.length) return;
+    const controller = new AbortController();
+    const productIds = Array.from(new Set(items.map((item) => item.productoId))).join(',');
+    fetch(`/api/checkout?productIds=${encodeURIComponent(productIds)}`, { signal: controller.signal, cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('delivery_dates_failed')))
+      .then((data) => {
+        const dates = Array.isArray(data?.deliveryDates) ? data.deliveryDates.map(String) : [];
+        setDeliveryDates(dates);
+        setFechaEntrega((current) => dates.includes(current) ? current : '');
+      })
+      .catch((fetchError) => {
+        if (fetchError?.name !== 'AbortError') setDeliveryDates([]);
+      });
+    return () => controller.abort();
+  }, [items]);
+
   useEffect(() => {
     if (items.length === 0 || (!email && !telefono)) return;
-
     const timeoutId = setTimeout(() => {
       fetch('/api/carrito/guardar', {
         method: 'POST',
@@ -89,16 +103,16 @@ function CheckoutContent() {
           subtotal,
           attribution,
         }),
-      }).catch(() => {
-        // silencioso a propósito: esto es best-effort, nunca debe
-        // interrumpir al cliente completando su compra.
-      });
+      }).catch(() => {});
     }, 2000);
-
     return () => clearTimeout(timeoutId);
   }, [items, subtotal, nombre, email, telefono, attribution]);
 
   const zonaSeleccionada = zonas.find((z) => z.id === zonaId);
+  const comunasDisponibles = String(zonaSeleccionada?.comunas || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
   const totalEstimado = subtotal + (zonaSeleccionada?.precio || 0);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -110,10 +124,13 @@ function CheckoutContent() {
     try {
       const checkoutRes = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
         body: JSON.stringify({
           idempotencyKey,
-          cliente: { nombre, direccion, telefono, email },
+          cliente: { nombre, direccion, comuna, telefono, email },
           items: items.map((i) => ({
             productoId: i.productoId,
             variantId: i.variantId,
@@ -125,6 +142,7 @@ function CheckoutContent() {
             notas: i.notas || null,
           })),
           zonaId: zonaId || null,
+          fechaEntrega,
           cuponCode: cuponCode || null,
           metodoPago,
           notas: notas.trim() || null,
@@ -139,7 +157,7 @@ function CheckoutContent() {
         return;
       }
 
-      const pedidoId = checkoutData.pedidoId;
+      const pedidoId = String(checkoutData.pedidoId);
 
       if (metodoPago === 'whatsapp') {
         trackContact('whatsapp', {
@@ -148,7 +166,7 @@ function CheckoutContent() {
         });
         clearCart();
         const mensaje = encodeURIComponent(
-          `Hola! Quiero confirmar mi pedido #${pedidoId.substring(0, 6).toUpperCase()} por $${checkoutData.total.toLocaleString('es-CL')}`
+          `Hola! Quiero confirmar mi pedido #${pedidoId.slice(0, 8).toUpperCase()} por $${Number(checkoutData.total).toLocaleString('es-CL')}`,
         );
         window.location.href = `https://wa.me/56990816124?text=${mensaje}`;
         return;
@@ -181,9 +199,7 @@ function CheckoutContent() {
       <SiteShell>
         <main className="pt-[100px] px-4 pb-16 text-center">
           <p className="text-muted text-sm mb-4">Tu carrito está vacío 🌱</p>
-          <button onClick={() => router.push('/')} className="text-neon underline text-sm">
-            Volver a la tienda
-          </button>
+          <button onClick={() => router.push('/')} className="text-neon underline text-sm">Volver a la tienda</button>
         </main>
       </SiteShell>
     );
@@ -199,75 +215,49 @@ function CheckoutContent() {
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Tus datos</h2>
             <div className="flex flex-col gap-2.5">
-              <input
-                required
-                placeholder="Nombre completo"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-              />
-              <input
-                required
-                placeholder="Dirección de despacho"
-                value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
-                className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-              />
-              <input
-                required
-                placeholder="Teléfono (con código país)"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-              />
-              <input
-                type="email"
-                placeholder="Email (opcional, para puntos de fidelidad)"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-              />
+              <input required placeholder="Nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
+              <input required placeholder="Dirección de despacho" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
+              <input required placeholder="Teléfono (con código país)" value={telefono} onChange={(e) => setTelefono(e.target.value)} className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
+              <input type="email" placeholder="Email (opcional, para puntos de fidelidad)" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
             </div>
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
-            <h2 className="text-sm font-bold text-white mb-3">Zona de despacho</h2>
-            <select
-              required
-              value={zonaId}
-              onChange={(e) => setZonaId(e.target.value)}
-              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-            >
-              <option value="" className="bg-[#0d1e16]">— Selecciona tu zona —</option>
-              {zonas.map((z) => (
-                <option key={z.id} value={z.id} className="bg-[#0d1e16]">
-                  {z.nombre} — ${z.precio.toLocaleString('es-CL')}
-                </option>
-              ))}
-            </select>
+            <h2 className="text-sm font-bold text-white mb-3">Despacho</h2>
+            <div className="flex flex-col gap-2.5">
+              <select
+                required
+                value={zonaId}
+                onChange={(e) => { setZonaId(e.target.value); setComuna(''); }}
+                className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+              >
+                <option value="" className="bg-[#0d1e16]">— Selecciona tu zona —</option>
+                {zonas.map((z) => (
+                  <option key={z.id} value={z.id} className="bg-[#0d1e16]">{z.nombre} — ${z.precio.toLocaleString('es-CL')}</option>
+                ))}
+              </select>
+
+              <select required disabled={!zonaId} value={comuna} onChange={(e) => setComuna(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white disabled:opacity-50">
+                <option value="" className="bg-[#0d1e16]">— Selecciona tu comuna —</option>
+                {comunasDisponibles.map((value) => <option key={value} value={value} className="bg-[#0d1e16]">{value}</option>)}
+              </select>
+
+              <select required value={fechaEntrega} onChange={(e) => setFechaEntrega(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white">
+                <option value="" className="bg-[#0d1e16]">— Selecciona fecha de entrega —</option>
+                {deliveryDates.map((date) => <option key={date} value={date} className="bg-[#0d1e16]">{formatDeliveryDateLabel(date)}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Cupón de descuento (opcional)</h2>
-            <input
-              placeholder="Código de cupón"
-              value={cuponCode}
-              onChange={(e) => setCuponCode(e.target.value.toUpperCase())}
-              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-            />
+            <input placeholder="Código de cupón" value={cuponCode} onChange={(e) => setCuponCode(e.target.value.toUpperCase())} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-1.5">Instrucciones de entrega / Comentarios</h2>
             <p className="text-xs text-white/50 mb-3">Horario preferido, indicaciones del lugar o notas para tu pedido.</p>
-            <textarea
-              rows={2}
-              maxLength={500}
-              placeholder="Ej: Entregar después de las 18:00, tocar timbre depto 402, etc."
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white resize-none outline-none focus:border-neon"
-            />
+            <textarea rows={2} maxLength={500} placeholder="Ej: Entregar después de las 18:00, tocar timbre depto 402, etc." value={notas} onChange={(e) => setNotas(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white resize-none outline-none focus:border-neon" />
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
@@ -278,47 +268,23 @@ function CheckoutContent() {
                 { value: 'flow', label: '💳 Flow' },
                 { value: 'whatsapp', label: '💬 Coordinar por WhatsApp' },
               ].map((opt) => (
-                <label
-                  key={opt.value}
-                  className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg border cursor-pointer ${
-                    metodoPago === opt.value
-                      ? 'border-neon bg-[rgba(0,255,179,0.05)] text-white'
-                      : 'border-white/10 text-white/60'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="metodoPago"
-                    value={opt.value}
-                    checked={metodoPago === opt.value}
-                    onChange={() => setMetodoPago(opt.value as typeof metodoPago)}
-                    className="accent-[#00ffb3]"
-                  />
+                <label key={opt.value} className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg border cursor-pointer ${metodoPago === opt.value ? 'border-neon bg-[rgba(0,255,179,0.05)] text-white' : 'border-white/10 text-white/60'}`}>
+                  <input type="radio" name="metodoPago" value={opt.value} checked={metodoPago === opt.value} onChange={() => setMetodoPago(opt.value as typeof metodoPago)} className="accent-[#00ffb3]" />
                   {opt.label}
                 </label>
               ))}
             </div>
           </div>
 
-          {error && (
-            <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-rojo text-sm rounded-xl p-3">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-rojo text-sm rounded-xl p-3">{error}</div>}
 
           <div className="flex items-center justify-between bg-white/5 rounded-xl p-4">
             <span className="text-sm text-muted">Total estimado*</span>
             <span className="font-display font-bold text-xl text-neon">${totalEstimado.toLocaleString('es-CL')}</span>
           </div>
-          <p className="text-[10px] text-muted -mt-2">
-            *El total final (con cupón aplicado) se confirma de forma segura en el servidor antes de procesar el pago.
-          </p>
+          <p className="text-[10px] text-muted -mt-2">*El total final (con cupón aplicado) se confirma de forma segura en el servidor antes de procesar el pago.</p>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-neon text-[#020705] font-bold py-3.5 rounded-full text-sm shadow-[0_0_15px_rgba(0,255,179,0.4)] hover:bg-white transition-all disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading || deliveryDates.length === 0} className="w-full bg-neon text-[#020705] font-bold py-3.5 rounded-full text-sm shadow-[0_0_15px_rgba(0,255,179,0.4)] hover:bg-white transition-all disabled:opacity-50">
             {loading ? 'Procesando...' : 'Confirmar pedido →'}
           </button>
         </form>
@@ -327,8 +293,6 @@ function CheckoutContent() {
   );
 }
 
-// Esta página depende del carrito del navegador y de datos en tiempo real
-// (zonas), así que no tiene sentido cachearla como estática.
 export const dynamic = 'force-dynamic';
 
 export default function CheckoutPage() {
