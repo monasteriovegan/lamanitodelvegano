@@ -35,6 +35,22 @@ test('el extractor de venta permite producto personalizado y despacho explícito
   assert.match(source, /stockItems/);
 });
 
+test('venta confirmada no desaparece si un producto fuera de catálogo no trae precio legible', () => {
+  const source = read('src/lib/orders/conversation-sale.ts');
+  const instagram = read('src/lib/orders/instagram-auto-sale.ts');
+  assert.match(source, /requiresPricingReview/);
+  assert.match(source, /precio_producto_personalizado/);
+  assert.match(source, /pricing_review_required/);
+  assert.match(instagram, /allowPricingReview:\s*businessPaymentConfirmed/);
+});
+
+test('si hay un total final explícito se puede resolver una única línea fuera de catálogo por residual', () => {
+  const source = read('src/lib/orders/conversation-sale.ts');
+  assert.match(source, /unresolvedCustomItems/);
+  assert.match(source, /residual/);
+  assert.match(source, /transcriptTotal/);
+});
+
 test('el RPC canónico permite items personalizados sin inventar producto de catálogo', () => {
   const migration = read('supabase/migrations/20260903183000_conversation_order_custom_items.sql');
   assert.match(migration, /empty_conversation_order_items/);
