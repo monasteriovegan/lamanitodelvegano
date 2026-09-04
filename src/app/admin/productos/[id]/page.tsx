@@ -13,7 +13,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
   const business = await new BusinessRepository(supabase).requireDefault();
   const { data: producto } = await supabase
     .from('productos')
-    .select('*')
+    .select('*, product_variants(*), product_option_groups(*, product_option_values(*)), product_pack_components:product_pack_components!product_pack_components_pack_product_id_business_unit_id_fkey(*)')
     .eq('id', id)
     .eq('business_unit_id', business.id)
     .maybeSingle();
@@ -26,7 +26,12 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
         ← Volver a productos
       </Link>
       <h1 className="font-display font-bold text-xl text-white mb-6">Editar producto</h1>
-      <ProductoForm producto={producto as Producto} />
+      <ProductoForm
+        producto={producto as unknown as Producto}
+        variants={Array.isArray((producto as any).product_variants) ? (producto as any).product_variants : []}
+        optionGroups={Array.isArray((producto as any).product_option_groups) ? (producto as any).product_option_groups : []}
+        packComponents={Array.isArray((producto as any).product_pack_components) ? (producto as any).product_pack_components : []}
+      />
     </div>
   );
 }

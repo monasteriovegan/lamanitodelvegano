@@ -44,6 +44,8 @@ export async function GET(_: Request, { params }: RouteParams) {
     is_featured: data.is_featured || false,
     is_new: data.is_new || false,
     story: data.story || '',
+    gluten_free: data.gluten_free === null || data.gluten_free === undefined ? null : Boolean(data.gluten_free),
+    nut_free: data.nut_free === null || data.nut_free === undefined ? null : Boolean(data.nut_free),
     category: data.category ? { name: data.category.nombre } : null,
   };
 
@@ -61,6 +63,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const business = await new BusinessRepository(db).requireDefault();
   const body = await req.json();
 
+  const parseTriState = (val: unknown) => {
+    if (val === true || val === 'true') return true;
+    if (val === false || val === 'false') return false;
+    return null;
+  };
+
   const payload: any = {};
   if (body.category_id !== undefined || body.categoriaId !== undefined) payload.category_id = body.category_id || body.categoriaId || null;
   if (body.name !== undefined || body.nombre !== undefined) payload.nombre = body.name || body.nombre;
@@ -76,6 +84,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (body.images !== undefined) payload.images = Array.isArray(body.images) ? body.images : [body.images];
   if (body.ingredients !== undefined) payload.ingredients = body.ingredients;
   if (body.allergens !== undefined) payload.allergens = body.allergens;
+  if (body.gluten_free !== undefined) payload.gluten_free = parseTriState(body.gluten_free);
+  if (body.nut_free !== undefined) payload.nut_free = parseTriState(body.nut_free);
   if (body.is_active !== undefined || body.activo !== undefined) payload.activo = body.is_active !== undefined ? body.is_active : body.activo;
   if (body.is_featured !== undefined) payload.is_featured = body.is_featured;
   if (body.is_new !== undefined) payload.is_new = body.is_new;

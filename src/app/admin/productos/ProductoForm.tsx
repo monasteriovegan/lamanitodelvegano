@@ -3,7 +3,14 @@ import { guardarProducto } from './actions';
 import { FormatoOpcionesInput } from './FormatoOpcionesInput';
 import type { Producto } from '@/types/domain';
 
-export async function ProductoForm({ producto }: { producto?: Producto }) {
+export interface ProductoFormProps {
+  producto?: Producto;
+  variants?: Array<{ id: string; sku: string; name: string; price: number; stock: number | null; is_active: boolean }>;
+  optionGroups?: Array<{ id: string; name: string; selection_mode: string; is_required: boolean; product_option_values?: Array<{ id: string; label: string; price_delta: number; is_active: boolean }> }>;
+  packComponents?: Array<{ id: string; component_name: string; quantity: number; unit: string; weight_grams: number | null }>;
+}
+
+export async function ProductoForm({ producto, variants = [], optionGroups = [], packComponents = [] }: ProductoFormProps) {
   const supabase = createSupabaseServiceClient();
   const { data: categorias } = await supabase.from('categorias').select('id, nombre');
 
@@ -237,15 +244,34 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-muted mb-1.5">Atributo Gluten (Tri-state)</label>
+          <select
+            name="gluten_free"
+            defaultValue={producto?.gluten_free === null || producto?.gluten_free === undefined ? '' : String(producto.gluten_free)}
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          >
+            <option value="" className="bg-[#0d1e16]">Sin verificar / no afirmar (null)</option>
+            <option value="true" className="bg-[#0d1e16]">Certificado libre de gluten (true)</option>
+            <option value="false" className="bg-[#0d1e16]">Contiene gluten / no apto (false)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1.5">Atributo Frutos Secos (Tri-state)</label>
+          <select
+            name="nut_free"
+            defaultValue={producto?.nut_free === null || producto?.nut_free === undefined ? '' : String(producto.nut_free)}
+            className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
+          >
+            <option value="" className="bg-[#0d1e16]">Sin verificar / no afirmar (null)</option>
+            <option value="true" className="bg-[#0d1e16]">Certificado libre de nueces (true)</option>
+            <option value="false" className="bg-[#0d1e16]">Contiene nueces / no apto (false)</option>
+          </select>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-2 text-sm text-white">
-          <input type="checkbox" name="gluten_free" defaultChecked={producto?.gluten_free ?? false} />
-          Sin gluten (solo si certificado)
-        </label>
-        <label className="flex items-center gap-2 text-sm text-white">
-          <input type="checkbox" name="nut_free" defaultChecked={producto?.nut_free ?? false} />
-          Sin nueces (solo si certificado)
-        </label>
         <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" name="is_new" defaultChecked={producto?.is_new ?? false} />
           Marcar como nuevo
@@ -259,6 +285,54 @@ export async function ProductoForm({ producto }: { producto?: Producto }) {
           Activo (visible)
         </label>
       </div>
+
+      {variants.length > 0 && (
+        <div className="rounded-xl border border-[rgba(0,255,179,0.15)] bg-white/[0.02] p-4 text-xs">
+          <h3 className="font-bold text-neon uppercase tracking-wider mb-2">📦 Variantes Estructuradas en Catálogo Master (product_variants)</h3>
+          <div className="space-y-1.5">
+            {variants.map((v) => (
+              <div key={v.id} className="flex items-center justify-between border-b border-white/5 py-1 text-white/80">
+                <span><strong>{v.name}</strong> ({v.sku})</span>
+                <span className="font-mono text-neon">${v.price?.toLocaleString('es-CL')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {optionGroups.length > 0 && (
+        <div className="rounded-xl border border-[rgba(0,255,179,0.15)] bg-white/[0.02] p-4 text-xs">
+          <h3 className="font-bold text-neon uppercase tracking-wider mb-2">🎛️ Grupos de Opciones / Sabores (product_option_groups)</h3>
+          <div className="space-y-2">
+            {optionGroups.map((g) => (
+              <div key={g.id} className="border-b border-white/5 pb-1.5">
+                <div className="font-semibold text-white">{g.name} ({g.selection_mode}, {g.is_required ? 'Requerido' : 'Opcional'})</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(g.product_option_values || []).map((val) => (
+                    <span key={val.id} className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/70">
+                      {val.label} {val.price_delta ? `(+$${val.price_delta})` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {packComponents.length > 0 && (
+        <div className="rounded-xl border border-[rgba(0,255,179,0.15)] bg-white/[0.02] p-4 text-xs">
+          <h3 className="font-bold text-neon uppercase tracking-wider mb-2">🎁 Componentes del Pack (product_pack_components)</h3>
+          <div className="space-y-1">
+            {packComponents.map((c) => (
+              <div key={c.id} className="flex justify-between text-white/80">
+                <span>{c.component_name}</span>
+                <span className="text-neon">{c.quantity} {c.unit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button
         type="submit"

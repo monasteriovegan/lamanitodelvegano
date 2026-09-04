@@ -25,6 +25,12 @@ async function slugUnico(
   }
 }
 
+function parseTriState(val: FormDataEntryValue | null): boolean | null {
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  return null;
+}
+
 export async function guardarProducto(formData: FormData) {
   await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
@@ -50,8 +56,8 @@ export async function guardarProducto(formData: FormData) {
     imagen_url: (formData.get('imagen_url') as string) || null,
     maneja_stock: formData.get('maneja_stock') === 'on',
     stock: formData.get('stock') ? parseInt(formData.get('stock') as string, 10) : 0,
-    gluten_free: formData.get('gluten_free') === 'on',
-    nut_free: formData.get('nut_free') === 'on',
+    gluten_free: parseTriState(formData.get('gluten_free')),
+    nut_free: parseTriState(formData.get('nut_free')),
     gramaje: (formData.get('gramaje') as string) || null,
     variedades: (formData.get('variedades') as string) || null,
     activo: formData.get('activo') === 'on',

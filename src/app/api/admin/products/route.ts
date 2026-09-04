@@ -38,6 +38,8 @@ export async function GET() {
     is_featured: p.is_featured || false,
     is_new: p.is_new || false,
     story: p.story || '',
+    gluten_free: p.gluten_free === null || p.gluten_free === undefined ? null : Boolean(p.gluten_free),
+    nut_free: p.nut_free === null || p.nut_free === undefined ? null : Boolean(p.nut_free),
     category: p.category ? { name: p.category.nombre } : null,
   }));
 
@@ -53,6 +55,12 @@ export async function POST(req: Request) {
   const db = createSupabaseServiceClient();
   const business = await new BusinessRepository(db).requireDefault();
   const body = await req.json();
+
+  const parseTriState = (val: unknown) => {
+    if (val === true || val === 'true') return true;
+    if (val === false || val === 'false') return false;
+    return null;
+  };
 
   const payload = {
     business_unit_id: business.id,
@@ -70,6 +78,8 @@ export async function POST(req: Request) {
     images: Array.isArray(body.images) ? body.images : (body.image_url ? [body.image_url] : []),
     ingredients: body.ingredients || [],
     allergens: body.allergens || [],
+    gluten_free: body.gluten_free !== undefined ? parseTriState(body.gluten_free) : null,
+    nut_free: body.nut_free !== undefined ? parseTriState(body.nut_free) : null,
     activo: body.is_active !== undefined ? body.is_active : (body.activo !== undefined ? body.activo : true),
     is_featured: body.is_featured || false,
     is_new: body.is_new || false,
