@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 
 interface TrackingData {
   id: string;
+  trackingNumber: string | null;
   nombreCliente: string;
   direccion: string;
   zonaEnvio: string | null;
   fechaDespacho: string | null;
   metodoPago: string | null;
   status: string;
+  paymentStatus: string;
   total: number;
   createdAt: string;
 }
@@ -30,20 +33,24 @@ function getProgress(status: string): { progress: number; completed: boolean[] }
   return { progress: 0, completed: [false, false, false, false] };
 }
 
-export default function SeguimientoPage() {
-  const [inputId, setInputId] = useState('');
+function SeguimientoContent() {
+  const searchParams = useSearchParams();
+  const queryId = searchParams.get('id')?.trim() || '';
+  const [inputId, setInputId] = useState(queryId);
   const [resultado, setResultado] = useState<TrackingData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const initialLookupRef = useRef('');
 
-  async function buscar() {
-    if (!inputId.trim()) return;
+  const buscar = useCallback(async (explicitId?: string) => {
+    const lookupId = (explicitId ?? inputId).trim();
+    if (!lookupId) return;
     setLoading(true);
     setError(null);
     setResultado(null);
 
     try {
-      const res = await fetch(`/api/tracking?id=${encodeURIComponent(inputId.trim())}`);
+      const res = await fetch(`/api/tracking?id=${encodeURIComponent(lookupId)}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'No se pudo encontrar el pedido.');
@@ -55,24 +62,33 @@ export default function SeguimientoPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [inputId]);
+
+  useEffect(() => {
+    if (!queryId || initialLookupRef.current === queryId) return;
+    initialLookupRef.current = queryId;
+    setInputId(queryId);
+    void buscar(queryId);
+  }, [queryId, buscar]);
 
   return (
     <SiteShell>
       <main className="pt-[100px] px-4 pb-16 max-w-[480px] mx-auto">
         <h1 className="font-display font-bold text-xl text-white mb-2">📍 Rastrea tu pedido</h1>
-        <p className="text-sm text-muted mb-5">Ingresa el ID que te enviamos al confirmar tu compra.</p>
+        <p className="text-sm text-muted mb-5">
+          Tu número de seguimiento se genera automáticamente con el pedido. Si vienes desde la confirmación, lo cargamos por ti.
+        </p>
 
         <div className="flex gap-2 mb-6">
           <input
             value={inputId}
             onChange={(e) => setInputId(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && buscar()}
-            placeholder="Ej: a1b2c3"
+            onKeyDown={(e) => e.key === 'Enter' && void buscar()}
+            placeholder="Ej: LMV-4E4113E68C"
             className="flex-1 bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-full px-4 py-2.5 text-sm text-white"
           />
           <button
-            onClick={buscar}
+            onClick={() => void buscar()}
             disabled={loading}
             className="bg-neon text-[#020705] px-5 rounded-full text-sm font-bold disabled:opacity-50"
           >
@@ -93,14 +109,14 @@ export default function SeguimientoPage() {
                 <p className="text-3xl mb-2">❌</p>
                 <p className="font-display font-bold text-white">Pedido Cancelado</p>
                 <p className="text-xs text-muted mt-1">
-                  El pedido #{resultado.id.substring(0, 6).toUpperCase()} fue cancelado.
+                  El pedido #{resultado.id} fue cancelado.
                 </p>
               </div>
             ) : (
               <>
-                <p className="text-[10px] uppercase text-muted font-bold tracking-wider">ID Pedido</p>
+                <p className="text-[10px] uppercase text-muted font-bold tracking-wider">Número de seguimiento</p>
                 <p className="font-serif italic font-bold text-lg text-white mb-1">
-                  #{resultado.id.substring(0, 8).toUpperCase()}
+                  {resultado.trackingNumber || `Pedido #${resultado.id}`}
                 </p>
                 <p className="text-xs text-muted mb-5">
                   Realizado: {new Date(resultado.createdAt).toLocaleDateString('es-CL', {
@@ -140,7 +156,7 @@ export default function SeguimientoPage() {
                   <p>📍 <strong>Despacho:</strong> {resultado.direccion} ({resultado.zonaEnvio || '—'})</p>
                   <p>📅 <strong>Fecha entrega:</strong> {resultado.fechaDespacho || 'Por confirmar'}</p>
                   <p className="mt-2 pt-2 border-t border-white/10">
-                    <strong>Pago:</strong> {resultado.metodoPago || 'No especificado'} ({resultado.status})
+                    <strong>Pago:</strong> {resultado.metodoPago || 'No especificado'} ({resultado.paymentStatus === 'paid' ? 'Pagado' : resultado.status})
                   </p>
                   <p className="text-base font-bold text-neon mt-1">
                     Total: ${resultado.total.toLocaleString('es-CL')}
@@ -152,5 +168,13 @@ export default function SeguimientoPage() {
         )}
       </main>
     </SiteShell>
+  );
+}
+
+export default function SeguimientoPage() {
+  return (
+    <Suspense fallback={<div className="pt-[100px] px-4 text-center text-muted text-sm">Cargando seguimiento…</div>}>
+      <SeguimientoContent />
+    </Suspense>
   );
 }
