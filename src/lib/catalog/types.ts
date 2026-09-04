@@ -61,8 +61,8 @@ export interface CatalogProduct {
   emoji?: string | null;
   color?: string | null;
   sku?: string | null;
-  glutenFree?: boolean;
-  nutFree?: boolean;
+  glutenFree?: boolean | null;
+  nutFree?: boolean | null;
   ingredients?: string[];
   allergens?: string[];
   variants: CatalogVariant[];

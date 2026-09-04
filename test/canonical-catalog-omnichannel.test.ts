@@ -90,3 +90,57 @@ test('Exclusion of Test Products: repository filters out test products from acti
   const repoCode = read('src/lib/catalog/catalog-repository.ts');
   assert.match(repoCode, /isTest\s*=\s*\/prueba\/i/);
 });
+
+test('Postres en Frascos Pricing: Pack 3 units calculates $10.000 instead of $12.000', () => {
+  const postresProduct: CatalogProduct = {
+    id: 'prod-postres',
+    businessUnitId: 'bu-1',
+    slug: 'postres-en-frascos',
+    name: 'Postres en Frascos',
+    description: 'Postres veganos artesanales en frascos de aproximadamente 350 g.',
+    imageUrl: 'https://lamanitodelvegano.cl/campaigns/fiestas-patrias-2026/postres-en-frascos.webp',
+    active: true,
+    sku: 'FP26-POSTRE',
+    glutenFree: false,
+    nutFree: null,
+    variants: [
+      { id: 'v-unit', productId: 'prod-postres', sku: 'FP26-POSTRE-UNIT', name: 'Unidad', price: 4000, weightGrams: 350, unitsIncluded: 1, selectionQuantity: 1, managesStock: false, stock: null, active: true, sortOrder: 10 },
+      { id: 'v-pack3', productId: 'prod-postres', sku: 'FP26-POSTRE-PACK3', name: 'Pack 3', price: 10000, weightGrams: 1050, unitsIncluded: 3, selectionQuantity: 3, managesStock: false, stock: null, active: true, sortOrder: 20 },
+    ],
+    optionGroups: [
+      {
+        id: 'grp-sabor', productId: 'prod-postres', code: 'sabor', name: 'Sabores', selectionMode: 'quantity', required: true, active: true, sortOrder: 10,
+        values: [
+          { id: 's-tiramisu', optionGroupId: 'grp-sabor', code: 'tiramisu', label: 'Tiramisu', priceDelta: 0, active: true, sortOrder: 10 },
+          { id: 's-manjar', optionGroupId: 'grp-sabor', code: 'manjar-chantilly', label: 'Manjar Chantilly', priceDelta: 0, active: true, sortOrder: 20 },
+          { id: 's-frambuesa', optionGroupId: 'grp-sabor', code: 'frambuesa-chocolate', label: 'Frambuesa - Chocolate', priceDelta: 0, active: true, sortOrder: 30 },
+        ],
+      },
+    ],
+    packComponents: [],
+  };
+
+  // 1 unit test
+  const unitResult = toPublicCatalogProduct(postresProduct).variants.find((v) => v.sku === 'FP26-POSTRE-UNIT');
+  assert.equal(unitResult?.price, 4000);
+
+  // 3 pack test (Pack 3 = $10.000)
+  const packResult = toPublicCatalogProduct(postresProduct).variants.find((v) => v.sku === 'FP26-POSTRE-PACK3');
+  assert.equal(packResult?.price, 10000);
+  assert.equal(packResult?.unitsIncluded, 3);
+  assert.equal(packResult?.selectionQuantity, 3);
+});
+
+test('Pack Parrillero Components: Pack 1 and Pack 2 define exact structured components', () => {
+  const seedSql = read('supabase/migrations/20260901181559_seed_fiestas_patrias_2026.sql');
+  // Pack 1 check
+  assert.match(seedSql, /pack-parrillero-vegano-1',\s*'seitan-parrillero',\s*'Seitán parrillero',\s*400/);
+  assert.match(seedSql, /pack-parrillero-vegano-1',\s*null,\s*'Choripanes veganos',\s*5/);
+  assert.match(seedSql, /pack-parrillero-vegano-1',\s*null,\s*'Burgers parrilleras',\s*3/);
+  // Pack 2 check
+  assert.match(seedSql, /pack-parrillero-vegano-2',\s*'seitan-parrillero',\s*'Seitán parrillero',\s*400/);
+  assert.match(seedSql, /pack-parrillero-vegano-2',\s*null,\s*'Choripanes veganos',\s*5/);
+  assert.match(seedSql, /pack-parrillero-vegano-2',\s*null,\s*'Burgers parrilleras',\s*3/);
+  assert.match(seedSql, /pack-parrillero-vegano-2',\s*'le-kostilles',\s*'Le Kostilles al vacío',\s*1/);
+});
+
