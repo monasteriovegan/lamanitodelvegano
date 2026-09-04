@@ -27,6 +27,13 @@ test('conversation confirmation uses a dedicated conversation-order transaction'
   assert.match(orders, /conversation_create_order_v1/);
 });
 
+test('conversation confirmation always persists the canonical conversation_orders link', () => {
+  assert.match(sale, /from\('conversation_orders'\)/);
+  assert.match(sale, /conversation_id:\s*conversation\.id/);
+  assert.match(sale, /pedido_id:\s*order\.numeric_id/);
+  assert.match(sale, /onConflict:\s*'conversation_id,pedido_id'/);
+});
+
 test('conversation order RPC keeps phone and shipping zone optional without weakening web checkout', () => {
   const migrationDir = new URL('../supabase/migrations/', import.meta.url);
   const filename = readdirSync(migrationDir).find((name) => name.includes('conversation_order'));
