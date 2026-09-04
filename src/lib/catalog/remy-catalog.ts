@@ -40,6 +40,9 @@ export function toRemyCatalogProduct(product: CatalogProduct) {
     slug: product.slug,
     name: product.name,
     description: product.description,
+    sku: product.sku || null,
+    glutenFree: Boolean(product.glutenFree),
+    nutFree: Boolean(product.nutFree),
     url: `${SITE_URL}/productos/${product.slug}`,
     imageUrl: product.imageUrl,
     deliveryDates: [...(product.availabilityDates || [])],
@@ -129,9 +132,13 @@ export async function searchCatalogMaster(
     linksByProduct.set(id, [...(linksByProduct.get(id) || []), link]);
   }
 
+  const activeSeasons = seasons || [];
   const allowed = products.filter((product) => {
     const productLinks = linksByProduct.get(product.id) || [];
-    if (!productLinks.length) return true;
+    if (!productLinks.length) {
+      // Si existen temporadas activas configuradas, los productos no vinculados no deben exponerse en la temporada
+      return activeSeasons.length === 0;
+    }
     return productLinks.some((link) => {
       const season: any = seasonById.get(String(link.season_id));
       return season && season.available_to_remy && season[channelColumn] && link.available_to_remy && link[channelColumn];

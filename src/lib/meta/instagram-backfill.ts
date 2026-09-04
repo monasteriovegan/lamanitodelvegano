@@ -163,7 +163,7 @@ function normalizeHistoryMessage(
     ? null
     : username || (message?.from?.name ? String(message.from.name) : null);
   const media = historyAttachments(message);
-  const attachments = media.map((item) => item.normalized);
+  const attachments = media.map((item: any) => item.normalized);
   const attachmentType = attachments[0]?.type || 'text';
 
   return {
@@ -183,7 +183,7 @@ function normalizeHistoryMessage(
       source: 'instagram_history_backfill',
       business_instagram_id: routingBusinessInstagramId,
       message,
-      attachments: media.map((item) => item.raw),
+      attachments: media.map((item: any) => item.raw),
     },
     display_name: displayName,
   };

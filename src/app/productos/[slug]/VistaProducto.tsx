@@ -11,8 +11,8 @@ export function VistaProducto({ producto }: { producto: Producto }) {
   // del producto — es el evento que Meta/Google usan para armar públicos
   // de retargeting ("gente que vio este producto y no compró").
   useEffect(() => {
-    trackViewContent({ id: producto.id, name: producto.nombre, price: producto.precio });
-  }, [producto.id, producto.nombre, producto.precio]);
+    trackViewContent({ id: producto.sku || producto.id, name: producto.nombre, price: producto.precio });
+  }, [producto.id, producto.sku, producto.nombre, producto.precio]);
 
   return (
     <main className="px-4 pt-[92px] pb-10 max-w-[520px] mx-auto">

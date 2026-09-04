@@ -32,7 +32,7 @@ export async function getProductosActivos(businessUnitId?: string | null): Promi
     console.error('Error cargando productos:', error);
     return [];
   }
-  return data as Producto[];
+  return (data || []).filter((p: any) => !/prueba/i.test(p.slug || '') && !/prueba/i.test(p.nombre || '')) as Producto[];
 }
 
 export async function getCategorias(): Promise<Categoria[]> {
@@ -92,6 +92,6 @@ export async function getProductoBySlug(slug: string, businessUnitId?: string | 
     .eq('activo', true)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data || /prueba/i.test(data.slug || '') || /prueba/i.test(data.nombre || '')) return null;
   return data as Producto;
 }

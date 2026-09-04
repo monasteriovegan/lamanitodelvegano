@@ -3,6 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { runtimeSiteUrl } from '@/lib/site-url';
 
 type PurchaseItem = {
+  sku?: string;
+  variantSku?: string;
+  variant_sku?: string;
   productoId?: string;
   producto_id?: string;
   id?: string;
@@ -56,7 +59,7 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const eventId = `purchase_${order.id}`;
   const items = (Array.isArray(order.items) ? order.items : []) as PurchaseItem[];
   const contents = items.flatMap((item) => {
-    const id = item.productoId || item.producto_id || item.id;
+    const id = item.sku || item.variantSku || item.variant_sku || item.productoId || item.producto_id || item.id;
     if (!id) return [];
     return [{ id: String(id), quantity: Number(item.qty ?? item.quantity ?? 1) }];
   });

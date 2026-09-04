@@ -60,6 +60,11 @@ export interface CatalogProduct {
   availabilityDates?: string[];
   emoji?: string | null;
   color?: string | null;
+  sku?: string | null;
+  glutenFree?: boolean;
+  nutFree?: boolean;
+  ingredients?: string[];
+  allergens?: string[];
   variants: CatalogVariant[];
   optionGroups: CatalogOptionGroup[];
   packComponents: CatalogPackComponent[];

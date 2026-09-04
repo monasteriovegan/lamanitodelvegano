@@ -50,5 +50,5 @@ test('incluye sabores oficiales, fechas y componentes sin inventar datos', () =>
     '2026-09-12', '2026-09-15', '2026-09-16', 'Chilenitos', 'Empolvados',
     'Merenguitos', 'Alfajores decorados', 'Cachitos',
   ]) assert.ok(sql.includes(value), `Falta valor autorizado: ${value}`);
-  assert.match(sql, /'Dulces Típicos', 'dulces-tipicos', false, false, 70/);
+  assert.match(sql, /'Dulces Típicos', 'dulces-tipicos', true, false, 70/);
 });

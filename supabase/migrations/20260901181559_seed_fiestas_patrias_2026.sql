@@ -235,7 +235,7 @@ join (values
   ('Postres en Frascos', 'postres-en-frascos', true, true, 40),
   ('Seitán Parrillero', 'seitan-parrillero', true, true, 50),
   ('Le Kostilles', 'le-kostilles', true, true, 60),
-  ('Dulces Típicos', 'dulces-tipicos', false, false, 70)
+  ('Dulces Típicos', 'dulces-tipicos', true, false, 70)
 ) as cfg(product_name, slug, visible_web, is_featured, sort_order) on true
 join public.productos p
   on p.business_unit_id = s.business_unit_id and p.slug = cfg.slug

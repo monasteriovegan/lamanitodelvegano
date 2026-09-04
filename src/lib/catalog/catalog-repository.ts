@@ -151,6 +151,9 @@ export function mapCatalogProductRow(businessUnitId: string, row: DbRow | null |
     .map(mapPackComponent)
     .sort((a: CatalogPackComponent, b: CatalogPackComponent) => a.sortOrder - b.sortOrder);
 
+  const isTest = /prueba/i.test(String(row.slug || '')) || /prueba/i.test(String(row.nombre || ''));
+  if (isTest && row.activo === false) return null;
+
   return {
     id: productId,
     businessUnitId,
@@ -162,6 +165,11 @@ export function mapCatalogProductRow(businessUnitId: string, row: DbRow | null |
     availabilityDates: parseAvailability(row.disponibilidad),
     emoji: row.emoji || null,
     color: row.color_fondo || null,
+    sku: row.sku || null,
+    glutenFree: Boolean(row.gluten_free),
+    nutFree: Boolean(row.nut_free),
+    ingredients: Array.isArray(row.ingredients) ? row.ingredients : (typeof row.ingredients === 'string' ? row.ingredients.split(',').map((s: string) => s.trim()) : []),
+    allergens: Array.isArray(row.allergens) ? row.allergens : (typeof row.allergens === 'string' ? row.allergens.split(',').map((s: string) => s.trim()) : []),
     variants: normalizedVariants.length ? normalizedVariants : legacyVariants(row),
     optionGroups: normalizedGroups.length ? normalizedGroups : legacyOptionGroups(row),
     packComponents,

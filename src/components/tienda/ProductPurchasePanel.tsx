@@ -57,7 +57,7 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
     }
 
     trackAddToCart({
-      items: [{ id: producto.id, name: producto.nombre, price: precioUnitario, quantity: cantidadFinal }],
+      items: [{ id: producto.sku || producto.id, name: producto.nombre, price: precioUnitario, quantity: cantidadFinal }],
       value: precioTotal,
     });
 
@@ -70,8 +70,6 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
     <div>
       <div className="flex gap-1.5 mb-4 flex-wrap">
         <span className="pill">🌱 100% Vegano</span>
-        {producto.gluten_free && <span className="pill">🌾 Sin Gluten</span>}
-        {producto.nut_free && <span className="pill">🥜 Sin Nueces</span>}
       </div>
 
       {tieneFormatos && (
