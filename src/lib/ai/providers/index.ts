@@ -153,24 +153,6 @@ function resolveRequiredToolName(input: ProviderCallInput): string | undefined {
 function ensureRequiredTool(response: ProviderResponse, input: ProviderCallInput): ProviderResponse {
   const requiredToolName = resolveRequiredToolName(input);
   if (requiredToolName && !response.toolCalls.some((call) => call.name === requiredToolName)) {
-    if (input.provider === 'gemini') {
-      const raw = response.raw as any;
-      const candidates = Array.isArray(raw?.candidates) ? raw.candidates : [];
-      console.error('gemini_required_tool_shape', {
-        requiredToolName,
-        candidateCount: candidates.length,
-        blockReason: raw?.promptFeedback?.blockReason || null,
-        candidates: candidates.slice(0, 3).map((candidate: any) => {
-          const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
-          return {
-            finishReason: candidate?.finishReason || null,
-            contentRole: candidate?.content?.role || null,
-            partKeys: parts.slice(0, 10).map((part: any) => Object.keys(part || {}).sort()),
-            functionNames: parts.flatMap((part: any) => part?.functionCall?.name ? [String(part.functionCall.name)] : []),
-          };
-        }),
-      });
-    }
     throw new Error(`required_tool_missing:${input.provider}:${requiredToolName}`);
   }
   return response;
@@ -178,6 +160,7 @@ function ensureRequiredTool(response: ProviderResponse, input: ProviderCallInput
 
 async function callGemini(credential: ProviderCredential, input: ProviderCallInput): Promise<ProviderResponse> {
   const requiredToolName = resolveRequiredToolName(input);
+  const requiredToolTokens = requiredToolName ? Math.max(input.maxOutputTokens, 2048) : input.maxOutputTokens;
   const contents = input.messages.map((message) => {
     if (message.role === 'user') {
       return { role: 'user', parts: [{ text: message.content || '' }] };
@@ -201,12 +184,17 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
     };
   });
 
+  const generationConfig: Record<string, unknown> = {
+    temperature: input.temperature ?? 0.2,
+    maxOutputTokens: requiredToolTokens,
+  };
+  if (requiredToolName && input.model.startsWith('gemini-2.5')) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
   const payload: Record<string, unknown> = {
     contents,
-    generationConfig: {
-      temperature: input.temperature ?? 0.2,
-      maxOutputTokens: input.maxOutputTokens,
-    },
+    generationConfig,
   };
 
   if (input.systemPrompt) {
@@ -232,16 +220,40 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
 
   const started = Date.now();
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent?key=${encodeURIComponent(credential.apiKey)}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.error('ai_provider_error', { provider: 'gemini', status: response.status, detail: String(body?.error?.message || '').slice(0, 500) });
-    throw new Error(`provider_generate_failed:gemini:${response.status}`);
+
+  const performRequest = async (requestPayload: Record<string, unknown>) => {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestPayload),
+      cache: 'no-store',
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('ai_provider_error', { provider: 'gemini', status: response.status, detail: String(body?.error?.message || '').slice(0, 500) });
+      throw new Error(`provider_generate_failed:gemini:${response.status}`);
+    }
+    return body;
+  };
+
+  let body = await performRequest(payload);
+  if (requiredToolName && body?.candidates?.[0]?.finishReason === 'MALFORMED_FUNCTION_CALL') {
+    console.warn('gemini_required_tool_retry', {
+      model: input.model,
+      requiredToolName,
+      reason: 'MALFORMED_FUNCTION_CALL',
+    });
+    const retryGenerationConfig: Record<string, unknown> = {
+      ...generationConfig,
+      maxOutputTokens: Math.max(requiredToolTokens, 4096),
+    };
+    if (input.model.startsWith('gemini-2.5')) {
+      retryGenerationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+    body = await performRequest({
+      ...payload,
+      generationConfig: retryGenerationConfig,
+    });
   }
 
   const parts = Array.isArray(body?.candidates?.[0]?.content?.parts) ? body.candidates[0].content.parts : [];
@@ -267,6 +279,7 @@ async function callGemini(credential: ProviderCredential, input: ProviderCallInp
 async function callOpenAiCompatible(credential: ProviderCredential, input: ProviderCallInput): Promise<ProviderResponse> {
   if (!credential.baseUrl) throw new Error(`missing_provider_base_url:${input.provider}`);
   const requiredToolName = resolveRequiredToolName(input);
+  const requiredToolTokens = requiredToolName ? Math.max(input.maxOutputTokens, 2048) : input.maxOutputTokens;
 
   const messages: any[] = [{ role: 'system', content: input.systemPrompt }];
   for (const message of input.messages) {
@@ -305,9 +318,9 @@ async function callOpenAiCompatible(credential: ProviderCredential, input: Provi
   };
 
   if (isReasoning) {
-    payload.max_completion_tokens = input.maxOutputTokens;
+    payload.max_completion_tokens = requiredToolTokens;
   } else {
-    payload.max_tokens = input.maxOutputTokens;
+    payload.max_tokens = requiredToolTokens;
   }
 
   if (isQwen) payload.reasoning_effort = 'none';
