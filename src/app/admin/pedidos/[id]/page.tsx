@@ -5,6 +5,7 @@ import OrderActions from './OrderActions';
 import OrderEditForm from './OrderEditForm';
 import DeleteOrderButton from './DeleteOrderButton';
 import KitchenPrintButton from './KitchenPrintButton';
+import ClientReceiptPrintButton from './ClientReceiptPrintButton';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,7 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
 
   const fmtCLP = (val: number) => `$${(val || 0).toLocaleString('es-CL')}`;
   const address = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address;
+  const printCount = Number(order.print_count || 0);
 
   return (
     <div className="max-w-[1100px] w-full">
@@ -115,9 +117,36 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-4">
           <KitchenPrintButton order={order} />
-          <OrderActions order={order} />
+          <ClientReceiptPrintButton order={order} />
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-display font-bold uppercase tracking-[2.5px] text-white/50">Historial de impresiones</p>
+                <p className="mt-1 text-xs text-white/55">Cuenta cualquier impresión de producción o comprobante.</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-mono text-white/65">
+                {printCount > 0 ? `${printCount} imp.` : 'Sin imprimir'}
+              </span>
+            </div>
+            {order.last_printed_at && (
+              <p className="mt-2 text-[10px] font-mono text-white/40">
+                Última: {new Date(order.last_printed_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
+
+          <div className="order-actions-with-dedicated-print">
+            <OrderActions order={order} />
+          </div>
         </div>
       </div>
+
+      <style>{`
+        .order-actions-with-dedicated-print > div > div:has(button.flex-1) {
+          display: none !important;
+        }
+      `}</style>
 
       {(admin.rol === 'admin' || admin.rol === 'soporte') && (
         <div className="mt-6">
