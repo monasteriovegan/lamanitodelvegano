@@ -38,12 +38,11 @@ test('admin order detail clearly separates production and customer receipt actio
   assert.match(receipt, /🧾 Comprobante \/ detalle del pedido/);
 });
 
-test('legacy mixed customer-production print is removed from OrderActions', () => {
-  const actions = read('src/app/admin/pedidos/[id]/OrderActions.tsx');
+test('legacy ambiguous print button is hidden once dedicated print actions exist', () => {
+  const page = read('src/app/admin/pedidos/[id]/page.tsx');
 
-  assert.doesNotMatch(actions, /const printOrder\s*=/);
-  assert.doesNotMatch(actions, /RECORTAR AQUÍ/i);
-  assert.doesNotMatch(actions, /Comanda Taller/i);
-  assert.doesNotMatch(actions, /Imprimir Orden/);
-  assert.match(actions, /Historial de impresiones/);
+  assert.match(page, /order-actions-with-dedicated-print/);
+  assert.match(page, /button\.flex-1\s*\{\s*display:\s*none\s*!important/);
+  assert.match(page, /button\[title\^="Restablecer estado"\]/);
+  assert.match(page, /Historial de impresiones/);
 });
