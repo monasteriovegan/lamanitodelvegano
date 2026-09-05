@@ -54,8 +54,11 @@ test('status exposes only values actually read from configuration and observatio
   });
 });
 
-test('admin route contains no historical phone, WABA or fabricated quality literals', () => {
+test('admin route reports WhatsApp send mode from channel_settings, never legacy Vercel flags', () => {
   const source = readFileSync(new URL('../src/app/api/admin/whatsapp/status/route.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /1022209807648757|1129249369256097|GREEN|not_verified/);
   assert.match(source, /META_WHATSAPP_CALLBACK_URL/);
+  assert.match(source, /channel_settings/);
+  assert.match(source, /resolveChannelSendMode/);
+  assert.doesNotMatch(source, /resolveWhatsAppSendMode|META_WHATSAPP_SEND_MODE|META_SEND_MODE/);
 });
