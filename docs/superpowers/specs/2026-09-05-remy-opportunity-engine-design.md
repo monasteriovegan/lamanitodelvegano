@@ -396,3 +396,12 @@ El despliegue a producción no implica activar automáticamente a Remy. Código 
 - No se implementa broadcast ni prospección fría.
 - No se elimina el recuperador actual hasta validar el nuevo motor en observación.
 - La activación automática de Remy se mantiene separada del despliegue de código.
+
+## 22. Revisión de consistencia
+
+- No quedan decisiones técnicas marcadas como TBD/TODO.
+- El detector y el ejecutor están separados en todo el diseño.
+- El modo copiloto funciona aunque Remy esté apagado.
+- El envío automático sigue subordinado a las capacidades del canal y a `human_takeover`.
+- La fase inicial de producción es de observación, por lo que desplegar el sistema no implica enviar mensajes automáticamente.
+- El cron de carrito actual no se retira hasta comprobar que el nuevo motor evita duplicados y produce decisiones equivalentes o mejores.
