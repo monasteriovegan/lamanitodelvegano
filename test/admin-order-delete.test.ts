@@ -17,8 +17,8 @@ test('safe delete is transactional, admin-only, restores stock and rejects prote
   assert.match(migration, /set\s+stock\s*=\s*coalesce\(stock,\s*0\)\s*\+/i);
   assert.match(migration, /delete\s+from\s+public\.conversion_events/i);
   assert.match(migration, /delete\s+from\s+public\.pedidos/i);
-  assert.match(migration, /revoke\s+all.*admin_delete_order_v1/is);
-  assert.match(migration, /grant\s+execute.*service_role/is);
+  assert.match(migration, /revoke\s+all[\s\S]*admin_delete_order_v1/i);
+  assert.match(migration, /grant\s+execute[\s\S]*service_role/i);
 });
 
 test('orders admin API exposes DELETE only to admin and delegates to the transactional RPC', () => {
