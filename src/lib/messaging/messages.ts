@@ -3,6 +3,7 @@ import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 import { ConversationRepository } from '@/lib/repositories/conversations-repository';
 import { MessageRepository } from '@/lib/repositories/messages-repository';
+import { evaluateConversationOpportunity } from '@/lib/opportunities/service';
 import { resolveCustomer } from './identity';
 import { processInboundImageOcrAsync } from './ocr';
 import type { NormalizedMessage, PersistedMessage } from './types';
@@ -17,9 +18,6 @@ export async function resolveBusinessUnitForMessage(
     return businessUnitId;
   }
 
-  // Temporary compatibility for web/manual/Baileys inputs that do not carry a
-  // Meta recipient asset. Those entry points will receive an explicit tenant
-  // context as their admin routes are migrated.
   const business = await new BusinessRepository(db).getDefault();
   if (!business) throw new Error('default_business_not_found');
   return business.id;
@@ -100,10 +98,6 @@ async function findCrossTransportDuplicate(
   conversationId: string,
   message: NormalizedMessage,
 ): Promise<{ id: string; customer_id: string | null } | null> {
-  // Cloud API and Baileys can observe the same physical WhatsApp message with
-  // different provider IDs. Only dedupe exact text copies from different
-  // transports and within a very tight timestamp window so two intentional
-  // repeated customer messages are not collapsed.
   if (message.channel !== 'whatsapp' || !message.text || !['cloud_api', 'baileys'].includes(message.transport)) {
     return null;
   }
@@ -195,6 +189,16 @@ export async function persistMessage(
         console.error('image_ocr_background_error', { messageId: created.id, error: err });
       });
     }
+
+    // Opportunity evaluation is intentionally fire-and-forget: sales analysis
+    // must never turn a successfully persisted Meta webhook into an error.
+    void evaluateConversationOpportunity(db, conversation.id).catch((error) => {
+      console.error('opportunity_evaluation_failed', {
+        conversationId: conversation.id,
+        messageId: created?.id || null,
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+    });
 
     return {
       duplicate: false,

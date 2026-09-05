@@ -17,6 +17,7 @@ const primary = [
 ];
 
 const more = [
+  { href: '/admin/oportunidades', icon: '🎯', label: 'Oportunidades' },
   { href: '/admin/productos', icon: '🌿', label: 'Catálogo Master' },
   { href: '/admin/temporadas', icon: '📅', label: 'Temporadas' },
   { href: '/admin/categorias', icon: '🏷️', label: 'Categorías' },
