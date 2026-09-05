@@ -7,6 +7,8 @@ import { CatalogRepository } from '@/lib/catalog/catalog-repository';
 import { resolveCatalogCheckoutItem, type CatalogCheckoutItemIntent } from '@/lib/catalog/catalog-checkout';
 import type { CatalogCartItem } from '@/lib/catalog/catalog-cart';
 
+export const FREE_SHIPPING_MINIMUM = 50_000;
+
 export type CatalogCheckoutRequest = Omit<CheckoutRequest, 'items'> & {
   items: CatalogCheckoutItemIntent[];
 };
@@ -112,8 +114,9 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
   if (req.zonaId) {
     const { data: zona } = await supabase.from('zonas').select('*').eq('id', req.zonaId).maybeSingle();
     if (zona) {
-      costoEnvio = zona.precio;
+      costoEnvio = Number(zona.precio || 0);
       zonaNombre = zona.nombre;
+      if (subtotal >= FREE_SHIPPING_MINIMUM) costoEnvio = 0;
     }
   }
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createSupabaseServerAuthClient } from '@/lib/supabase/server-auth';
 import { requireRole } from '@/lib/supabase/require-role';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
@@ -83,6 +84,7 @@ export async function guardarProducto(formData: FormData) {
       : null,
   };
 
+  let savedId = id;
   if (id) {
     const { error } = await supabase.from('productos')
       .update(payload)
@@ -90,12 +92,18 @@ export async function guardarProducto(formData: FormData) {
       .eq('business_unit_id', business.id);
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await supabase.from('productos').insert(payload);
+    const { data, error } = await supabase
+      .from('productos')
+      .insert(payload)
+      .select('id')
+      .single();
     if (error) throw new Error(error.message);
+    savedId = String(data.id);
   }
 
   revalidatePath('/admin/productos');
   revalidatePath('/');
+  redirect(`/admin/productos/${savedId}?saved=1`);
 }
 
 export async function toggleDestacado(id: string, valorActual: boolean) {
@@ -111,15 +119,46 @@ export async function toggleDestacado(id: string, valorActual: boolean) {
   revalidatePath('/');
 }
 
+/**
+ * El historial de carrito usa FK RESTRICT hacia productos. Si el producto ya
+ * participó en un carrito, "Eliminar" lo archiva (activo=false) para no destruir
+ * trazabilidad. Solo se hace hard-delete cuando no existen referencias; si otra
+ * FK protegida aparece entre el chequeo y el delete, el fallback también archiva.
+ */
 export async function eliminarProducto(id: string) {
   await requireRole(['admin', 'bodega']);
   const supabase = await createSupabaseServerAuthClient();
   const business = await new BusinessRepository(supabase).requireDefault();
-  const { error } = await supabase.from('productos')
-    .delete()
-    .eq('id', id)
-    .eq('business_unit_id', business.id);
-  if (error) throw new Error(error.message);
+
+  const { data: cartRefs, error: cartRefError } = await supabase
+    .from('cart_items')
+    .select('id')
+    .eq('product_id', id)
+    .limit(1);
+  if (cartRefError) throw new Error(cartRefError.message);
+
+  const archivar = async () => {
+    const { error } = await supabase.from('productos')
+      .update({ activo: false })
+      .eq('id', id)
+      .eq('business_unit_id', business.id);
+    if (error) throw new Error(error.message);
+  };
+
+  if ((cartRefs || []).length > 0) {
+    await archivar();
+  } else {
+    const { error } = await supabase.from('productos')
+      .delete()
+      .eq('id', id)
+      .eq('business_unit_id', business.id);
+    if (error?.code === '23503') {
+      await archivar();
+    } else if (error) {
+      throw new Error(error.message);
+    }
+  }
+
   revalidatePath('/admin/productos');
   revalidatePath('/');
 }

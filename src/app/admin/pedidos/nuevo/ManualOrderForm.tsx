@@ -13,6 +13,7 @@ type ProductOption = {
   variedades?: string | null;
   maneja_stock?: boolean | null;
   stock?: number | null;
+  orderOptions?: string[];
 };
 
 type CustomerOption = {
@@ -96,9 +97,12 @@ export default function ManualOrderForm({
       productoId: productId,
       nombre: product?.nombre || '',
       precio: Number(product?.precio || 0),
+      variedad: '',
       custom: false,
     });
   };
+
+  const orderOptionsFor = (productId: string) => products.find((row) => row.id === productId)?.orderOptions || [];
 
   const selectCustomer = (id: string) => {
     setCustomerId(id);
@@ -199,7 +203,17 @@ export default function ManualOrderForm({
                 <div><label className={labelClass}>Cantidad</label><input type="number" min={1} className={inputClass} value={item.qty} onChange={(e) => updateItem(item.key, { qty: Number(e.target.value) })} required /></div>
                 <div className="md:col-span-2"><label className={labelClass}>Precio unitario</label><input type="number" min={0} className={inputClass} value={item.precio} onChange={(e) => updateItem(item.key, { precio: Number(e.target.value) })} required /></div>
                 <div className="md:col-span-2"><label className={labelClass}>Formato</label><input className={inputClass} value={item.formato} onChange={(e) => updateItem(item.key, { formato: e.target.value })} /></div>
-                <div className="md:col-span-2"><label className={labelClass}>Variante / composición</label><input className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} /></div>
+                {!item.custom && orderOptionsFor(item.productoId).length > 0 ? (
+                  <div className="md:col-span-2">
+                    <label className={labelClass}>Opciones / sabores</label>
+                    <select className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} required>
+                      <option value="" className="bg-[#030907]">Seleccionar opción…</option>
+                      {orderOptionsFor(item.productoId).map((option) => <option key={option} value={option} className="bg-[#030907]">{option}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="md:col-span-2"><label className={labelClass}>Variante / composición</label><input className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} /></div>
+                )}
                 <div className="md:col-span-2"><label className={labelClass}>Nota del ítem</label><input className={inputClass} value={item.notas} onChange={(e) => updateItem(item.key, { notas: e.target.value })} /></div>
               </div>
             </div>
