@@ -14,9 +14,12 @@ test('opportunity attribution closes opportunity without changing order semantic
   assert.doesNotMatch(source, /from\(['"]pedidos['"]\)\.update/);
 });
 
-test('canonical conversation order creation invokes opportunity attribution non-blockingly', () => {
-  const source = fs.readFileSync('src/lib/repositories/orders-repository.ts', 'utf8');
-  assert.match(source, /attributeOrderToOpportunity/);
-  assert.match(source, /opportunity_attribution_failed/);
-  assert.match(source, /conversationId/);
+test('conversation order link attributes opportunities transactionally without changing pedidos', () => {
+  const sql = fs.readFileSync('supabase/migrations/20260905090000_sales_opportunities.sql', 'utf8');
+  assert.match(sql, /attribute_conversation_order_opportunity_v1/);
+  assert.match(sql, /after\s+insert\s+on\s+public\.conversation_orders/is);
+  assert.match(sql, /converted_order_id\s*=\s*new\.pedido_id/is);
+  assert.match(sql, /converted_revenue\s*=\s*coalesce\(v_total/is);
+  assert.match(sql, /recovered_sale\s*=\s*\(/is);
+  assert.doesNotMatch(sql, /update\s+public\.pedidos/is);
 });
