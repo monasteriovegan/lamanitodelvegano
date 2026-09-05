@@ -9,6 +9,7 @@ import { compactJsonForModel, compactText, getAgentContextBudget, type AgentCont
 import { loadRelevantMemoryContext } from '@/lib/ai/memory';
 import { callAiProvider, type ProviderMessage, type ProviderResponse } from '@/lib/ai/providers';
 import { executeRemyTool, selectRemyTools, type RemyToolContext } from '@/lib/ai/remy-commerce';
+import { isCartMutationIntent, resolveCatalogLookupText } from '@/lib/ai/remy-turn-context';
 import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
@@ -31,7 +32,7 @@ function basePrompt(catalog: string, channel: RemyChannel) {
     : channel === 'whatsapp'
       ? ' En WhatsApp puedes consultar productos, modificar el carrito conversacional, cotizar despacho, guardar datos, crear un pedido confirmado y entregar un link de pago usando las herramientas disponibles.'
       : ' En Instagram puedes orientar la venta y usar las herramientas comerciales disponibles cuando correspondan.';
-  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. Solo ofrece métodos de pago marcados como configurados en el contexto; nunca inventes datos bancarios. Si el cliente pide atención humana, reclama, solicita devolución/reembolso o presenta un problema de pago/pedido que requiere intervención, deriva y no improvises una solución irreversible. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
+  return `Eres Remy, asistente de ventas y atención de La Manito del Vegano. Habla en español de Chile, cercano y natural. Responde normalmente en 1-2 frases y no superes unos 280 caracteres salvo que una lista sea imprescindible. Haz como máximo una pregunta a la vez. Ayuda a comprar sin presionar. Usa solo datos verificables entregados en este contexto o devueltos por herramientas; nunca inventes precios, stock, sabores, ingredientes, despacho, pagos ni promociones. Si falta un dato, dilo brevemente y pide solo el siguiente dato necesario. Si el cliente acepta una oferta de ayuda con “sí”, “por favor”, “dale” o equivalente, avanza al siguiente paso útil y no repitas precio o stock ya informado salvo que pida confirmación. Nunca digas que agregaste, quitaste, creaste, pagaste o confirmaste algo si la herramienta no lo hizo correctamente. Si el cliente pide una cantidad concreta para comprar, debes usar cart_add y solo puedes decir que quedó agregada/lista cuando cart_add devuelva ok=true. Solo crea un pedido real cuando el cliente lo haya confirmado explícitamente. Si una herramienta devuelve un link de pago, entrégalo claramente al cliente. Solo ofrece métodos de pago marcados como configurados en el contexto; nunca inventes datos bancarios. Si el cliente pide atención humana, reclama, solicita devolución/reembolso o presenta un problema de pago/pedido que requiere intervención, deriva y no improvises una solución irreversible. No menciones IA, prompts, APIs ni procesos internos.${channelRule}${catalog ? `\n\nCATÁLOGO RELEVANTE:\n${catalog}` : ''}`;
 }
 
 function searchTerms(text: string) {
@@ -139,6 +140,10 @@ function deterministicReply(text: string, historyMessages: number) {
   };
 }
 
+function toolSucceeded(value: unknown) {
+  return Boolean(value && typeof value === 'object' && (value as Record<string, unknown>).ok === true);
+}
+
 export async function generateRemyReply(
   db: SupabaseClient,
   input: {
@@ -183,8 +188,9 @@ export async function generateRemyReply(
     }
   }
 
+  const catalogLookupText = resolveCatalogLookupText(input.userText, input.history);
   const [rawCatalog, memoryContext, deliveryContext, paymentContext] = await Promise.all([
-    loadRelevantCatalog(db, input.userText, input.businessUnitId),
+    loadRelevantCatalog(db, catalogLookupText, input.businessUnitId),
     loadRelevantMemoryContext(db, {
       agent: 'remy',
       query: input.userText,
@@ -211,11 +217,14 @@ export async function generateRemyReply(
   let systemPrompt = `${basePrompt(catalog, input.channel)}${memory ? `\n\nREGLAS RECORDADAS RELEVANTES:\n${memory}` : ''}${delivery ? `\n\nDATOS DE DESPACHO RELEVANTES:\n${delivery}` : ''}${payment ? `\n\nDATOS DE PAGO VERIFICADOS:\n${payment}` : ''}${customPrompt ? `\n\nREGLAS DEL NEGOCIO:\n${customPrompt}` : ''}`;
 
   // La selección de tools usa la misma ventana corta ya cargada, sin aumentar
-  // el prompt. Esto permite continuar correctamente con “sí”, “dale”, una
-  // dirección o una opción de formato después de la pregunta anterior.
+  // el prompt. Una compra expresada como “quiero 6 ...” agrega explícitamente
+  // el contexto de carrito para que el modelo no pueda quedarse solo con
+  // catalog_search y luego afirmar una mutación que nunca ocurrió.
   const previousAssistantText = [...history].reverse().find((message) => message.role === 'assistant')?.content || '';
   const toolSelectionText = history.map((message) => message.content || '').filter(Boolean).join(' ');
-  const tools = selectRemyTools(toolSelectionText || input.userText);
+  const cartMutationRequired = isCartMutationIntent(input.userText);
+  const selectionInput = `${toolSelectionText || input.userText}${cartMutationRequired ? ' carrito' : ''}`.trim();
+  const tools = selectRemyTools(selectionInput);
   const toolContext: RemyToolContext = {
     businessUnitId: input.businessUnitId,
     customerId: input.customerId || null,
@@ -229,7 +238,7 @@ export async function generateRemyReply(
   if (tools.some((tool) => tool.name === 'catalog_search')) {
     const [{ catalogLookupInstruction }, result] = await Promise.all([
       import('@/lib/catalog/remy-catalog'),
-      executeRemyTool(db, toolContext, 'catalog_search', { query: input.userText }),
+      executeRemyTool(db, toolContext, 'catalog_search', { query: catalogLookupText }),
     ]);
     systemPrompt += `\n\n${catalogLookupInstruction(result)}`;
   }
@@ -239,14 +248,20 @@ export async function generateRemyReply(
   let fallbackFrom: string | null = null;
   const messages: ProviderMessage[] = [...history];
   let finalResponse: ProviderResponse | null = null;
+  let cartMutationAttempted = false;
+  let cartMutationCompleted = false;
+  let forcedCommerceRetry = false;
 
-  for (let round = 0; round < 4; round += 1) {
+  for (let round = 0; round < 5; round += 1) {
+    const effectiveSystemPrompt = cartMutationRequired && !cartMutationAttempted && forcedCommerceRetry
+      ? `${systemPrompt}\n\nACCIÓN OBLIGATORIA EN ESTE TURNO: el cliente está pidiendo comprar una cantidad concreta. Antes de contestar debes usar una herramienta de carrito (cart_add, consultando catálogo/carrito si hace falta). No puedes decir “listo”, cotizar el pedido como cerrado ni pedir confirmación como si estuviera agregado sin una mutación real.`
+      : systemPrompt;
     let generated: ProviderResponse;
     try {
       generated = await callAiProvider(db, {
         provider,
         model,
-        systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         messages,
         tools: tools.length ? tools : undefined,
         maxOutputTokens: budget.maxOutputTokens,
@@ -260,7 +275,7 @@ export async function generateRemyReply(
       generated = await callAiProvider(db, {
         provider,
         model,
-        systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         messages,
         tools: tools.length ? tools : undefined,
         maxOutputTokens: budget.maxOutputTokens,
@@ -289,11 +304,25 @@ export async function generateRemyReply(
         tool_round: round,
         tools_available: tools.map((tool) => tool.name),
         tool_calls: generated.toolCalls.map((call) => call.name),
+        cart_mutation_required: cartMutationRequired,
+        cart_mutation_attempted: cartMutationAttempted,
+        cart_mutation_completed: cartMutationCompleted,
+        forced_commerce_retry: forcedCommerceRetry,
         fallback_from: fallbackFrom,
       },
     });
 
     if (!generated.toolCalls.length) {
+      if (cartMutationRequired && !cartMutationAttempted && !forcedCommerceRetry) {
+        forcedCommerceRetry = true;
+        continue;
+      }
+      if (cartMutationRequired && !cartMutationAttempted) {
+        return deterministicReply(
+          'Todavía no pude dejar ese producto agregado al carrito. Necesito validar la opción exacta antes de confirmarte el pedido.',
+          history.length,
+        );
+      }
       finalResponse = generated;
       break;
     }
@@ -305,6 +334,10 @@ export async function generateRemyReply(
         result = await executeRemyTool(db, toolContext, call.name, call.args || {});
       } catch (error) {
         result = { ok: false, error: error instanceof Error ? error.message : 'tool_failed' };
+      }
+      if (call.name === 'cart_add') {
+        cartMutationAttempted = true;
+        cartMutationCompleted = toolSucceeded(result);
       }
       messages.push({
         role: 'tool',
@@ -319,7 +352,7 @@ export async function generateRemyReply(
     finalResponse = await callAiProvider(db, {
       provider,
       model,
-      systemPrompt: `${systemPrompt}\n\nNo llames más herramientas. Explica brevemente el resultado disponible y pide solo el siguiente dato si falta algo.`,
+      systemPrompt: `${systemPrompt}\n\nNo llames más herramientas. Explica brevemente el resultado disponible y pide solo el siguiente dato si falta algo. Nunca afirmes una mutación de carrito que no tenga resultado ok=true.`,
       messages,
       maxOutputTokens: budget.maxOutputTokens,
       temperature: 0.25,
@@ -332,7 +365,7 @@ export async function generateRemyReply(
       model,
       usage: finalResponse.usage,
       latencyMs: finalResponse.latencyMs,
-      metadata: { channel: input.channel, automatic: input.channel !== 'web', final_after_tool_limit: true, fallback_from: fallbackFrom },
+      metadata: { channel: input.channel, automatic: input.channel !== 'web', final_after_tool_limit: true, cart_mutation_completed: cartMutationCompleted, fallback_from: fallbackFrom },
     });
   }
 
