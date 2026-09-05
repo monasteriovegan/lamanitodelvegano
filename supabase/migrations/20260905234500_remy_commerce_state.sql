@@ -10,6 +10,9 @@ declare
   meta jsonb := coalesce(new.metadata, '{}'::jsonb);
   item_count integer := 0;
   stage text;
+  existing_stage text := btrim(coalesce(meta->>'commerce_stage', ''));
+  existing_stage_rank integer := -1;
+  derived_stage_rank integer := -1;
   delivery_started boolean;
   delivery_complete boolean;
   customer_complete boolean;
@@ -55,6 +58,37 @@ begin
     else
       stage := 'review';
     end if;
+  end if;
+
+  -- A cart can legitimately move backwards before an order exists (for example
+  -- when the customer clears it). Once an order exists, however, later facts
+  -- written by the order trigger (payment/post_sale) must never be overwritten
+  -- by this cart trigger merely because metadata was touched again.
+  existing_stage_rank := case existing_stage
+    when 'discover' then 0
+    when 'cart' then 1
+    when 'delivery' then 2
+    when 'details' then 3
+    when 'review' then 4
+    when 'confirmed' then 5
+    when 'payment' then 6
+    when 'post_sale' then 7
+    else -1
+  end;
+  derived_stage_rank := case stage
+    when 'discover' then 0
+    when 'cart' then 1
+    when 'delivery' then 2
+    when 'details' then 3
+    when 'review' then 4
+    when 'confirmed' then 5
+    when 'payment' then 6
+    when 'post_sale' then 7
+    else -1
+  end;
+
+  if new.order_id is not null and existing_stage_rank > derived_stage_rank then
+    stage := existing_stage;
   end if;
 
   if coalesce(meta->>'commerce_stage', '') is distinct from stage then
