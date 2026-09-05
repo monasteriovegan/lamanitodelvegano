@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const requestedChannel = new URL(request.url).searchParams.get('channel');
+  const url = new URL(request.url);
+  const requestedChannel = url.searchParams.get('channel');
+  const statusFilter = url.searchParams.get('status_filter');
   const allowedChannels = ['whatsapp', 'instagram', 'web'];
   const db = createSupabaseServiceClient();
   let query = db
@@ -23,6 +25,8 @@ export async function GET(request: Request) {
     .order('last_message_at', { ascending: false });
 
   if (requestedChannel && allowedChannels.includes(requestedChannel)) query = query.eq('channel', requestedChannel);
+  if (statusFilter === 'pending' || statusFilter === 'unread') query = query.gt('unread_count', 0);
+
   const { data: conversations, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   const rows = conversations || [];
@@ -40,9 +44,17 @@ export async function GET(request: Request) {
 
   const contactMap = new Map((contacts || []).map((contact: any) => [contact.id, contact]));
   const summaryMap = new Map((summaries || []).map((summary: any) => [String(summary.conversation_id), summary]));
+  const payloadUsernameMap = new Map<string, string>();
+  for (const summary of summaries || []) {
+    const username = instagramUsernameFromStoredPayload((summary as any).last_payload);
+    if (username) payloadUsernameMap.set(String((summary as any).conversation_id), username);
+  }
 
   const data = rows
-    .filter((row: any) => Boolean(summaryMap.get(row.id)?.last_message_at))
+    .filter((row: any) => {
+      const lastMessageAt = (summaryMap.get(row.id) as any)?.last_message_at;
+      return Boolean(lastMessageAt);
+    })
     .map((row: any) => {
       const contact = contactMap.get(row.customer_id || row.contact_id);
       const summary = summaryMap.get(row.id) as any;
@@ -55,7 +67,7 @@ export async function GET(request: Request) {
         ? normalizeInstagramUsername(row.metadata?.external_username)
           || normalizeInstagramUsername(contact?.metadata?.instagram_username)
           || normalizeInstagramUsername(contact?.display_name)
-          || instagramUsernameFromStoredPayload(summary?.last_payload)
+          || payloadUsernameMap.get(row.id)
           || null
         : null;
       const contactName = row.channel === 'instagram' && isPlaceholderInstagramName(contact?.nombre, row.external_conversation_id)
