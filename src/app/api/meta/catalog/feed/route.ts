@@ -7,7 +7,12 @@ export async function GET() {
   const items = campaign.products.flatMap((product) => product.variants
     .filter((variant) => variant.active && Boolean(product.imageUrl || variant.imageUrl))
     .map((variant) => buildMetaFeedItem({
-      product: { slug: product.slug, name: product.name, description: product.description, imageUrl: product.imageUrl || variant.imageUrl },
+      product: {
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
+        imageUrl: product.imageUrl || variant.imageUrl || null,
+      },
       variant,
     })));
   return new Response(serializeMetaCatalogCsv(items), {
