@@ -43,7 +43,10 @@ export function detectOpportunity(input: OpportunityDetectionInput): Opportunity
     reasonSummary = 'La conversación tiene interés comercial general y quedó sin continuación.';
   }
 
-  const score = STAGE_SCORE[stage] + (input.adSource ? 5 : 0);
+  const strongCommercialBonus = stage === 'shipping_or_price_question'
+    ? (input.askedPrice ? 10 : 0) + (input.askedShipping ? 10 : 0)
+    : 0;
+  const score = STAGE_SCORE[stage] + strongCommercialBonus + (input.adSource ? 5 : 0);
   return {
     stage,
     score,
