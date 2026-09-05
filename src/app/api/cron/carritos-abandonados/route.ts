@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import { evaluateConversationOpportunity } from '@/lib/opportunities/service';
@@ -28,8 +29,11 @@ export async function GET(req: NextRequest) {
 
   const db = createSupabaseServiceClient();
   const limite = new Date(Date.now() - HORAS_INACTIVIDAD * 60 * 60 * 1000).toISOString();
-  const { data: globalConfig } = await db.from('integraciones_secretas').select('ai_enabled').eq('id', 'global').maybeSingle();
-  const cutoverToOpportunityEngine = String(process.env.SALES_OPPORTUNITY_CART_CUTOVER || '').toLowerCase() === 'true';
+  const [{ data: globalConfig }, remyRuntime] = await Promise.all([
+    db.from('integraciones_secretas').select('ai_enabled').eq('id', 'global').maybeSingle(),
+    getAgentRuntimeConfig(db, 'remy'),
+  ]);
+  const cutoverToOpportunityEngine = remyRuntime.metadata?.opportunity_cart_cutover === true;
 
   const { data: carritos, error } = await db
     .from('carritos_abandonados')
@@ -66,8 +70,8 @@ export async function GET(req: NextRequest) {
     }
 
     // During observation the legacy sender stays active. Once the explicit
-    // cutover switch is enabled, this cron stops sending so only the new runner
-    // owns the cart-abandoned stage.
+    // persisted cutover switch is enabled, this cron stops sending so only the
+    // new opportunity runner owns the cart-abandoned stage.
     if (cutoverToOpportunityEngine) {
       omitidos += 1;
       continue;
