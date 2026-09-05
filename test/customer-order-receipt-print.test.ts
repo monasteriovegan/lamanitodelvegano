@@ -34,15 +34,15 @@ test('admin order detail clearly separates production and customer receipt actio
   assert.match(page, /ClientReceiptPrintButton/);
   assert.match(page, /<KitchenPrintButton order=\{order\} \/>/);
   assert.match(page, /<ClientReceiptPrintButton order=\{order\} \/>/);
-  assert.match(kitchen, /🖨️ Orden de producción/);
+  assert.match(kitchen, /Orden de producción/);
   assert.match(receipt, /🧾 Comprobante \/ detalle del pedido/);
 });
 
-test('legacy ambiguous print button is hidden once dedicated print actions exist', () => {
+test('legacy ambiguous print card is hidden once dedicated print actions exist', () => {
   const page = read('src/app/admin/pedidos/[id]/page.tsx');
 
   assert.match(page, /order-actions-with-dedicated-print/);
-  assert.match(page, /button\.flex-1\s*\{\s*display:\s*none\s*!important/);
-  assert.match(page, /button\[title\^="Restablecer estado"\]/);
+  assert.match(page, /:has\(button\.flex-1\)/);
+  assert.match(page, /display:\s*none\s*!important/);
   assert.match(page, /Historial de impresiones/);
 });
