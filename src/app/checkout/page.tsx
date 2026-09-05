@@ -9,6 +9,8 @@ import type { Zona } from '@/types/domain';
 import { formatDeliveryDateLabel } from '@/lib/pricing/fechas';
 import { trackContact, trackInitiateCheckout } from '@/lib/analytics/client';
 
+const FREE_SHIPPING_MINIMUM = 50_000;
+
 function CheckoutContent() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
@@ -113,7 +115,8 @@ function CheckoutContent() {
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  const totalEstimado = subtotal + (zonaSeleccionada?.precio || 0);
+  const envioEstimado = subtotal >= FREE_SHIPPING_MINIMUM ? 0 : (zonaSeleccionada?.precio || 0);
+  const totalEstimado = subtotal + envioEstimado;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -247,6 +250,11 @@ function CheckoutContent() {
                 {deliveryDates.map((date) => <option key={date} value={date} className="bg-[#0d1e16]">{formatDeliveryDateLabel(date)}</option>)}
               </select>
             </div>
+            <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${subtotal >= FREE_SHIPPING_MINIMUM ? 'border-neon/30 bg-neon/10 text-neon' : 'border-white/10 bg-white/[0.03] text-white/60'}`}>
+              {subtotal >= FREE_SHIPPING_MINIMUM
+                ? '✓ Tu pedido ya tiene despacho Gratis.'
+                : `🚚 Despacho gratis desde $50.000 en productos. Te faltan $${Math.max(0, FREE_SHIPPING_MINIMUM - subtotal).toLocaleString('es-CL')}.`}
+            </div>
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
@@ -288,9 +296,17 @@ function CheckoutContent() {
 
           {error && <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-rojo text-sm rounded-xl p-3">{error}</div>}
 
-          <div className="flex items-center justify-between bg-white/5 rounded-xl p-4">
-            <span className="text-sm text-muted">Total estimado*</span>
-            <span className="font-display font-bold text-xl text-neon">${totalEstimado.toLocaleString('es-CL')}</span>
+          <div className="bg-white/5 rounded-xl p-4">
+            <div className="mb-2 flex items-center justify-between text-xs">
+              <span className="text-muted">Despacho estimado</span>
+              <span className={zonaSeleccionada && envioEstimado === 0 ? 'font-bold text-neon' : 'text-white/70'}>
+                {!zonaSeleccionada ? '—' : envioEstimado === 0 ? 'Gratis' : `$${envioEstimado.toLocaleString('es-CL')}`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-white/10 pt-3">
+              <span className="text-sm text-muted">Total estimado*</span>
+              <span className="font-display font-bold text-xl text-neon">${totalEstimado.toLocaleString('es-CL')}</span>
+            </div>
           </div>
           <p className="text-[10px] text-muted -mt-2">*El total final (con cupón aplicado) se confirma de forma segura en el servidor antes de procesar el pago.</p>
 
