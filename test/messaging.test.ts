@@ -206,7 +206,7 @@ test('webhook Instagram verifica HMAC sobre bytes crudos antes de decodificar JS
   assert.doesNotMatch(route, /const raw = await request\.text\(\)/);
 });
 
-test('envío real permanece bloqueado por la política actual salvo habilitación explícita', () => {
+test('envío real permanece bloqueado por la política persistida salvo habilitación explícita', () => {
   const transport = readFileSync(
     new URL('../src/lib/messaging/transports/whatsapp-cloud.ts', import.meta.url),
     'utf8',
@@ -215,7 +215,9 @@ test('envío real permanece bloqueado por la política actual salvo habilitació
     new URL('../src/lib/messaging/capability-policy.ts', import.meta.url),
     'utf8',
   );
-  assert.match(transport, /resolveWhatsAppSendMode/);
+  assert.match(transport, /channel_settings/);
+  assert.match(transport, /resolveChannelSendMode/);
+  assert.doesNotMatch(transport, /META_WHATSAPP_SEND_MODE|META_SEND_MODE/);
   assert.match(transport, /evaluateMessagingCapability/);
   assert.match(transport, /createWhatsAppCloudSender/);
   assert.match(policy, /read_only/);
