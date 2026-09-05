@@ -1,5 +1,15 @@
 begin;
 
+alter table public.conversations
+  add column if not exists last_read_at timestamptz null;
+
+-- Establish a clean baseline: the legacy unread counter was not tied to an
+-- explicit CRM read action, so carrying it forward would preserve stale
+-- Pendientes forever. New inbound messages are counted from this point on.
+update public.conversations
+set last_read_at = coalesce(last_read_at, now()),
+    unread_count = 0;
+
 create or replace function public.admin_conversation_inbox_summary_v1(p_conversation_ids uuid[])
 returns table (
   conversation_id uuid,
@@ -48,6 +58,25 @@ $$;
 
 revoke all on function public.admin_conversation_inbox_summary_v1(uuid[]) from public, anon, authenticated;
 grant execute on function public.admin_conversation_inbox_summary_v1(uuid[]) to service_role;
+
+create or replace function public.mark_conversation_read(p_conversation_id uuid)
+returns table (conversation_id uuid, unread_count integer, last_read_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  update public.conversations c
+  set unread_count = 0,
+      last_read_at = now()
+  where c.id = p_conversation_id
+  returning c.id, c.unread_count, c.last_read_at;
+end;
+$$;
+
+revoke all on function public.mark_conversation_read(uuid) from public, anon, authenticated;
+grant execute on function public.mark_conversation_read(uuid) to service_role;
 
 create or replace function public.increment_conversation_unread_v1()
 returns trigger
