@@ -19,3 +19,10 @@ test('order and payment facts advance the persisted commerce stage', () => {
   assert.match(sql, /post_sale/i);
   assert.match(sql, /payment/i);
 });
+
+test('cart trigger preserves a later payment or post-sale stage instead of downgrading it to confirmed', () => {
+  assert.match(sql, /existing_stage_rank/i);
+  assert.match(sql, /derived_stage_rank/i);
+  assert.match(sql, /existing_stage_rank\s*>\s*derived_stage_rank/i);
+  assert.match(sql, /stage\s*:=\s*existing_stage/i);
+});
