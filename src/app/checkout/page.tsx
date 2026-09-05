@@ -254,10 +254,20 @@ function CheckoutContent() {
             <input placeholder="Código de cupón" value={cuponCode} onChange={(e) => setCuponCode(e.target.value.toUpperCase())} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white" />
           </div>
 
-          <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
-            <h2 className="text-sm font-bold text-white mb-1.5">Instrucciones de entrega / Comentarios</h2>
-            <p className="text-xs text-white/50 mb-3">Horario preferido, indicaciones del lugar o notas para tu pedido.</p>
-            <textarea rows={2} maxLength={500} placeholder="Ej: Entregar después de las 18:00, tocar timbre depto 402, etc." value={notas} onChange={(e) => setNotas(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white resize-none outline-none focus:border-neon" />
+          <div className="bg-white/[0.04] border border-[rgba(0,255,179,0.18)] rounded-xl p-4">
+            <h2 className="text-sm font-bold text-white mb-1.5">¿Quieres agregar una nota a tu pedido? (opcional)</h2>
+            <p className="text-xs text-white/55 mb-3">
+              Puedes indicar cambios, sabores, restricciones, detalles de preparación o instrucciones para la entrega.
+            </p>
+            <textarea
+              rows={3}
+              maxLength={500}
+              placeholder="Ej: 2 empanadas sin aceituna; postre de frambuesa; entregar después de las 18:00…"
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              className="w-full bg-white/5 border border-[rgba(0,255,179,0.25)] rounded-lg px-3 py-2.5 text-sm text-white resize-y outline-none focus:border-neon"
+            />
+            <div className="mt-1.5 text-right text-[10px] text-white/35">{notas.length}/500</div>
           </div>
 
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
