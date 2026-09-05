@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { guardarProducto } from './actions';
 import { FormatoOpcionesInput } from './FormatoOpcionesInput';
+import { AdminImageUploadField } from '../_ui/AdminImageUploadField';
 import type { Producto } from '@/types/domain';
 
 export interface ProductoFormProps {
@@ -130,14 +131,12 @@ export async function ProductoForm({ producto, variants = [], optionGroups = [],
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs text-muted mb-1.5">URL de imagen (opcional, si no se usa el emoji)</label>
-        <input
-          name="imagen_url"
-          defaultValue={producto?.imagen_url || ''}
-          className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-        />
-      </div>
+      <AdminImageUploadField
+        name="imagen_url"
+        label="Imagen del producto"
+        defaultValue={producto?.imagen_url || ''}
+        helpText="Sube una foto desde tu computador o usa una URL manual. La URL final se guarda en el Catálogo Master."
+      />
 
       <FormatoOpcionesInput defaultValue={producto?.gramaje || ''} />
 
