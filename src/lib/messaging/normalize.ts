@@ -67,9 +67,6 @@ export function normalizeMetaWhatsApp(payload: any): NormalizedMessage[] {
         });
       }
 
-      // WhatsApp Business App coexistence: messages sent manually from the phone
-      // arrive as smb_message_echoes. They must be mirrored as human outbound
-      // messages in the same CRM conversation, without an LLM call.
       for (const echo of value.message_echoes ?? []) {
         const to = normalizePhone(String(echo.to ?? ''));
         if (!to || !echo.id) continue;
@@ -130,9 +127,6 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
       const mid = String(message?.mid ?? postback?.mid ?? `ig:${entry?.time ?? Date.now()}:${senderId}:${recipientId}`);
       if (!senderId || !recipientId || (!message && !postback)) continue;
 
-      // Instagram includes business-originated echoes in the same `messages`
-      // subscription. The counterparty is whichever id is not the professional
-      // account id from entry.id.
       const outbound = senderId === businessId;
       const counterpartyId = outbound ? recipientId : senderId;
       if (!counterpartyId) continue;
@@ -142,6 +136,7 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
       const type = postback ? 'postback' : messageType(eventBody);
       const attachments = message ? instagramAttachments(message) : [];
       const timestamp = Number(event?.timestamp ?? entry?.time ?? Date.now());
+      const referral = event?.referral && typeof event.referral === 'object' ? event.referral : null;
 
       normalized.push({
         channel: 'instagram',
@@ -159,6 +154,7 @@ export function normalizeMetaInstagram(payload: any): NormalizedMessage[] {
         raw_payload: {
           business_instagram_id: businessId,
           event,
+          referral,
           is_echo: Boolean(message?.is_echo) || outbound,
         },
         display_name: null,
