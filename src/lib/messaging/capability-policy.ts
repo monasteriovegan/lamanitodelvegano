@@ -4,6 +4,12 @@ export type MessagingActionOrigin = 'automatic' | 'manual';
 
 type MessagingChannel = 'whatsapp' | 'instagram' | 'web';
 
+export type MessagingChannelSettings = {
+  enabled?: boolean | null;
+  auto_reply_enabled?: boolean | null;
+  read_only_mode?: boolean | null;
+};
+
 export type MessagingCapabilityInput = {
   capability: MessagingCapability;
   channel: MessagingChannel;
@@ -21,16 +27,21 @@ export type MessagingCapabilityDecision = {
   reason: string;
 };
 
-export function resolveWhatsAppSendMode(
-  env: Record<string, string | undefined> = process.env,
-): MetaSendMode {
-  const normalized = String(
-    env.META_WHATSAPP_SEND_MODE || env.META_SEND_MODE || 'disabled',
-  ).toLowerCase();
+/**
+ * Canonical transport mode derived from the persisted channel_settings row.
+ * Vercel META_* send-mode variables are intentionally not consulted here:
+ * production on/off is controlled from the database.
+ */
+export function resolveChannelSendMode(settings: MessagingChannelSettings | null | undefined): MetaSendMode {
+  if (settings?.enabled !== true) return 'disabled';
+  if (settings?.read_only_mode === true) return 'read_only';
+  return 'live';
+}
 
-  if (normalized === 'live') return 'live';
-  if (normalized === 'read_only') return 'read_only';
-  return 'disabled';
+export function automaticRepliesEnabled(settings: MessagingChannelSettings | null | undefined) {
+  return settings?.enabled === true
+    && settings?.auto_reply_enabled === true
+    && settings?.read_only_mode !== true;
 }
 
 function blockedBySafetyGate(input: MessagingCapabilityInput): MessagingCapabilityDecision | null {
