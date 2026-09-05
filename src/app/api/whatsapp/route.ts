@@ -1,5 +1,4 @@
 import { maybeAutoReply } from '@/lib/ai/remy';
-import { resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
 import { persistMessage } from '@/lib/messaging/messages';
 import { normalizeMetaWhatsApp } from '@/lib/messaging/normalize';
 import { verifyHmac } from '@/lib/messaging/signature';
@@ -42,7 +41,10 @@ const handlers = createWhatsAppWebhookHandlers({
   appSecret: process.env.META_APP_SECRET,
   verifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN,
   configuredPhoneNumberId: process.env.WA_PHONE_NUMBER_ID,
-  sendMode: resolveWhatsAppSendMode,
+  // The canonical channel gate now lives in maybeAutoReply/sendWhatsAppCloud
+  // and is read from channel_settings. This keeps the generic webhook handler
+  // testable without making Vercel META_* variables a second source of truth.
+  sendMode: () => 'live',
 });
 
 export const GET = handlers.GET;
