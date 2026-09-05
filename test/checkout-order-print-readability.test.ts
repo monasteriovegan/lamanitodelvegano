@@ -17,24 +17,30 @@ test('checkout makes the optional customer note explicit and persists it with th
   assert.match(checkoutRoute, /notas:\s*body\.notas\?\.trim\(\)\s*\|\|\s*null/);
 });
 
-test('printed order is kitchen-first, A4-safe and visually prioritizes production details', () => {
-  const actions = read('src/app/admin/pedidos/[id]/OrderActions.tsx');
+test('order detail promotes the dedicated kitchen print action', () => {
+  const detail = read('src/app/admin/pedidos/[id]/page.tsx');
+  assert.match(detail, /KitchenPrintButton/);
+  assert.match(detail, /order=\{order\}/);
+});
 
-  assert.match(actions, /QUÉ HAY QUE PREPARAR/);
-  assert.match(actions, /NOTA DEL CLIENTE/);
-  assert.match(actions, /DATOS DE ENTREGA/);
-  assert.match(actions, /PAGO Y TOTALES/);
-  assert.match(actions, /@page\s*\{\s*size:\s*A4/i);
-  assert.match(actions, /class=\"qty-badge\"/);
-  assert.match(actions, /class=\"production-detail\"/);
-  assert.match(actions, /page-break-inside:\s*avoid/);
+test('printed order is kitchen-first, A4-safe and visually prioritizes production details', () => {
+  const kitchenPrint = read('src/app/admin/pedidos/[id]/KitchenPrintButton.tsx');
+
+  assert.match(kitchenPrint, /QUÉ HAY QUE PREPARAR/);
+  assert.match(kitchenPrint, /NOTA DEL CLIENTE/);
+  assert.match(kitchenPrint, /DATOS DE ENTREGA/);
+  assert.match(kitchenPrint, /PAGO Y TOTALES/);
+  assert.match(kitchenPrint, /@page\s*\{\s*size:\s*A4/i);
+  assert.match(kitchenPrint, /class=\"qty-badge\"/);
+  assert.match(kitchenPrint, /class=\"production-detail\"/);
+  assert.match(kitchenPrint, /page-break-inside:\s*avoid/);
 });
 
 test('printed order keeps customer notes separate from internal admin notes', () => {
-  const actions = read('src/app/admin/pedidos/[id]/OrderActions.tsx');
+  const kitchenPrint = read('src/app/admin/pedidos/[id]/KitchenPrintButton.tsx');
 
-  assert.match(actions, /NOTA DEL CLIENTE/);
-  assert.match(actions, /NOTA INTERNA/);
-  assert.match(actions, /order\.notes/);
-  assert.match(actions, /order\.admin_notes/);
+  assert.match(kitchenPrint, /NOTA DEL CLIENTE/);
+  assert.match(kitchenPrint, /NOTA INTERNA/);
+  assert.match(kitchenPrint, /order\.notes/);
+  assert.match(kitchenPrint, /order\.admin_notes/);
 });
