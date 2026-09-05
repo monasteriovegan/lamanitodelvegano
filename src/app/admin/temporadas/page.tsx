@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { PageHeader, Badge, EmptyState } from '../_ui/AdminUI';
+import { AdminImageUploadField } from '../_ui/AdminImageUploadField';
 
 const EMPTY = {
   name: '', slug: '', description: '', starts_at: '', ends_at: '',
@@ -130,7 +131,15 @@ export default function TemporadasPage() {
             <label className="text-xs text-muted">Término<input type="date" value={form.ends_at} onChange={(e) => setForm((current) => ({ ...current, ends_at: e.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" /></label>
             <label className="text-xs text-muted md:col-span-2">Descripción<textarea rows={2} value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" /></label>
             <label className="text-xs text-muted">Etiqueta<input value={form.badge_text} onChange={(e) => setForm((current) => ({ ...current, badge_text: e.target.value }))} placeholder="Edición limitada" className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" /></label>
-            <label className="text-xs text-muted">Banner (URL)<input value={form.banner_image} onChange={(e) => setForm((current) => ({ ...current, banner_image: e.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-white" /></label>
+            <AdminImageUploadField
+              name="banner_image"
+              label="Banner de temporada"
+              value={form.banner_image}
+              onChange={(banner_image) => setForm((current) => ({ ...current, banner_image }))}
+              manualLabel="Usar URL manual"
+              helpText="Sube el banner desde tu computador o conserva una URL externa si ya existe."
+              className="md:col-span-2"
+            />
           </div>
 
           <div className="mt-5 border-t border-white/8 pt-4">
