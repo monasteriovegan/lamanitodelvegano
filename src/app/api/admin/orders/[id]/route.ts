@@ -89,3 +89,45 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'order_update_failed' }, { status });
   }
 }
+
+export async function DELETE(_req: Request, { params }: RouteParams) {
+  const admin = await getCurrentAdminUser();
+  if (!admin || admin.rol !== 'admin') {
+    return NextResponse.json({ error: 'Solo un administrador puede eliminar pedidos.' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const pedidoId = Number(id);
+  if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
+    return NextResponse.json({ error: 'Pedido inválido.' }, { status: 400 });
+  }
+
+  const db = createSupabaseServiceClient();
+  const { data, error } = await db.rpc('admin_delete_order_v1', {
+    p_pedido_id: pedidoId,
+    p_actor: admin.id,
+  });
+
+  if (error) {
+    const reason = String(error.message || '');
+    if (reason.includes('pedido_not_found')) {
+      return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
+    }
+    if (reason.includes('order_delete_protected_payment')) {
+      return NextResponse.json(
+        { error: 'Este pedido tiene trazabilidad de pago y no se puede eliminar. Cancélalo o reembólsalo para conservar el historial.' },
+        { status: 409 },
+      );
+    }
+    if (reason.includes('order_delete_protected_status')) {
+      return NextResponse.json(
+        { error: 'Un pedido pagado, despachado o completado no se puede eliminar. Debe conservarse su historial.' },
+        { status: 409 },
+      );
+    }
+    console.error('admin_order_delete_failed', { orderId: pedidoId, code: error.code || null });
+    return NextResponse.json({ error: 'No se pudo eliminar el pedido de forma segura.' }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, data });
+}

@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import OrderActions from './OrderActions';
 import OrderEditForm from './OrderEditForm';
+import DeleteOrderButton from './DeleteOrderButton';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
@@ -121,6 +122,15 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
             products={(products || []).map((row: any) => ({ ...row, precio: Number(row.precio || 0), stock: row.stock == null ? null : Number(row.stock) }))}
           />
         </div>
+      )}
+
+      {admin.rol === 'admin' && (
+        <DeleteOrderButton
+          orderId={order.id}
+          orderNumber={order.order_number || `MAN-${order.id.substring(0, 8)}`}
+          paymentStatus={order.payment_status}
+          status={order.status || order.legacy_status}
+        />
       )}
     </div>
   );
