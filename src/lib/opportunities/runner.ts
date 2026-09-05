@@ -1,5 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAgentRuntimeConfig } from '@/lib/ai/runtime-config';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import { evaluateOpportunityPolicy } from './policy';
@@ -10,10 +11,6 @@ import type { OpportunityRow } from './types';
 const LOOKBACK_DAYS = 14;
 const CLAIM_MINUTES = 5;
 const META_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-function envEnabled(name: string) {
-  return String(process.env[name] || '').toLowerCase() === 'true';
-}
 
 function channelSendMode(settings: any): 'disabled' | 'read_only' | 'live' {
   if (!settings?.enabled) return 'disabled';
@@ -120,11 +117,13 @@ export async function runOpportunityCycle(
     .maybeSingle();
   if (globalError) throw globalError;
 
-  // Observation/copilot is the production default. Turning Remy on globally
-  // is not sufficient to enable proactive follow-ups: this separate switch is
-  // required after reviewing recommendation quality.
-  const automaticExecutionEnabled = envEnabled('SALES_OPPORTUNITY_AUTO_SEND');
-  const cartCutover = envEnabled('SALES_OPPORTUNITY_CART_CUTOVER');
+  const remyRuntime = await getAgentRuntimeConfig(db, 'remy');
+  // Automatic recovery is intentionally a separate persisted switch from the
+  // global Remy switch. This keeps observation/copilot mode available without
+  // relying on a Vercel environment variable as a hidden source of truth.
+  const automaticExecutionEnabled = remyRuntime.enabled
+    && remyRuntime.metadata?.opportunity_auto_send === true;
+  const cartCutover = remyRuntime.metadata?.opportunity_cart_cutover === true;
 
   for (const raw of due || []) {
     const opportunity = raw as OpportunityRow;
