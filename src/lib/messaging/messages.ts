@@ -35,6 +35,57 @@ async function updateTransportHealth(db: SupabaseClient, message: NormalizedMess
   });
 }
 
+async function recordOrphanWhatsAppOutboundStatus(
+  db: SupabaseClient,
+  message: NormalizedMessage,
+  status: string,
+): Promise<PersistedMessage | null> {
+  if (message.channel !== 'whatsapp' || !message.external_thread_id) return null;
+
+  let businessUnitId: string;
+  try {
+    businessUnitId = await resolveBusinessUnitForMessage(db, message);
+  } catch {
+    return null;
+  }
+
+  const { data: conversation, error } = await db
+    .from('conversations')
+    .select('id,customer_id,contact_id,metadata,last_message_at')
+    .eq('business_unit_id', businessUnitId)
+    .eq('channel', 'whatsapp')
+    .eq('external_conversation_id', message.external_thread_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!conversation) return null;
+
+  const metadata = conversation.metadata && typeof conversation.metadata === 'object'
+    ? conversation.metadata
+    : {};
+  const external_outbound_at = message.sent_at;
+  const external_outbound_status = status;
+  const lastAt = conversation.last_message_at ? new Date(conversation.last_message_at).getTime() : 0;
+  const statusAt = new Date(message.sent_at).getTime();
+
+  const { error: updateError } = await db
+    .from('conversations')
+    .update({
+      metadata: { ...metadata, external_outbound_at, external_outbound_status },
+      ...(Number.isFinite(statusAt) && statusAt > lastAt ? { last_message_at: message.sent_at } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', conversation.id);
+  if (updateError) throw updateError;
+
+  await updateTransportHealth(db, message, status === 'failed');
+  return {
+    duplicate: true,
+    conversationId: String(conversation.id),
+    customerId: conversation.customer_id ?? conversation.contact_id ?? null,
+    messageId: null,
+  };
+}
+
 async function applyProviderStatus(
   db: SupabaseClient,
   message: NormalizedMessage,
@@ -45,6 +96,7 @@ async function applyProviderStatus(
   const providerId = String(raw?.status?.id || '');
   if (!providerId) return null;
 
+  const status = message.message_type.slice(7);
   const { data: initialTarget, error } = await db
     .from('omnichannel_messages')
     .select('id,conversation_id,customer_id')
@@ -63,9 +115,10 @@ async function applyProviderStatus(
     target = fallback.data;
   }
 
-  if (!target) return null;
+  if (!target) {
+    return recordOrphanWhatsAppOutboundStatus(db, message, status);
+  }
 
-  const status = message.message_type.slice(7);
   const patch: Record<string, unknown> = {
     status,
     provider: message.provider,
@@ -190,8 +243,6 @@ export async function persistMessage(
       });
     }
 
-    // Opportunity evaluation is intentionally fire-and-forget: sales analysis
-    // must never turn a successfully persisted Meta webhook into an error.
     void evaluateConversationOpportunity(db, conversation.id).catch((error) => {
       console.error('opportunity_evaluation_failed', {
         conversationId: conversation.id,

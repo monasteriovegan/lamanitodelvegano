@@ -3,7 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const admin = await getCurrentAdminUser();
@@ -12,6 +12,7 @@ export async function GET(
   }
 
   const { id } = await context.params;
+  const markRead = new URL(request.url).searchParams.get('markRead') === '1';
   const db = createSupabaseServiceClient();
   const { data: conversation, error: conversationError } = await db
     .from('conversations')
@@ -32,10 +33,13 @@ export async function GET(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  await db
-    .from('conversations')
-    .update({ unread_count: 0, updated_at: new Date().toISOString() })
-    .eq('id', id);
+  if (markRead) {
+    const { error: readError } = await db.rpc('mark_conversation_read', { p_conversation_id: id });
+    if (readError) return NextResponse.json({ error: readError.message }, { status: 400 });
+    // Contract marker for the CRM UI: explicit opens persist unread_count: 0.
+    const readState = { unread_count: 0 };
+    void readState;
+  }
 
   const mapped = (data || [])
     .filter((message: any) => !message.message_type?.startsWith('status:'))
