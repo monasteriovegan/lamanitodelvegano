@@ -31,10 +31,13 @@ test('orders admin API exposes DELETE only to admin and delegates to the transac
 });
 
 test('order detail exposes destructive delete with double confirmation and returns to Pedidos', () => {
-  const ui = read('src/app/admin/pedidos/[id]/OrderActions.tsx');
+  const ui = read('src/app/admin/pedidos/[id]/DeleteOrderButton.tsx');
+  const page = read('src/app/admin/pedidos/[id]/page.tsx');
 
   assert.match(ui, /Eliminar pedido/);
-  assert.match(ui, /window\.confirm/g);
+  assert.equal((ui.match(/window\.confirm/g) || []).length, 2);
   assert.match(ui, /method:\s*'DELETE'/);
   assert.match(ui, /router\.push\('\/admin\/pedidos'\)/);
+  assert.match(page, /admin\.rol\s*===\s*'admin'/);
+  assert.match(page, /<DeleteOrderButton/);
 });
