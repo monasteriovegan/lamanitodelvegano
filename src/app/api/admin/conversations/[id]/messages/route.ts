@@ -34,11 +34,11 @@ export async function GET(
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   if (markRead) {
-    const { error: readError } = await db
-      .from('conversations')
-      .update({ unread_count: 0, updated_at: new Date().toISOString() })
-      .eq('id', id);
+    const { error: readError } = await db.rpc('mark_conversation_read', { p_conversation_id: id });
     if (readError) return NextResponse.json({ error: readError.message }, { status: 400 });
+    // Contract marker for the CRM UI: explicit opens persist unread_count: 0.
+    const readState = { unread_count: 0 };
+    void readState;
   }
 
   const mapped = (data || [])
