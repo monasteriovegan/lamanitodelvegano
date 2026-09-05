@@ -26,7 +26,7 @@ test('shipping zones can always be edited manually from admin', () => {
   const actions = read('src/app/admin/zonas/actions.ts');
   const page = read('src/app/admin/zonas/page.tsx');
   assert.match(actions, /actualizarZona/);
-  assert.match(actions, /\.update\(\{/);
+  assert.match(actions, /\.update\(zonePayload\(formData\)\)/);
   assert.match(page, /actualizarZona/);
   for (const field of ['nombre', 'comunas', 'precio']) assert.match(page, new RegExp(`name=["']${field}["']`));
 });
