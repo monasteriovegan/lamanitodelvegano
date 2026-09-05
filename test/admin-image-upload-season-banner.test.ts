@@ -35,5 +35,5 @@ test('Temporadas permite subir banner sin obligar a pegar una URL manual', () =>
 
 test('Fiestas Patrias renderiza banner local o remoto sin optimización remota de next image', () => {
   assert.doesNotMatch(campaignPage, /from ['"]next\/image['"]/);
-  assert.match(campaignPage, /<img[^>]+src=\{dto\.bannerImage\}/s);
+  assert.match(campaignPage, /<img[^>]+src=\{dto\.bannerImage\}/);
 });
