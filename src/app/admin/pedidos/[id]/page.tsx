@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/supabase/require-role';
 import OrderActions from './OrderActions';
 import OrderEditForm from './OrderEditForm';
 import DeleteOrderButton from './DeleteOrderButton';
+import KitchenPrintButton from './KitchenPrintButton';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 
 export const dynamic = 'force-dynamic';
@@ -112,7 +113,10 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div><OrderActions order={order} /></div>
+        <div className="flex flex-col gap-4">
+          <KitchenPrintButton order={order} />
+          <OrderActions order={order} />
+        </div>
       </div>
 
       {(admin.rol === 'admin' || admin.rol === 'soporte') && (
