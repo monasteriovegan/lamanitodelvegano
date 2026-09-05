@@ -2,7 +2,7 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
-import { resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
+import { resolveChannelSendMode } from '@/lib/messaging/capability-policy';
 import { buildWhatsAppStatus } from '@/lib/messaging/whatsapp-status';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,20 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
     : Promise.resolve({ data: null, error: null });
-  const [{ data: transport }, { data: asset }, { data: integration }] = await Promise.all([
+  const channelSettingsPromise = business
+    ? db.from('channel_settings')
+      .select('enabled,auto_reply_enabled,read_only_mode')
+      .eq('business_unit_id', business.id)
+      .eq('channel', 'whatsapp')
+      .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+
+  const [
+    { data: transport },
+    { data: asset },
+    { data: integration },
+    { data: channelSettings },
+  ] = await Promise.all([
     transportPromise,
     assetPromise,
     db
@@ -37,6 +50,7 @@ export async function GET() {
       .select('wa_phone_number_id,ai_enabled')
       .eq('id', 'global')
       .maybeSingle(),
+    channelSettingsPromise,
   ]);
 
   return Response.json(buildWhatsAppStatus({
@@ -44,6 +58,6 @@ export async function GET() {
     integration: integration ?? null,
     asset: asset ?? null,
     callbackUrl: process.env.META_WHATSAPP_CALLBACK_URL,
-    sendMode: resolveWhatsAppSendMode(),
+    sendMode: resolveChannelSendMode(channelSettings),
   }));
 }
