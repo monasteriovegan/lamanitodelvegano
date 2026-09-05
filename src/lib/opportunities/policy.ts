@@ -42,9 +42,7 @@ export function evaluateOpportunityPolicy(input: OpportunityPolicyInput): Opport
     : (input.lastBusinessMessageAt || now);
   const nextFollowupAt = addHours(baseAt, input.followupCount > 0 ? 24 : 2);
   const due = new Date(now).getTime() >= new Date(nextFollowupAt).getTime();
-  const channelAllowsAuto = input.channel === 'whatsapp'
-    ? input.sendMode === 'live'
-    : input.sendMode !== 'disabled';
+  const channelAllowsAuto = input.sendMode === 'live';
   const automaticSend = Boolean(
     due &&
     input.aiEnabled &&
