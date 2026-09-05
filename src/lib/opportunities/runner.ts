@@ -9,6 +9,7 @@ import type { OpportunityRow } from './types';
 
 const LOOKBACK_DAYS = 14;
 const CLAIM_MINUTES = 5;
+const META_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function envEnabled(name: string) {
   return String(process.env[name] || '').toLowerCase() === 'true';
@@ -18,6 +19,12 @@ function channelSendMode(settings: any): 'disabled' | 'read_only' | 'live' {
   if (!settings?.enabled) return 'disabled';
   if (settings?.read_only_mode) return 'read_only';
   return settings?.auto_reply_enabled ? 'live' : 'disabled';
+}
+
+function serviceWindowOpen(lastCustomerMessageAt: string | null | undefined, now: Date) {
+  if (!lastCustomerMessageAt) return false;
+  const at = new Date(lastCustomerMessageAt).getTime();
+  return Number.isFinite(at) && now.getTime() - at >= 0 && now.getTime() - at < META_SERVICE_WINDOW_MS;
 }
 
 async function claimOpportunity(db: SupabaseClient, opportunity: OpportunityRow, now: Date) {
@@ -178,7 +185,12 @@ export async function runOpportunityCycle(
       now: now.toISOString(),
     });
 
-    if (!automaticExecutionEnabled || !policy.automaticSend) {
+    // Proactive free-text follow-ups are allowed only while Meta's customer
+    // service window is open. Outside that window the opportunity remains in
+    // copilot mode for a human/approved-template decision; the runner never
+    // forces a free-text send.
+    const metaWindowOpen = serviceWindowOpen(opportunity.last_customer_message_at, now);
+    if (!automaticExecutionEnabled || !policy.automaticSend || !metaWindowOpen) {
       blocked += 1;
       continue;
     }
