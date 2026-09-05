@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  automaticRepliesEnabled,
   evaluateAutomaticWhatsAppReplyEntry,
   evaluateMessagingCapability,
-  resolveWhatsAppSendMode,
+  resolveChannelSendMode,
   type MessagingCapability,
   type MessagingActionOrigin,
   type MetaSendMode,
@@ -37,16 +38,18 @@ function base(overrides: Partial<PolicyInput> = {}): PolicyInput {
   };
 }
 
-test('META_WHATSAPP_SEND_MODE read_only has precedence over legacy live mode', () => {
-  assert.equal(
-    resolveWhatsAppSendMode({ META_WHATSAPP_SEND_MODE: 'read_only', META_SEND_MODE: 'live' }),
-    'read_only',
-  );
+test('database channel settings resolve disabled, read_only and live modes', () => {
+  assert.equal(resolveChannelSendMode(null), 'disabled');
+  assert.equal(resolveChannelSendMode({ enabled: false, read_only_mode: false }), 'disabled');
+  assert.equal(resolveChannelSendMode({ enabled: true, read_only_mode: true }), 'read_only');
+  assert.equal(resolveChannelSendMode({ enabled: true, read_only_mode: false }), 'live');
 });
 
-test('unknown or missing send modes fail closed', () => {
-  assert.equal(resolveWhatsAppSendMode({ META_SEND_MODE: 'unexpected' }), 'disabled');
-  assert.equal(resolveWhatsAppSendMode({}), 'disabled');
+test('automatic replies require enabled + auto_reply + non-read-only database settings', () => {
+  assert.equal(automaticRepliesEnabled({ enabled: true, auto_reply_enabled: true, read_only_mode: false }), true);
+  assert.equal(automaticRepliesEnabled({ enabled: true, auto_reply_enabled: false, read_only_mode: false }), false);
+  assert.equal(automaticRepliesEnabled({ enabled: true, auto_reply_enabled: true, read_only_mode: true }), false);
+  assert.equal(automaticRepliesEnabled({ enabled: false, auto_reply_enabled: true, read_only_mode: false }), false);
 });
 
 test('read_only permits receive and analyze without permitting automatic commerce preparation', () => {

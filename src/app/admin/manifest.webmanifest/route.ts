@@ -1,7 +1,5 @@
-import type { MetadataRoute } from 'next';
-
-export default function manifest(): MetadataRoute.Manifest {
-  return {
+export async function GET() {
+  return Response.json({
     id: '/admin',
     name: 'Synthetiq Panel Maestro',
     short_name: 'Synthetiq',
@@ -18,5 +16,10 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/api/wonka-icon/512', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/api/wonka-icon/512', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
-  };
+  }, {
+    headers: {
+      'Content-Type': 'application/manifest+json; charset=utf-8',
+      'Cache-Control': 'private, max-age=300',
+    },
+  });
 }

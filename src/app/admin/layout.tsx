@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { AdminSidebar } from './AdminSidebar';
@@ -5,6 +6,11 @@ import { WonkaFloatingDirector } from './WonkaFloatingDirector';
 import { MobileAdminNav } from './MobileAdminNav';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  manifest: '/admin/manifest.webmanifest',
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   let admin = null;

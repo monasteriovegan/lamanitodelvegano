@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const db = createSupabaseServiceClient();
   const { data: candidates, error } = await db
     .from('conversations')
-    .select('id,labels,metadata')
+    .select('id,labels,metadata,human_takeover')
     .in('channel', ['whatsapp', 'instagram'])
     .eq('ai_enabled', false);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     .filter((row: any) => {
       const labels = Array.isArray(row.labels) ? row.labels : [];
       const personal = Boolean(row.metadata?.personal) || labels.includes('personal');
-      return !personal;
+      return !personal && !row.human_takeover;
     })
     .map((row: any) => row.id);
 

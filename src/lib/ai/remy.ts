@@ -13,7 +13,7 @@ import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
 import { loadRemyPaymentContext } from '@/lib/ai/remy-payment';
-import { evaluateAutomaticWhatsAppReplyEntry, resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
+import { automaticRepliesEnabled, evaluateAutomaticWhatsAppReplyEntry, resolveChannelSendMode } from '@/lib/messaging/capability-policy';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -155,7 +155,7 @@ export async function generateRemyReply(
     .select('ai_enabled,ai_provider,ai_model,ai_system_prompt')
     .eq('id', 'global')
     .maybeSingle();
-  if (input.channel === 'whatsapp' && !config?.ai_enabled) throw new Error('remy_global_off');
+  if (input.channel !== 'web' && !config?.ai_enabled) throw new Error('remy_global_off');
 
   const runtime = await getAgentRuntimeConfig(db, 'remy', {
     provider: config?.ai_provider || 'gemini',
@@ -358,21 +358,36 @@ export async function maybeAutoReply(db: SupabaseClient, persisted: PersistedMes
     return { called: false, replied: false, reason: 'not_eligible' };
   }
 
-  const entry = evaluateAutomaticWhatsAppReplyEntry({
-    channel: inbound.channel,
-    sendMode: resolveWhatsAppSendMode(),
-    afterGuard: () => undefined,
-  });
-  if (!entry.allowed) return { called: false, replied: false, reason: entry.reason };
-
-  const { data: conversation } = await db.from('conversations')
+  const { data: conversation, error: conversationError } = await db.from('conversations')
     .select('id,business_unit_id,ai_enabled,human_takeover,metadata,labels')
     .eq('id', persisted.conversationId)
     .maybeSingle();
+  if (conversationError) return { called: false, replied: false, reason: 'conversation_settings_unavailable' };
   if (!conversation?.ai_enabled) return { called: false, replied: false, reason: 'conversation_off' };
   if (conversation.human_takeover) return { called: false, replied: false, reason: 'human_takeover' };
   if (conversation.metadata?.personal || conversation.labels?.includes?.('personal')) return { called: false, replied: false, reason: 'personal_contact' };
   if (!conversation.business_unit_id) return { called: false, replied: false, reason: 'missing_business_unit' };
+
+  const { data: channelSettings, error: channelSettingsError } = await db.from('channel_settings')
+    .select('enabled,auto_reply_enabled,read_only_mode')
+    .eq('business_unit_id', conversation.business_unit_id)
+    .eq('channel', inbound.channel)
+    .maybeSingle();
+  if (channelSettingsError) return { called: false, replied: false, reason: 'channel_settings_unavailable' };
+  if (!automaticRepliesEnabled(channelSettings)) {
+    return {
+      called: false,
+      replied: false,
+      reason: channelSettings?.read_only_mode ? 'send_mode_read_only' : 'channel_disabled',
+    };
+  }
+
+  const entry = evaluateAutomaticWhatsAppReplyEntry({
+    channel: inbound.channel,
+    sendMode: resolveChannelSendMode(channelSettings),
+    afterGuard: () => undefined,
+  });
+  if (!entry.allowed) return { called: false, replied: false, reason: entry.reason };
 
   const inboundAt = new Date(inbound.sent_at).getTime();
   if (!Number.isFinite(inboundAt) || Date.now() - inboundAt > SERVICE_WINDOW_MS) return { called: false, replied: false, reason: 'service_window_closed' };
