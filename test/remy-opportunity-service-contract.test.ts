@@ -16,9 +16,9 @@ test('sales opportunities schema has lifecycle and anti-duplicate constraints', 
     'converted_order_id',
     'converted_revenue',
   ]) assert.match(sql, new RegExp(token));
-  assert.match(sql, /where\s+status\s+in\s*\([^)]*open[^)]*snoozed/is);
-  assert.match(sql, /followup_count\s+between\s+0\s+and\s+2/is);
-  assert.match(sql, /enable\s+row\s+level\s+security/is);
+  assert.match(sql, /where\s+status\s+in\s*\([^)]*open[^)]*snoozed/i);
+  assert.match(sql, /followup_count\s+between\s+0\s+and\s+2/i);
+  assert.match(sql, /enable\s+row\s+level\s+security/i);
 });
 
 test('opportunity service reads canonical conversation facts and upserts safely', () => {
@@ -28,7 +28,7 @@ test('opportunity service reads canonical conversation facts and upserts safely'
   for (const token of ['conversations', 'omnichannel_messages', 'carritos_abandonados', 'pedidos', 'sales_opportunities', 'detectOpportunity', 'buildOpportunityMessage']) {
     assert.match(source, new RegExp(token));
   }
-  assert.match(source, /status[^\n]+open[^\n]+snoozed/is);
+  assert.match(source, /status[^\n]+open[^\n]+snoozed/i);
   assert.match(source, /evaluateConversationOpportunity/);
   assert.match(source, /closeConversationOpportunities/);
 });
@@ -36,6 +36,6 @@ test('opportunity service reads canonical conversation facts and upserts safely'
 test('message persistence reevaluates opportunities without blocking webhook success', () => {
   const source = fs.readFileSync('src/lib/messaging/messages.ts', 'utf8');
   assert.match(source, /evaluateConversationOpportunity/);
-  assert.match(source, /void\s+evaluateConversationOpportunity|void\s+import\(/s);
+  assert.match(source, /void\s+evaluateConversationOpportunity|void\s+import\(/);
   assert.match(source, /opportunity[^\n]*failed|opportunity_evaluation_failed/i);
 });
