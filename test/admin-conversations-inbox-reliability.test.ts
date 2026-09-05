@@ -15,7 +15,7 @@ test('CRM inbox derives one latest visible message per conversation without a gl
   assert.match(sql, /message_type\s+not\s+like\s+'status:%'/i);
   assert.match(route, /admin_conversation_inbox_summary_v1/);
   assert.doesNotMatch(route, /\.limit\(1000\)/);
-  assert.match(route, /filter\([^)]*lastMessage/i);
+  assert.match(route, /filter[\s\S]*last_message_at/i);
 });
 
 test('unread count increments on real inbound inserts and polling never marks a chat read', () => {
