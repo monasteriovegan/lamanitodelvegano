@@ -6,10 +6,12 @@ function read(path: string) { return fs.readFileSync(path, 'utf8'); }
 
 test('product delete archives referenced products instead of crashing on cart history', () => {
   const source = read('src/app/admin/productos/actions.ts');
+  const list = read('src/app/admin/productos/page.tsx');
   assert.match(source, /cart_items/);
   assert.match(source, /activo\s*:\s*false/);
   assert.match(source, /archivad|archiv/i);
   assert.match(source, /delete\(\)/);
+  assert.match(list, /\.eq\(['"]activo['"],\s*true\)/);
 });
 
 test('saving a product gives visible confirmation before the operator moves on', () => {
