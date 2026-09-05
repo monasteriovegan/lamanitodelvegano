@@ -7,13 +7,27 @@ export const dynamic = 'force-dynamic';
 
 const BUSINESS_UNIT_ID = 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
 
-function activeOptionLabels(product: any, prefix = ''): string[] {
+type ManualOptionGroup = {
+  key: string;
+  label: string;
+  required: boolean;
+  options: string[];
+};
+
+function activeOptionGroups(product: any, prefix = '', keyPrefix = ''): ManualOptionGroup[] {
   const groups = Array.isArray(product?.product_option_groups) ? product.product_option_groups : [];
   return groups
     .filter((group: any) => group?.is_active !== false)
-    .flatMap((group: any) => (Array.isArray(group?.product_option_values) ? group.product_option_values : [])
-      .filter((value: any) => value?.is_active !== false)
-      .map((value: any) => `${prefix}${group.name}: ${value.label}`));
+    .map((group: any) => ({
+      key: `${keyPrefix}${String(group.id || group.code || group.name)}`,
+      label: `${prefix}${String(group.name || 'Opción')}`,
+      required: Boolean(group.is_required),
+      options: (Array.isArray(group?.product_option_values) ? group.product_option_values : [])
+        .filter((value: any) => value?.is_active !== false)
+        .sort((a: any, b: any) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0))
+        .map((value: any) => String(value.label)),
+    }))
+    .filter((group: ManualOptionGroup) => group.options.length > 0);
 }
 
 export default async function NuevoPedidoPage() {
@@ -37,11 +51,18 @@ export default async function NuevoPedidoPage() {
   const productRows = (products || []) as any[];
   const byId = new Map(productRows.map((row) => [String(row.id), row]));
   const manualProducts = productRows.map((row) => {
-    const ownOptions = activeOptionLabels(row);
-    const inheritedOptions = (Array.isArray(row.product_pack_components) ? row.product_pack_components : []).flatMap((component: any) => {
+    const ownGroups = activeOptionGroups(row, '', `product:${row.id}:`);
+    const inheritedGroups = (Array.isArray(row.product_pack_components) ? row.product_pack_components : []).flatMap((component: any) => {
       const child = component?.component_product_id ? byId.get(String(component.component_product_id)) : null;
-      return child ? activeOptionLabels(child, `${component.component_name} · `) : [];
+      return child
+        ? activeOptionGroups(
+          child,
+          `${String(component.component_name || child.nombre || 'Componente')} · `,
+          `component:${String(component.id || component.component_product_id)}:`,
+        )
+        : [];
     });
+    const dedupedGroups = Array.from(new Map([...ownGroups, ...inheritedGroups].map((group) => [group.key, group])).values());
     return {
       id: row.id,
       nombre: row.nombre,
@@ -50,7 +71,7 @@ export default async function NuevoPedidoPage() {
       variedades: row.variedades,
       maneja_stock: row.maneja_stock,
       stock: row.stock == null ? null : Number(row.stock),
-      orderOptions: Array.from(new Set([...ownOptions, ...inheritedOptions])),
+      orderOptionGroups: dedupedGroups,
     };
   });
 
