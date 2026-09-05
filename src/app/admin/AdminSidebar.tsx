@@ -12,6 +12,7 @@ const GRUPOS = [
     tabs: [
       { href: '/admin', label: '🏠 Inicio', exact: true, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/conversaciones', label: '💬 Conversaciones', exact: false, roles: ['admin', 'soporte'] as Rol[] },
+      { href: '/admin/oportunidades', label: '🎯 Oportunidades', exact: false, roles: ['admin'] as Rol[] },
       { href: '/admin/pedidos', label: '📦 Pedidos', exact: false, roles: ['admin', 'soporte', 'bodega'] as Rol[] },
       { href: '/admin/clientes', label: '👥 Clientes CRM', exact: false, roles: ['admin', 'soporte'] as Rol[] },
     ],
