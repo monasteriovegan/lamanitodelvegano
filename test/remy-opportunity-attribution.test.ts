@@ -17,9 +17,9 @@ test('opportunity attribution closes opportunity without changing order semantic
 test('conversation order link attributes opportunities transactionally without changing pedidos', () => {
   const sql = fs.readFileSync('supabase/migrations/20260905090000_sales_opportunities.sql', 'utf8');
   assert.match(sql, /attribute_conversation_order_opportunity_v1/);
-  assert.match(sql, /after\s+insert\s+on\s+public\.conversation_orders/is);
-  assert.match(sql, /converted_order_id\s*=\s*new\.pedido_id/is);
-  assert.match(sql, /converted_revenue\s*=\s*coalesce\(v_total/is);
-  assert.match(sql, /recovered_sale\s*=\s*\(/is);
-  assert.doesNotMatch(sql, /update\s+public\.pedidos/is);
+  assert.match(sql, /after\s+insert\s+on\s+public\.conversation_orders/i);
+  assert.match(sql, /converted_order_id\s*=\s*new\.pedido_id/i);
+  assert.match(sql, /converted_revenue\s*=\s*coalesce\(v_total/i);
+  assert.match(sql, /recovered_sale\s*=\s*\(/i);
+  assert.doesNotMatch(sql, /update\s+public\.pedidos/i);
 });
