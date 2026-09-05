@@ -70,4 +70,71 @@ create trigger sales_opportunities_set_updated_at
 before update on public.sales_opportunities
 for each row execute function public.set_sales_opportunities_updated_at();
 
+-- Conversation orders are the canonical link used by Instagram/WhatsApp sales.
+-- Attribute after that link exists so order creation itself never depends on the
+-- opportunity engine and cannot be rolled back by attribution errors.
+create or replace function public.attribute_conversation_order_opportunity_v1()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target uuid;
+  v_total numeric(12,2);
+begin
+  select p.total::numeric(12,2)
+    into v_total
+  from public.pedidos p
+  where p.id = new.pedido_id;
+
+  select so.id
+    into v_target
+  from public.sales_opportunities so
+  where so.conversation_id = new.conversation_id
+    and so.status in ('open','snoozed')
+  order by so.score desc, so.last_activity_at desc, so.created_at desc
+  limit 1;
+
+  if v_target is null then
+    return new;
+  end if;
+
+  update public.sales_opportunities
+  set status = 'converted',
+      converted_order_id = new.pedido_id,
+      converted_revenue = coalesce(v_total, 0),
+      recovered_sale = (
+        last_followup_at is not null
+        or last_provider_message_id is not null
+        or followup_count > 0
+      ),
+      next_followup_at = null,
+      claim_token = null,
+      claim_expires_at = null,
+      last_error = null
+  where id = v_target;
+
+  update public.sales_opportunities
+  set status = 'expired',
+      next_followup_at = null,
+      claim_token = null,
+      claim_expires_at = null,
+      dismissal_reason = 'converted_other_stage'
+  where conversation_id = new.conversation_id
+    and id <> v_target
+    and status in ('open','snoozed');
+
+  return new;
+end;
+$$;
+
+revoke all on function public.attribute_conversation_order_opportunity_v1() from public, anon, authenticated;
+grant execute on function public.attribute_conversation_order_opportunity_v1() to service_role;
+
+drop trigger if exists conversation_orders_attribute_opportunity on public.conversation_orders;
+create trigger conversation_orders_attribute_opportunity
+after insert on public.conversation_orders
+for each row execute function public.attribute_conversation_order_opportunity_v1();
+
 commit;
