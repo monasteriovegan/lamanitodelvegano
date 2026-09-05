@@ -2,7 +2,7 @@ import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { normalizarTelefonoChile } from '@/lib/whatsapp/client';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
-import { evaluateMessagingCapability, resolveWhatsAppSendMode } from '@/lib/messaging/capability-policy';
+import { automaticRepliesEnabled, evaluateMessagingCapability, resolveChannelSendMode } from '@/lib/messaging/capability-policy';
 import { createWhatsAppCloudSender } from '@/lib/messaging/whatsapp-cloud-sender';
 
 export async function sendWhatsAppCloud(
@@ -10,8 +10,20 @@ export async function sendWhatsAppCloud(
   options: { manual?: boolean; automatic?: boolean; businessUnitId: string },
 ) {
   const db = createSupabaseServiceClient();
+  const { data: settings, error: settingsError } = await db.from('channel_settings')
+    .select('enabled,auto_reply_enabled,read_only_mode')
+    .eq('business_unit_id', options.businessUnitId)
+    .eq('channel', 'whatsapp')
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+
+  const sendMode = resolveChannelSendMode(settings);
+  if (options.automatic && !automaticRepliesEnabled(settings)) {
+    throw new Error(settings?.read_only_mode ? 'send_mode_read_only' : 'channel_disabled');
+  }
+
   const send = createWhatsAppCloudSender({
-    resolveSendMode: resolveWhatsAppSendMode,
+    resolveSendMode: () => sendMode,
     evaluateCapability: evaluateMessagingCapability,
     getCredential: async (businessUnitId) => new MetaConnectionsRepository(db).getActiveCredential(
       businessUnitId,
