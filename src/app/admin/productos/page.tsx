@@ -13,6 +13,7 @@ export default async function AdminProductosPage() {
     .from('productos')
     .select('*')
     .eq('business_unit_id', business.id)
+    .eq('activo', true)
     .order('id', { ascending: false });
 
   return (

@@ -54,6 +54,8 @@ export interface CatalogPackComponent {
   unit: string;
   weightGrams: number | null;
   sortOrder: number;
+  /** Options inherited from the linked child product; populated by catalog list queries. */
+  optionGroups?: CatalogOptionGroup[];
 }
 
 export interface CatalogProduct {

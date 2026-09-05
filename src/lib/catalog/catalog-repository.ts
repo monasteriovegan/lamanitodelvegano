@@ -132,6 +132,7 @@ function mapPackComponent(row: DbRow): CatalogPackComponent {
     unit: String(row.unit),
     weightGrams: row.weight_grams === null || row.weight_grams === undefined ? null : asInteger(row.weight_grams),
     sortOrder: asInteger(row.sort_order),
+    optionGroups: [],
   };
 }
 
@@ -176,6 +177,24 @@ export function mapCatalogProductRow(businessUnitId: string, row: DbRow | null |
   };
 }
 
+/**
+ * A pack links to canonical child products. Enriching after the complete active
+ * catalog has been mapped lets Remy/order builders see child option groups
+ * without copying or duplicating those options onto the parent pack.
+ */
+export function attachPackComponentOptions(products: CatalogProduct[]): CatalogProduct[] {
+  const byId = new Map(products.map((product) => [product.id, product]));
+  return products.map((product) => ({
+    ...product,
+    packComponents: product.packComponents.map((component) => ({
+      ...component,
+      optionGroups: component.componentProductId
+        ? (byId.get(component.componentProductId)?.optionGroups || []).map((group) => ({ ...group, values: group.values.map((value) => ({ ...value })) }))
+        : [],
+    })),
+  }));
+}
+
 export class CatalogRepository {
   private readonly db: SupabaseClient;
 
@@ -191,7 +210,8 @@ export class CatalogRepository {
       .order('destacado', { ascending: false })
       .order('nombre', { ascending: true });
     if (error) throw error;
-    return (data || []).map((row) => mapCatalogProductRow(businessUnitId, row)).filter((item): item is CatalogProduct => Boolean(item));
+    const products = (data || []).map((row) => mapCatalogProductRow(businessUnitId, row)).filter((item): item is CatalogProduct => Boolean(item));
+    return attachPackComponentOptions(products);
   }
 
   async getById(businessUnitId: string, productId: string, includeInactive = false): Promise<CatalogProduct | null> {

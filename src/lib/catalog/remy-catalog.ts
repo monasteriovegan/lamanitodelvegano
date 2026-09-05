@@ -29,7 +29,10 @@ export function matchesCatalogQuery(product: CatalogProduct, query: string, camp
     product.description || '',
     ...product.variants.flatMap((variant) => [variant.name, variant.sku]),
     ...product.optionGroups.flatMap((group) => [group.name, ...group.values.map((value) => value.label)]),
-    ...product.packComponents.map((component) => component.componentName),
+    ...product.packComponents.flatMap((component) => [
+      component.componentName,
+      ...(component.optionGroups || []).flatMap((group) => [group.name, ...group.values.map((value) => value.label)]),
+    ]),
     ...campaignTerms,
   ].join(' '));
   return terms.some((term) => haystack.includes(term));
@@ -76,6 +79,19 @@ export function toRemyCatalogProduct(product: CatalogProduct) {
       quantity: component.quantity,
       unit: component.unit,
       weightGrams: component.weightGrams,
+      options: (component.optionGroups || []).filter((group) => group.active).map((group) => ({
+        id: group.id,
+        code: group.code,
+        name: group.name,
+        selectionMode: group.selectionMode,
+        required: group.required,
+        values: group.values.filter((value) => value.active).map((value) => ({
+          id: value.id,
+          code: value.code,
+          label: value.label,
+          priceDelta: value.priceDelta,
+        })),
+      })),
     })),
   };
 }
@@ -96,7 +112,7 @@ export function buildRemyCartAddition(
 }
 
 export function catalogLookupInstruction(result: unknown) {
-  return `CATÁLOGO MASTER VERIFICADO PARA ESTA CONSULTA:\n${JSON.stringify(result)}\nResponde usando exclusivamente estos datos comerciales. No inventes productos, contexto, precios, sabores ni disponibilidad. Si products está vacío, dilo con claridad.`;
+  return `CATÁLOGO MASTER VERIFICADO PARA ESTA CONSULTA:\n${JSON.stringify(result)}\nResponde usando exclusivamente estos datos comerciales. No inventes productos, contexto, precios, sabores ni disponibilidad. Si un pack incluye componentes con options requeridas, pregunta esa elección antes de cerrar el pedido. Si products está vacío, dilo con claridad.`;
 }
 
 const CHANNEL_COLUMN: Record<Exclude<CatalogChannel, 'remy'>, string> = {
