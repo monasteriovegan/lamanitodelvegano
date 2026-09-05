@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { crearPedidoManual } from '../actions';
 
+type OrderOptionGroup = {
+  key: string;
+  label: string;
+  required: boolean;
+  options: string[];
+};
+
 type ProductOption = {
   id: string;
   nombre: string;
@@ -13,7 +20,7 @@ type ProductOption = {
   variedades?: string | null;
   maneja_stock?: boolean | null;
   stock?: number | null;
-  orderOptions?: string[];
+  orderOptionGroups?: OrderOptionGroup[];
 };
 
 type CustomerOption = {
@@ -36,6 +43,7 @@ type EditableItem = {
   formato: string;
   variedad: string;
   notas: string;
+  optionSelections: Record<string, string>;
 };
 
 function newItem(custom = false): EditableItem {
@@ -49,6 +57,7 @@ function newItem(custom = false): EditableItem {
     formato: '',
     variedad: '',
     notas: '',
+    optionSelections: {},
   };
 }
 
@@ -91,6 +100,12 @@ export default function ManualOrderForm({
     setItems((current) => current.map((item) => item.key === key ? { ...item, ...patch } : item));
   };
 
+  const updateItemOptionSelection = (key: string, groupKey: string, value: string) => {
+    setItems((current) => current.map((item) => item.key === key
+      ? { ...item, optionSelections: { ...item.optionSelections, [groupKey]: value } }
+      : item));
+  };
+
   const selectProduct = (key: string, productId: string) => {
     const product = products.find((row) => row.id === productId);
     updateItem(key, {
@@ -98,11 +113,12 @@ export default function ManualOrderForm({
       nombre: product?.nombre || '',
       precio: Number(product?.precio || 0),
       variedad: '',
+      optionSelections: {},
       custom: false,
     });
   };
 
-  const orderOptionsFor = (productId: string) => products.find((row) => row.id === productId)?.orderOptions || [];
+  const orderOptionGroupsFor = (productId: string) => products.find((row) => row.id === productId)?.orderOptionGroups || [];
 
   const selectCustomer = (id: string) => {
     setCustomerId(id);
@@ -136,7 +152,17 @@ export default function ManualOrderForm({
         paymentStatus,
         sourceChannel,
         adminNotes,
-        items: items.map(({ key: _key, ...item }) => item),
+        items: items.map(({ key: _key, optionSelections, ...item }) => {
+          const groups = orderOptionGroupsFor(item.productoId);
+          const structuredSelection = groups
+            .map((group) => optionSelections[group.key] ? `${group.label}: ${optionSelections[group.key]}` : '')
+            .filter(Boolean)
+            .join('; ');
+          return {
+            ...item,
+            variedad: structuredSelection || item.variedad,
+          };
+        }),
       });
       router.push(`/admin/pedidos/${result.orderId}`);
       router.refresh();
@@ -183,41 +209,56 @@ export default function ManualOrderForm({
         </div>
 
         <div className="space-y-4">
-          {items.map((item, index) => (
-            <div key={item.key} className="rounded-xl border border-white/10 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-bold text-neon">Ítem {index + 1} · {item.custom ? 'Producto personalizado' : 'Catálogo'}</div>
-                {items.length > 1 && <button type="button" onClick={() => setItems((rows) => rows.filter((row) => row.key !== item.key))} className="text-xs text-red-300">Quitar</button>}
+          {items.map((item, index) => {
+            const optionGroups = orderOptionGroupsFor(item.productoId);
+            return (
+              <div key={item.key} className="rounded-xl border border-white/10 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-bold text-neon">Ítem {index + 1} · {item.custom ? 'Producto personalizado' : 'Catálogo'}</div>
+                  {items.length > 1 && <button type="button" onClick={() => setItems((rows) => rows.filter((row) => row.key !== item.key))} className="text-xs text-red-300">Quitar</button>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                  {!item.custom && (
+                    <div className="md:col-span-3">
+                      <label className={labelClass}>Producto</label>
+                      <select className={inputClass} value={item.productoId} onChange={(e) => selectProduct(item.key, e.target.value)} required>
+                        <option value="" className="bg-[#030907]">Seleccionar…</option>
+                        {products.map((product) => <option key={product.id} value={product.id} className="bg-[#030907]">{product.nombre} · ${product.precio.toLocaleString('es-CL')}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {item.custom && <div className="md:col-span-3"><label className={labelClass}>Nombre personalizado</label><input className={inputClass} value={item.nombre} onChange={(e) => updateItem(item.key, { nombre: e.target.value })} required /></div>}
+                  <div><label className={labelClass}>Cantidad</label><input type="number" min={1} className={inputClass} value={item.qty} onChange={(e) => updateItem(item.key, { qty: Number(e.target.value) })} required /></div>
+                  <div className="md:col-span-2"><label className={labelClass}>Precio unitario</label><input type="number" min={0} className={inputClass} value={item.precio} onChange={(e) => updateItem(item.key, { precio: Number(e.target.value) })} required /></div>
+                  <div className="md:col-span-2"><label className={labelClass}>Formato</label><input className={inputClass} value={item.formato} onChange={(e) => updateItem(item.key, { formato: e.target.value })} /></div>
+                  {!item.custom && optionGroups.length > 0 ? (
+                    <div className="md:col-span-4 rounded-lg border border-neon/15 bg-neon/[0.03] p-3">
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neon/70">Opciones / sabores</div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {optionGroups.map((group) => (
+                          <label key={group.key}>
+                            <span className={labelClass}>{group.label}</span>
+                            <select
+                              className={inputClass}
+                              value={item.optionSelections[group.key] || ''}
+                              onChange={(e) => updateItemOptionSelection(item.key, group.key, e.target.value)}
+                              required={group.required}
+                            >
+                              <option value="" className="bg-[#030907]">Seleccionar…</option>
+                              {group.options.map((option) => <option key={option} value={option} className="bg-[#030907]">{option}</option>)}
+                            </select>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="md:col-span-2"><label className={labelClass}>Variante / composición</label><input className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} /></div>
+                  )}
+                  <div className="md:col-span-2"><label className={labelClass}>Nota del ítem</label><input className={inputClass} value={item.notas} onChange={(e) => updateItem(item.key, { notas: e.target.value })} /></div>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                {!item.custom && (
-                  <div className="md:col-span-3">
-                    <label className={labelClass}>Producto</label>
-                    <select className={inputClass} value={item.productoId} onChange={(e) => selectProduct(item.key, e.target.value)} required>
-                      <option value="" className="bg-[#030907]">Seleccionar…</option>
-                      {products.map((product) => <option key={product.id} value={product.id} className="bg-[#030907]">{product.nombre} · ${product.precio.toLocaleString('es-CL')}</option>)}
-                    </select>
-                  </div>
-                )}
-                {item.custom && <div className="md:col-span-3"><label className={labelClass}>Nombre personalizado</label><input className={inputClass} value={item.nombre} onChange={(e) => updateItem(item.key, { nombre: e.target.value })} required /></div>}
-                <div><label className={labelClass}>Cantidad</label><input type="number" min={1} className={inputClass} value={item.qty} onChange={(e) => updateItem(item.key, { qty: Number(e.target.value) })} required /></div>
-                <div className="md:col-span-2"><label className={labelClass}>Precio unitario</label><input type="number" min={0} className={inputClass} value={item.precio} onChange={(e) => updateItem(item.key, { precio: Number(e.target.value) })} required /></div>
-                <div className="md:col-span-2"><label className={labelClass}>Formato</label><input className={inputClass} value={item.formato} onChange={(e) => updateItem(item.key, { formato: e.target.value })} /></div>
-                {!item.custom && orderOptionsFor(item.productoId).length > 0 ? (
-                  <div className="md:col-span-2">
-                    <label className={labelClass}>Opciones / sabores</label>
-                    <select className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} required>
-                      <option value="" className="bg-[#030907]">Seleccionar opción…</option>
-                      {orderOptionsFor(item.productoId).map((option) => <option key={option} value={option} className="bg-[#030907]">{option}</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="md:col-span-2"><label className={labelClass}>Variante / composición</label><input className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} /></div>
-                )}
-                <div className="md:col-span-2"><label className={labelClass}>Nota del ítem</label><input className={inputClass} value={item.notas} onChange={(e) => updateItem(item.key, { notas: e.target.value })} /></div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
