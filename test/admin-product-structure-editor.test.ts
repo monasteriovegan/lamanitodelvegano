@@ -22,14 +22,17 @@ test('product editor can create and edit normalized option groups and pack compo
   assert.match(page, /ProductStructureEditor/);
 });
 
-test('manual order builder exposes direct and inherited component options', () => {
+test('manual order builder preserves direct and inherited component option groups independently', () => {
   const page = read('src/app/admin/pedidos/nuevo/page.tsx');
   const form = read('src/app/admin/pedidos/nuevo/ManualOrderForm.tsx');
   assert.match(page, /product_option_groups/);
   assert.match(page, /product_pack_components/);
-  assert.match(page, /orderOptions/);
+  assert.match(page, /orderOptionGroups/);
   assert.match(page, /component_product_id/);
-  assert.match(form, /orderOptions/);
+  assert.match(form, /orderOptionGroups/);
+  assert.match(form, /optionSelections/);
   assert.match(form, /Opciones \/ sabores/);
-  assert.match(form, /updateItem\([^\n]+variedad/);
+  assert.match(form, /group\.label/);
+  assert.match(form, /group\.options/);
+  assert.match(form, /variedad:/);
 });
