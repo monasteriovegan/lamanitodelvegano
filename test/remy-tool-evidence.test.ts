@@ -36,6 +36,11 @@ test('explicit side-effect requests map to the operation that must be evidenced'
   assert.equal(requiredRemySideEffect('mándame el link de pago'), 'payment_link');
 });
 
+test('read-only price questions are not mistaken for cart mutations', () => {
+  assert.equal(requiredRemySideEffect('dame el precio de los alfajores'), null);
+  assert.equal(requiredRemySideEffect('dame dos alfajores'), 'cart_add');
+});
+
 test('a short yes only requires order creation when the prior assistant asked to confirm the order', () => {
   assert.equal(requiredRemySideEffect('sí', '¿Confirmas que cree el pedido?'), 'order_create');
   assert.equal(requiredRemySideEffect('sí', '¿Quieres que te muestre más sabores?'), null);
