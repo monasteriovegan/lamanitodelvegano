@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
+import { evaluateConversationOpportunity } from '@/lib/opportunities/service';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaCarritoAbandonado } from '@/lib/email/templates';
 import type { ItemCarrito } from '@/types/domain';
@@ -19,12 +20,6 @@ function recoveryText(nombre: string, items: ItemCarrito[], subtotal: number) {
   return `Hola${firstName} 🌱 Dejaste ${itemNames || 'productos'}${more} en tu carrito ($${subtotal.toLocaleString('es-CL')}). Si quieres, te ayudo a terminar el pedido por aquí.`;
 }
 
-/**
- * Recuperación de carrito sin LLM: un único seguimiento determinista y seguro.
- * WhatsApp solo se usa si Remy está globalmente habilitado, la conversación
- * permite IA y existe un inbound reciente dentro de la ventana de 24 horas.
- * Fuera de esa ventana se usa email si existe; nunca se fuerza texto libre.
- */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -34,6 +29,7 @@ export async function GET(req: NextRequest) {
   const db = createSupabaseServiceClient();
   const limite = new Date(Date.now() - HORAS_INACTIVIDAD * 60 * 60 * 1000).toISOString();
   const { data: globalConfig } = await db.from('integraciones_secretas').select('ai_enabled').eq('id', 'global').maybeSingle();
+  const cutoverToOpportunityEngine = String(process.env.SALES_OPPORTUNITY_CART_CUTOVER || '').toLowerCase() === 'true';
 
   const { data: carritos, error } = await db
     .from('carritos_abandonados')
@@ -57,6 +53,25 @@ export async function GET(req: NextRequest) {
     const nombre = String(carrito.nombre || '');
     const subtotal = Number(carrito.subtotal || 0);
     let sent = false;
+
+    if (carrito.conversation_id) {
+      try {
+        await evaluateConversationOpportunity(db, carrito.conversation_id);
+      } catch (opportunityError) {
+        console.error('cart_opportunity_evaluation_failed', {
+          cartId: carrito.id,
+          reason: opportunityError instanceof Error ? opportunityError.message : 'unknown',
+        });
+      }
+    }
+
+    // During observation the legacy sender stays active. Once the explicit
+    // cutover switch is enabled, this cron stops sending so only the new runner
+    // owns the cart-abandoned stage.
+    if (cutoverToOpportunityEngine) {
+      omitidos += 1;
+      continue;
+    }
 
     if (globalConfig?.ai_enabled && carrito.telefono && carrito.conversation_id && carrito.source_channel === 'whatsapp') {
       const { data: conversation } = await db.from('conversations')
@@ -125,5 +140,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, revisados: carritos?.length || 0, enviados, fallidos, omitidos });
+  return NextResponse.json({
+    ok: true,
+    revisados: carritos?.length || 0,
+    enviados,
+    fallidos,
+    omitidos,
+    opportunity_cart_cutover: cutoverToOpportunityEngine,
+  });
 }
