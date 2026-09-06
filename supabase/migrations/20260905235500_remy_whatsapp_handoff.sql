@@ -74,7 +74,7 @@ begin
     return new;
   end if;
 
-  select id, items, metadata
+  select id, items, subtotal, metadata
     into target_cart
     from public.carritos_abandonados
    where business_unit_id = target_conversation.business_unit_id
@@ -93,11 +93,11 @@ begin
                  then coalesce(to_jsonb(target_cart.items), '[]'::jsonb) || coalesce(to_jsonb(source_cart.items), '[]'::jsonb)
                else source_cart.items
              end,
-             subtotal = coalesce(target_cart.subtotal, 0) + case
+             subtotal = case
                when jsonb_typeof(coalesce(to_jsonb(target_cart.items), '[]'::jsonb)) = 'array'
                 and jsonb_array_length(coalesce(to_jsonb(target_cart.items), '[]'::jsonb)) > 0
-                 then coalesce(source_cart.subtotal, 0)
-               else 0
+                 then coalesce(target_cart.subtotal, 0) + coalesce(source_cart.subtotal, 0)
+               else coalesce(source_cart.subtotal, 0)
              end,
              metadata = (coalesce(source_cart.metadata, '{}'::jsonb) - 'whatsapp_handoff') ||
                coalesce(target_cart.metadata, '{}'::jsonb) ||
