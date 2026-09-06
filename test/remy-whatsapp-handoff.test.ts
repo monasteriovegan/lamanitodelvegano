@@ -35,6 +35,7 @@ test('handoff reference is extracted from a natural WhatsApp message and malform
 });
 
 test('handoff into an existing empty WhatsApp cart copies the web subtotal instead of leaving zero', () => {
+  assert.match(handoffSql, /select\s+id,\s*items,\s*subtotal,\s*metadata/i);
   assert.match(handoffSql, /subtotal\s*=\s*case/i);
   assert.match(handoffSql, /else\s+coalesce\(source_cart\.subtotal,\s*0\)/i);
 });
