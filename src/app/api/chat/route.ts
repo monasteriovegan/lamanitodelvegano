@@ -4,6 +4,8 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { generateRemyReply, type RemyHistoryRow } from '@/lib/ai/remy';
 import { executeRemyTool, type RemyToolContext } from '@/lib/ai/remy-commerce';
+import { loadConfiguredRemyPaymentMethods } from '@/lib/ai/remy-payment';
+import { paymentMethodQuestion } from '@/lib/ai/remy-payment-options';
 import { persistMessage } from '@/lib/messaging/messages';
 import type { ItemCarrito } from '@/types/domain';
 
@@ -138,7 +140,10 @@ async function resolveVespucioZone(
   return data;
 }
 
-function firstCheckoutQuestion(status: any): string | null {
+async function firstCheckoutQuestion(
+  db: ReturnType<typeof createSupabaseServiceClient>,
+  status: any,
+): Promise<string | null> {
   if (status?.cart?.empty) return 'Tu carrito está vacío. ¿Qué producto quieres agregar?';
   const missing = Array.isArray(status?.missing) ? status.missing.map(String) : [];
   if (!missing.length) return 'Ya tengo todos los datos necesarios. ¿Confirmas que cree el pedido?';
@@ -150,7 +155,10 @@ function firstCheckoutQuestion(status: any): string | null {
     case 'phone': return '¿Qué teléfono dejamos para coordinar el pedido?';
     case 'zonaId': return '¿Tu dirección está dentro o fuera de Américo Vespucio?';
     case 'deliveryDate': return 'Ya tengo los datos anteriores. ¿Qué fecha de despacho prefieres?';
-    case 'paymentMethod': return 'El medio online disponible es Mercado Pago. ¿Quieres pagar por Mercado Pago?';
+    case 'paymentMethod': {
+      const methods = await loadConfiguredRemyPaymentMethods(db);
+      return paymentMethodQuestion(methods);
+    }
     default: return null;
   }
 }
@@ -288,7 +296,7 @@ export async function POST(request: NextRequest) {
         const zone = await resolveVespucioZone(db, vespucioChoice);
         if (zone?.id) {
           const updatedStatus = await executeRemyTool(db, toolContext, 'checkout_update', { zonaId: zone.id });
-          const nextQuestion = firstCheckoutQuestion(updatedStatus) || '¿Quieres continuar con el pedido?';
+          const nextQuestion = await firstCheckoutQuestion(db, updatedStatus) || '¿Quieres continuar con el pedido?';
           const deterministicText = `Perfecto. Despacho ${vespucioChoice === 'inside' ? 'dentro' : 'fuera'} de Américo Vespucio: $${Number(zone.precio || 0).toLocaleString('es-CL')}. ${nextQuestion}`;
           await persistWebReply(db, {
             sessionId,
@@ -307,7 +315,7 @@ export async function POST(request: NextRequest) {
     // El resto de la conversación sigue usando el mismo Remy/LLM y sus tools.
     if (isSimpleCheckoutStart(latestUser)) {
       const checkoutStatus = await executeRemyTool(db, toolContext, 'checkout_status', {});
-      const deterministicText = firstCheckoutQuestion(checkoutStatus);
+      const deterministicText = await firstCheckoutQuestion(db, checkoutStatus);
       if (deterministicText) {
         await persistWebReply(db, {
           sessionId,

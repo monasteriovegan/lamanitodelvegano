@@ -10,6 +10,12 @@ import { loadRelevantMemoryContext } from '@/lib/ai/memory';
 import { callAiProvider, type ProviderMessage, type ProviderResponse } from '@/lib/ai/providers';
 import { executeRemyTool, selectRemyTools, type RemyToolContext } from '@/lib/ai/remy-commerce';
 import { isCartMutationIntent, resolveCatalogLookupText } from '@/lib/ai/remy-turn-context';
+import {
+  compactRemyEvidence,
+  evaluateRemyToolEvidence,
+  requiredRemySideEffect,
+  type RemyToolEvidence,
+} from '@/lib/ai/remy-tool-evidence';
 import { understandWhatsAppMedia } from '@/lib/ai/remy-media';
 import { loadRemyDeliveryContext } from '@/lib/ai/remy-delivery';
 import { activateHumanHandoff, getHumanTakeover, shouldHandoffToHuman } from '@/lib/ai/remy-handoff';
@@ -140,8 +146,15 @@ function deterministicReply(text: string, historyMessages: number) {
   };
 }
 
-function toolSucceeded(value: unknown) {
-  return Boolean(value && typeof value === 'object' && (value as Record<string, unknown>).ok === true);
+function requiredSideEffectFailureReply(name: string | null) {
+  switch (name) {
+    case 'cart_add': return 'Todavía no pude dejar ese producto agregado al carrito. Necesito validar la opción exacta antes de confirmártelo.';
+    case 'cart_remove': return 'Todavía no pude quitar ese producto del carrito, así que no voy a decirte que quedó eliminado.';
+    case 'cart_clear': return 'Todavía no pude vaciar el carrito, así que lo mantengo sin cambios por seguridad.';
+    case 'order_create': return 'Todavía no pude crear el pedido real. No lo voy a dar por confirmado hasta que el sistema me entregue su número de pedido.';
+    case 'payment_link': return 'Todavía no pude generar un enlace de pago verificado. No te voy a enviar un link hasta que la pasarela lo confirme.';
+    default: return 'Todavía no pude confirmar esa operación en el sistema.';
+  }
 }
 
 export async function generateRemyReply(
@@ -221,6 +234,7 @@ export async function generateRemyReply(
   // el contexto de carrito para que el modelo no pueda quedarse solo con
   // catalog_search y luego afirmar una mutación que nunca ocurrió.
   const previousAssistantText = [...history].reverse().find((message) => message.role === 'assistant')?.content || '';
+  const requiredSideEffect = requiredRemySideEffect(input.userText, previousAssistantText);
   const toolSelectionText = history.map((message) => message.content || '').filter(Boolean).join(' ');
   const cartMutationRequired = isCartMutationIntent(input.userText);
   const selectionInput = `${toolSelectionText || input.userText}${cartMutationRequired ? ' carrito' : ''}`.trim();
@@ -251,11 +265,19 @@ export async function generateRemyReply(
   let cartMutationAttempted = false;
   let cartMutationCompleted = false;
   let forcedCommerceRetry = false;
+  let requiredSideEffectAttempted = false;
+  let requiredSideEffectCompleted = false;
+  let forcedSideEffectRetry = false;
+  const sideEffectEvidence: RemyToolEvidence[] = [];
 
   for (let round = 0; round < 5; round += 1) {
-    const effectiveSystemPrompt = cartMutationRequired && !cartMutationAttempted && forcedCommerceRetry
-      ? `${systemPrompt}\n\nACCIÓN OBLIGATORIA EN ESTE TURNO: el cliente está pidiendo comprar una cantidad concreta. Antes de contestar debes usar una herramienta de carrito (cart_add, consultando catálogo/carrito si hace falta). No puedes decir “listo”, cotizar el pedido como cerrado ni pedir confirmación como si estuviera agregado sin una mutación real.`
-      : systemPrompt;
+    let effectiveSystemPrompt = systemPrompt;
+    if (requiredSideEffect && !requiredSideEffectAttempted && forcedSideEffectRetry) {
+      effectiveSystemPrompt += `\n\nACCIÓN OBLIGATORIA EN ESTE TURNO: antes de contestar debes ejecutar ${requiredSideEffect}. No afirmes éxito si esa herramienta no devuelve evidencia válida.`;
+    } else if (cartMutationRequired && !cartMutationAttempted && forcedCommerceRetry) {
+      effectiveSystemPrompt += '\n\nACCIÓN OBLIGATORIA EN ESTE TURNO: el cliente está pidiendo comprar una cantidad concreta. Antes de contestar debes usar una herramienta de carrito (cart_add, consultando catálogo/carrito si hace falta). No puedes decir “listo”, cotizar el pedido como cerrado ni pedir confirmación como si estuviera agregado sin una mutación real.';
+    }
+
     let generated: ProviderResponse;
     try {
       generated = await callAiProvider(db, {
@@ -308,11 +330,26 @@ export async function generateRemyReply(
         cart_mutation_attempted: cartMutationAttempted,
         cart_mutation_completed: cartMutationCompleted,
         forced_commerce_retry: forcedCommerceRetry,
+        required_side_effect: requiredSideEffect,
+        required_side_effect_attempted: requiredSideEffectAttempted,
+        required_side_effect_completed: requiredSideEffectCompleted,
+        forced_side_effect_retry: forcedSideEffectRetry,
+        side_effect_evidence: compactRemyEvidence(sideEffectEvidence),
         fallback_from: fallbackFrom,
       },
     });
 
     if (!generated.toolCalls.length) {
+      if (requiredSideEffect && !requiredSideEffectAttempted && !forcedSideEffectRetry) {
+        forcedSideEffectRetry = true;
+        continue;
+      }
+      if (requiredSideEffect && !requiredSideEffectAttempted) {
+        return deterministicReply(requiredSideEffectFailureReply(requiredSideEffect), history.length);
+      }
+      if (requiredSideEffect && requiredSideEffectAttempted && !requiredSideEffectCompleted) {
+        return deterministicReply(requiredSideEffectFailureReply(requiredSideEffect), history.length);
+      }
       if (cartMutationRequired && !cartMutationAttempted && !forcedCommerceRetry) {
         forcedCommerceRetry = true;
         continue;
@@ -335,9 +372,25 @@ export async function generateRemyReply(
       } catch (error) {
         result = { ok: false, error: error instanceof Error ? error.message : 'tool_failed' };
       }
+
+      const evidence = evaluateRemyToolEvidence(call.name, result);
+      if (evidence.sideEffect) {
+        sideEffectEvidence.push(evidence);
+        if (call.name === requiredSideEffect) {
+          requiredSideEffectAttempted = true;
+          requiredSideEffectCompleted = evidence.success;
+        }
+        if (!evidence.success && result && typeof result === 'object') {
+          result = {
+            ...(result as Record<string, unknown>),
+            ok: false,
+            evidence_error: evidence.reason || 'side_effect_not_verified',
+          };
+        }
+      }
       if (call.name === 'cart_add') {
         cartMutationAttempted = true;
-        cartMutationCompleted = toolSucceeded(result);
+        cartMutationCompleted = evidence.success;
       }
       messages.push({
         role: 'tool',
@@ -349,10 +402,11 @@ export async function generateRemyReply(
   }
 
   if (!finalResponse) {
+    const evidenceSummary = compactRemyEvidence(sideEffectEvidence);
     finalResponse = await callAiProvider(db, {
       provider,
       model,
-      systemPrompt: `${systemPrompt}\n\nNo llames más herramientas. Explica brevemente el resultado disponible y pide solo el siguiente dato si falta algo. Nunca afirmes una mutación de carrito que no tenga resultado ok=true.`,
+      systemPrompt: `${systemPrompt}\n\nNo llames más herramientas. Explica brevemente el resultado disponible y pide solo el siguiente dato si falta algo. EVIDENCIA DE EFECTOS LATERALES: ${JSON.stringify(evidenceSummary)}. Solo puedes afirmar que una operación ocurrió cuando su evidence success=true.`,
       messages,
       maxOutputTokens: budget.maxOutputTokens,
       temperature: 0.25,
@@ -365,8 +419,21 @@ export async function generateRemyReply(
       model,
       usage: finalResponse.usage,
       latencyMs: finalResponse.latencyMs,
-      metadata: { channel: input.channel, automatic: input.channel !== 'web', final_after_tool_limit: true, cart_mutation_completed: cartMutationCompleted, fallback_from: fallbackFrom },
+      metadata: {
+        channel: input.channel,
+        automatic: input.channel !== 'web',
+        final_after_tool_limit: true,
+        cart_mutation_completed: cartMutationCompleted,
+        required_side_effect: requiredSideEffect,
+        required_side_effect_completed: requiredSideEffectCompleted,
+        side_effect_evidence: evidenceSummary,
+        fallback_from: fallbackFrom,
+      },
     });
+  }
+
+  if (requiredSideEffect && !requiredSideEffectCompleted) {
+    return deterministicReply(requiredSideEffectFailureReply(requiredSideEffect), history.length);
   }
 
   const replyText = capCustomerReply(finalResponse.text);
