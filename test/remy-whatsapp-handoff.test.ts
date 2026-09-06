@@ -39,3 +39,8 @@ test('handoff into an existing empty WhatsApp cart copies the web subtotal inste
   assert.match(handoffSql, /subtotal\s*=\s*case/i);
   assert.match(handoffSql, /else\s+coalesce\(source_cart\.subtotal,\s*0\)/i);
 });
+
+test('handoff trigger uses the canonical conversation thread id because omnichannel_messages has no external_user_id column', () => {
+  assert.doesNotMatch(handoffSql, /new\.external_user_id/i);
+  assert.match(handoffSql, /target_identifier\s*:=\s*btrim\(coalesce\(target_conversation\.external_conversation_id/i);
+});
