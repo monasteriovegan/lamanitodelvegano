@@ -35,6 +35,12 @@ test('Remy encuentra por campaña o componente y devuelve precio desde la varian
   assert.deepEqual(dto.deliveryDates, ['2026-09-15']);
 });
 
+test('Remy entiende el nombre común costillas como Le Kostilles sin inventar otro producto', () => {
+  assert.equal(matchesCatalogQuery(kostilles, 'costillas'), true);
+  assert.equal(matchesCatalogQuery(kostilles, 'quiero unas costillas asadas'), true);
+  assert.equal(matchesCatalogQuery(pack, 'pack con costillas'), true);
+});
+
 test('Remy receives options inherited from a linked pack component', () => {
   const [enriched] = attachPackComponentOptions([pack, kostilles]);
   const dto = toRemyCatalogProduct(enriched);
