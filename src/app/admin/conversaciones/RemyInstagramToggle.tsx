@@ -27,7 +27,7 @@ export default function RemyInstagramToggle() {
     if (updating || instagramRemyEnabled === null) return;
     const next = !instagramRemyEnabled;
 
-    if (next && !window.confirm('Al encenderlo, Remy volverá a responder automáticamente los nuevos DM de Instagram. ¿Continuar?')) {
+    if (next && !window.confirm('Al encenderlo, Instagram quedará autorizado para respuestas automáticas cuando Remy global también esté ON. ¿Continuar?')) {
       return;
     }
 
@@ -54,14 +54,14 @@ export default function RemyInstagramToggle() {
   return (
     <div className={`w-[min(92vw,290px)] rounded-2xl border px-3 py-2.5 shadow-2xl backdrop-blur-xl ${
       enabled
-        ? 'border-neon/35 bg-[#071b13]/95'
-        : 'border-amber-300/30 bg-[#171108]/95'
+        ? 'border-fuchsia-300/35 bg-[#160817]/95'
+        : 'border-white/15 bg-[#0b0d0c]/95'
     }`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Control global</div>
-          <div className={`mt-0.5 text-xs font-black ${enabled ? 'text-neon' : 'text-amber-200'}`}>
-            🟣 Remy Instagram {instagramRemyEnabled === null ? '…' : enabled ? 'ON' : 'OFF'}
+          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Control de canal</div>
+          <div className={`mt-0.5 text-xs font-black ${enabled ? 'text-fuchsia-200' : 'text-white/55'}`}>
+            🟣 Instagram automático {instagramRemyEnabled === null ? '…' : enabled ? 'ON' : 'OFF'}
           </div>
         </div>
         <button
@@ -72,14 +72,14 @@ export default function RemyInstagramToggle() {
           className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black transition-colors disabled:cursor-wait disabled:opacity-50 ${
             enabled
               ? 'border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/20'
-              : 'border-neon/35 bg-neon/10 text-neon hover:bg-neon/20'
+              : 'border-fuchsia-300/30 bg-fuchsia-300/10 text-fuchsia-100 hover:bg-fuchsia-300/20'
           }`}
         >
           {updating ? 'Guardando…' : enabled ? 'Apagar' : 'Encender'}
         </button>
       </div>
       <p className="mt-1.5 text-[9px] leading-4 text-white/40">
-        Los DM siguen entrando al CRM; solo controla la respuesta automática. WhatsApp no cambia.
+        Los DM siguen entrando al CRM. Este control solo autoriza Instagram; Remy global debe estar ON para responder. WhatsApp no cambia.
       </p>
       {error && (
         <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] text-red-300">

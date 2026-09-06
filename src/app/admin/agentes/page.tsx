@@ -14,13 +14,15 @@ const DETAILS: Record<string, { icon: string; title: string; description: string
 export default async function AgentesPage() {
   await requireRole(['admin']);
   const db = createSupabaseServiceClient();
-  const [{ data }, providers] = await Promise.all([
+  const [{ data }, providers, { data: globalConfig }] = await Promise.all([
     db.from('agent_runtime_configs')
       .select('agent,provider,model,execution_mode,enabled,allow_external_web_tools,metadata,updated_at')
       .in('agent', ['wonka', 'remy']),
     getProviderConnectionStatus(db),
+    db.from('integraciones_secretas').select('ai_enabled').eq('id', 'global').maybeSingle(),
   ]);
   const byAgent = Object.fromEntries((data || []).map((row: any) => [row.agent, row]));
+  const remyGlobalEnabled = globalConfig?.ai_enabled === true;
 
   return <div className="max-w-4xl">
     <PageHeader eyebrow="✦ Synthetiq Core" title="Agentes & modelos" action={<Badge tono="neon">selección manual</Badge>} />
@@ -33,6 +35,7 @@ export default async function AgentesPage() {
         const row = byAgent[agent] || { provider: 'gemini', model: 'gemini-2.5-flash', execution_mode: 'api', enabled: true, allow_external_web_tools: true, metadata: {} };
         const detail = DETAILS[agent];
         const instagramEnabled = Boolean(row.metadata?.channels?.instagram);
+        const agentEnabled = agent === 'remy' ? remyGlobalEnabled : row.enabled !== false;
         return <SectionCard key={agent} title={`${detail.icon} ${detail.title}`}>
           <p className="mb-4 text-xs leading-5 text-white/45">{detail.description}</p>
           <form action={saveAgentRuntime} className="space-y-4">
@@ -59,12 +62,12 @@ export default async function AgentesPage() {
             </div>
             <input type="hidden" name="execution_mode" value="api" />
             <label className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
-              <input type="checkbox" name="enabled" defaultChecked={row.enabled !== false} />
-              Agente habilitado
+              <input type="checkbox" name="enabled" defaultChecked={agentEnabled} />
+              {agent === 'remy' ? 'Remy global habilitado' : 'Agente habilitado'}
             </label>
             {agent === 'remy' && <label className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
               <input type="checkbox" name="instagram_enabled" defaultChecked={instagramEnabled} className="mt-1" />
-              <span><span className="block font-semibold text-white/80">Responder automáticamente en Instagram</span><span className="mt-0.5 block text-[10px] leading-4 text-white/35">Déjalo apagado hasta validar el canal. WhatsApp mantiene su interruptor maestro separado en Conversaciones; la web funciona siempre de forma asistida por el usuario.</span></span>
+              <span><span className="block font-semibold text-white/80">Responder automáticamente en Instagram</span><span className="mt-0.5 block text-[10px] leading-4 text-white/35">Este control solo autoriza Instagram. Remy global debe estar encendido para responder. WhatsApp mantiene su configuración de canal y la web funciona de forma asistida por el usuario.</span></span>
             </label>}
             <label className="flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-sm text-white/70">
               <input type="checkbox" name="allow_external_web_tools" defaultChecked={row.allow_external_web_tools !== false} className="mt-1" />

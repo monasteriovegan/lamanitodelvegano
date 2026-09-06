@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import { getProviderConnectionStatus, validateProviderModel } from '@/lib/ai/providers';
+import { getRemyGlobalEnabled, setRemyGlobalEnabled } from '@/lib/ai/remy-global-state';
 
 const ALLOWED_AGENTS = new Set(['wonka', 'remy']);
 const ALLOWED_PROVIDERS = new Set(['gemini', 'groq']);
@@ -34,17 +35,24 @@ export async function saveAgentRuntime(formData: FormData) {
   const metadata = agent === 'remy'
     ? { ...currentMetadata, channels: { ...((currentMetadata as any).channels || {}), instagram: instagramEnabled } }
     : currentMetadata;
+  const persistedRuntimeEnabled = agent === 'remy' ? await getRemyGlobalEnabled(db) : enabled;
 
   const { error } = await db.from('agent_runtime_configs').upsert({
     agent,
     provider,
     model,
     execution_mode: executionMode,
-    enabled,
+    enabled: persistedRuntimeEnabled,
     allow_external_web_tools: allowExternalWebTools,
     metadata,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent' });
   if (error) throw error;
+
+  if (agent === 'remy') {
+    await setRemyGlobalEnabled(db, enabled);
+  }
+
   revalidatePath('/admin/agentes');
+  revalidatePath('/admin/conversaciones');
 }
