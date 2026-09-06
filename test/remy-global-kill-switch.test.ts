@@ -12,7 +12,7 @@ const migration = readFileSync('supabase/migrations/20260906011500_remy_global_k
 
 test('Remy non-web generation keeps the persisted hard global gate', () => {
   assert.match(remy, /integraciones_secretas/);
-  assert.match(remy, /if \(!config\?\.ai_enabled\) throw new Error\(['"]remy_global_off['"]\)/);
+  assert.match(remy, /input\.channel\s*!==\s*['"]web['"][\s\S]+!config\?\.ai_enabled[\s\S]+remy_global_off/);
 });
 
 test('the admin global switch reads and writes the same hard gate used by Remy', () => {
