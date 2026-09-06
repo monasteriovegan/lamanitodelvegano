@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { buildRemyCartAddition, catalogLookupInstruction, matchesCatalogQuery, toRemyCatalogProduct } from '../src/lib/catalog/remy-catalog.ts';
 import { attachPackComponentOptions } from '../src/lib/catalog/catalog-repository.ts';
 import type { CatalogProduct } from '../src/lib/catalog/types.ts';
+
+const remySource = readFileSync('src/lib/ai/remy.ts', 'utf8');
+const remyCommerceSource = readFileSync('src/lib/ai/remy-commerce.ts', 'utf8');
 
 const adoboGroup = {
   id: 'adobo', productId: 'kostilles', code: 'adobo', name: 'Adobo', selectionMode: 'single' as const,
@@ -39,6 +43,11 @@ test('Remy entiende el nombre común costillas como Le Kostilles sin inventar ot
   assert.equal(matchesCatalogQuery(kostilles, 'costillas'), true);
   assert.equal(matchesCatalogQuery(kostilles, 'quiero unas costillas asadas'), true);
   assert.equal(matchesCatalogQuery(pack, 'pack con costillas'), true);
+});
+
+test('costillas dispara una consulta real al catálogo antes de responder', () => {
+  assert.match(remySource, /CATALOG_INTENT[^\n]+costill/);
+  assert.match(remyCommerceSource, /PRODUCT_INTENT[^\n]+costill/);
 });
 
 test('Remy receives options inherited from a linked pack component', () => {
