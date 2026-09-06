@@ -7,6 +7,12 @@ import { applySeasonVariantOverrides, mapSeasonVariantOverride, seasonIsInWindow
 import type { CatalogChannel, CatalogLineIntent, CatalogProduct } from './types.ts';
 
 const SITE_URL = 'https://lamanitodelvegano.cl';
+const QUERY_TERM_ALIASES: Record<string, string[]> = {
+  costilla: ['kostill', 'kostilles'],
+  costillas: ['kostill', 'kostilles'],
+  vostilla: ['kostill', 'kostilles'],
+  vostillas: ['kostill', 'kostilles'],
+};
 
 function normalize(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -15,6 +21,10 @@ function normalize(value: string) {
 function usefulTerms(query: string) {
   const ignored = new Set(['que', 'tienen', 'para', 'incluye', 'quiero', 'una', 'uno', 'con', 'del', 'los', 'las']);
   return normalize(query).split(/[^a-z0-9]+/).filter((term) => term.length > 1 && !ignored.has(term));
+}
+
+function queryTermVariants(term: string) {
+  return [term, ...(QUERY_TERM_ALIASES[term] || [])];
 }
 
 export function matchesCatalogQuery(product: CatalogProduct, query: string, campaignTerms: string[] = []) {
@@ -35,7 +45,7 @@ export function matchesCatalogQuery(product: CatalogProduct, query: string, camp
     ]),
     ...campaignTerms,
   ].join(' '));
-  return terms.some((term) => haystack.includes(term));
+  return terms.some((term) => queryTermVariants(term).some((variant) => haystack.includes(variant)));
 }
 
 export function toRemyCatalogProduct(product: CatalogProduct) {
