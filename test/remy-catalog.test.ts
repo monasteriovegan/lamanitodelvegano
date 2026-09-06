@@ -5,7 +5,6 @@ import { buildRemyCartAddition, catalogLookupInstruction, matchesCatalogQuery, t
 import { attachPackComponentOptions } from '../src/lib/catalog/catalog-repository.ts';
 import type { CatalogProduct } from '../src/lib/catalog/types.ts';
 
-const remySource = readFileSync('src/lib/ai/remy.ts', 'utf8');
 const remyCommerceSource = readFileSync('src/lib/ai/remy-commerce.ts', 'utf8');
 
 const adoboGroup = {
@@ -39,15 +38,16 @@ test('Remy encuentra por campaña o componente y devuelve precio desde la varian
   assert.deepEqual(dto.deliveryDates, ['2026-09-15']);
 });
 
-test('Remy entiende el nombre común costillas como Le Kostilles sin inventar otro producto', () => {
+test('Remy entiende costillas y el typo vostillas como Le Kostilles sin inventar otro producto', () => {
   assert.equal(matchesCatalogQuery(kostilles, 'costillas'), true);
   assert.equal(matchesCatalogQuery(kostilles, 'quiero unas costillas asadas'), true);
+  assert.equal(matchesCatalogQuery(kostilles, 'unas vostillas asadas'), true);
   assert.equal(matchesCatalogQuery(pack, 'pack con costillas'), true);
 });
 
-test('costillas dispara una consulta real al catálogo antes de responder', () => {
-  assert.match(remySource, /CATALOG_INTENT[^\n]+costill/);
+test('costillas dispara una consulta real al catálogo incluso como primer turno', () => {
   assert.match(remyCommerceSource, /PRODUCT_INTENT[^\n]+costill/);
+  assert.match(remyCommerceSource, /PRODUCT_INTENT[^\n]+vostill/);
 });
 
 test('Remy receives options inherited from a linked pack component', () => {
