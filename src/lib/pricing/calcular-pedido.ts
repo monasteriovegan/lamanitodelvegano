@@ -2,6 +2,7 @@ import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { parseFormatos } from './formatos';
+import { collapseImplicitBundleIntents } from './bundle-intents';
 import type { CheckoutRequest } from '@/types/domain';
 import { CatalogRepository } from '@/lib/catalog/catalog-repository';
 import { resolveCatalogCheckoutItem, type CatalogCheckoutItemIntent } from '@/lib/catalog/catalog-checkout';
@@ -58,7 +59,32 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
   const catalogProducts = await new CatalogRepository(supabase).listActive(businessId);
   const catalogById = new Map(catalogProducts.map((product) => [product.id, product]));
 
-  for (const reqItem of req.items) {
+  // Conversational channels can express one sale as several lines of the same
+  // product (for example 2 empanadas of each flavor). Before pricing each line,
+  // deterministically collapse an implicit quantity into an active bundle when
+  // that bundle exactly covers the units and is cheaper than base-unit pricing.
+  // Explicit web/catalog variants and explicit formats are never rewritten.
+  const pricingProducts = productos.map((prod) => {
+    const catalogProduct = catalogById.get(String(prod.id));
+    return {
+      id: String(prod.id),
+      name: String(prod.nombre),
+      basePrice: Number(prod.precio || 0),
+      managesStock: Boolean(prod.maneja_stock),
+      formatLabels: parseFormatos(prod.gramaje, Number(prod.precio || 0)).map((format) => format.label),
+      variants: (catalogProduct?.variants || []).map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        price: variant.price,
+        unitsIncluded: variant.unitsIncluded,
+        active: variant.active,
+        sortOrder: variant.sortOrder,
+      })),
+    };
+  });
+  const pricingItems = collapseImplicitBundleIntents(req.items, pricingProducts);
+
+  for (const reqItem of pricingItems) {
     const prod = productos.find((p) => p.id === reqItem.productoId);
     if (!prod) {
       return { ok: false, error: `Producto no disponible: ${reqItem.productoId}` };
@@ -96,7 +122,9 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
 
     itemsResueltos.push({
       productoId: prod.id,
-      nombre: prod.nombre,
+      nombre: reqItem.formato && reqItem.formato.toLowerCase().startsWith('pack')
+        ? `${prod.nombre} - ${reqItem.formato}`
+        : prod.nombre,
       precio: precioUnitario,
       qty: reqItem.qty,
       emoji: prod.emoji || '🌱',
