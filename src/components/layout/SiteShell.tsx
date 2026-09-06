@@ -16,6 +16,7 @@ function NavbarConCarrito({ shiftDown }: { shiftDown: boolean }) {
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const [tallerCerrado, setTallerCerrado] = useState(false);
+  const [remyWebVisible, setRemyWebVisible] = useState(false);
 
   useEffect(() => {
     async function loadAjustes() {
@@ -29,6 +30,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
         if (!error && data?.data) {
           setTallerCerrado(data.data.estado === 'cerrado');
+          setRemyWebVisible(data.data.remy_web_visible === true);
         }
       } catch (err) {
         console.error('Error cargando estado del taller:', err);
@@ -69,7 +71,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <CartDrawer />
-      <Chatbot />
+      {remyWebVisible && <Chatbot />}
       <Footer />
     </>
   );
