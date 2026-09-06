@@ -25,10 +25,8 @@ export async function getCurrentAdminUser() {
   try {
     const supabaseAuth = await createSupabaseServerAuthClient();
     const { data: { user }, error } = await supabaseAuth.auth.getUser();
-    
     if (error || !user) return null;
 
-    // Usar service role para leer admin_roles sin problemas de RLS
     const supabaseService = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -43,15 +41,18 @@ export async function getCurrentAdminUser() {
 
     if (rolError) {
       console.error('Error leyendo admin_roles:', rolError);
-      // Si hay error leyendo el rol, igual dejamos pasar si el usuario está autenticado
-      // para evitar Internal Server Error
-      return { id: user.id, email: user.email, rol: 'admin' };
+      return null;
     }
-
     if (!rolRow) return null;
     return { id: user.id, email: user.email, rol: rolRow.rol };
   } catch (err) {
     console.error('getCurrentAdminUser error:', err);
     return null;
   }
+}
+
+export async function getCurrentStrictAdminUser() {
+  const user = await getCurrentAdminUser();
+  if (!user || String(user.rol || '').toLowerCase() !== 'admin') return null;
+  return user;
 }

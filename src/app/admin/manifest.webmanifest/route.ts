@@ -1,9 +1,9 @@
 export async function GET() {
   return Response.json({
     id: '/admin',
-    name: 'Synthetiq Panel Maestro',
-    short_name: 'Synthetiq',
-    description: 'Panel maestro de Synthetiq para dirigir negocios, conversaciones, CRM, pedidos, métricas y agentes como Wonka y Remy.',
+    name: 'Wonka Hub — Panel Maestro',
+    short_name: 'Wonka Hub',
+    description: 'Panel administrativo de La Manito del Vegano para pedidos, conversaciones, CRM, métricas y agentes.',
     start_url: '/admin',
     scope: '/admin',
     display: 'standalone',
