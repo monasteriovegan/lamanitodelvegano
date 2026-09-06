@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { AdminPushControls } from '@/components/admin/AdminPushControls';
 import { AdminSidebar } from './AdminSidebar';
 import { WonkaFloatingDirector } from './WonkaFloatingDirector';
 import { MobileAdminNav } from './MobileAdminNav';
@@ -31,6 +32,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <main className="min-w-0 flex-1 overflow-x-hidden bg-[#030907] px-3 pt-4 pb-28 sm:px-4 md:p-8 md:pb-8">
         <div className="mx-auto w-full max-w-[1600px]">
+          {String(admin.rol || '').toLowerCase() === 'admin' ? <AdminPushControls /> : null}
           {children}
         </div>
       </main>

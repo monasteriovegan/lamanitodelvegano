@@ -4,12 +4,15 @@ import { createServerClient } from '@supabase/ssr';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Solo aplica a rutas /admin
   if (!pathname.startsWith('/admin')) {
     return NextResponse.next();
   }
 
-  // Dejar pasar rutas de auth SIN verificar sesión — evita loops
+  // Estos dos recursos no contienen datos administrativos. Deben poder ser
+  // actualizados por una PWA ya instalada incluso si la sesión expiró.
+  const pwaAssets = ['/admin/wonka-sw.js', '/admin/manifest.webmanifest'];
+  if (pwaAssets.includes(pathname)) return NextResponse.next();
+
   const authPaths = ['/admin/login', '/admin/update-password', '/admin/callback'];
   if (authPaths.includes(pathname)) {
     return NextResponse.next();
@@ -18,7 +21,6 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   try {
-    // Verificar sesión con anon key + cookies
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -43,14 +45,11 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
   } catch (err) {
-    // Si el proxy falla por cualquier razón, redirigir al login en vez de 500
     console.error('Proxy auth error:', err);
     const loginUrl = new URL('/admin/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  // No verificamos admin_roles aquí para evitar latencia y posibles errores de RLS
-  // La verificación de rol real ocurre en getCurrentAdminUser() del layout
   return response;
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
+import { notifyOrderPaid } from '@/lib/notifications/order-paid';
 import {
   getMercadoPagoPayment,
   mapMercadoPagoPaymentStatus,
@@ -49,7 +50,6 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'mercadopago_not_configured' }, { status: 503 });
 
   try {
-    // Mercado Pago API es la fuente de verdad; nunca confiamos en monto/status del body del webhook.
     const payment = await getMercadoPagoPayment(token, paymentId);
     const pedidoId = Number(payment?.external_reference);
     if (!Number.isInteger(pedidoId) || pedidoId <= 0) return NextResponse.json({ ok: true, ignored: true });
@@ -87,9 +87,7 @@ export async function POST(req: NextRequest) {
       };
       if (effectiveStatus === 'paid') update.estado = 'Pagado';
 
-      // Compare-and-set: Mercado Pago puede entregar el mismo webhook en paralelo.
-      // Solo la entrega que todavía encuentre el estado anterior gana la transición;
-      // las demás quedan como no-op y no duplican historial ni notificaciones.
+      // Compare-and-set: solo la entrega que aún ve el estado anterior gana la transición.
       const { data: updatedOrder, error: updateError } = await db.from('pedidos')
         .update(update)
         .eq('id', pedidoId)
@@ -107,10 +105,19 @@ export async function POST(req: NextRequest) {
           notes: `Mercado Pago ${String(payment?.status || 'unknown')} · payment ${paymentId}`,
         });
 
-        if (beforeOrder) {
+        let afterOrder = null;
+        try {
+          afterOrder = await repo.getById(pedidoId);
+        } catch (reloadError) {
+          console.error('mercadopago_order_reload_failed', {
+            pedidoId,
+            reason: reloadError instanceof Error ? reloadError.message : 'unknown',
+          });
+        }
+
+        if (beforeOrder && afterOrder) {
           try {
-            const afterOrder = await repo.getById(pedidoId);
-            if (afterOrder) await notifyOrderTransitions(db, beforeOrder, afterOrder);
+            await notifyOrderTransitions(db, beforeOrder, afterOrder);
           } catch (notificationError) {
             console.error('mercadopago_customer_notification_failed', {
               pedidoId,
@@ -118,11 +125,22 @@ export async function POST(req: NextRequest) {
             });
           }
         }
+
+        if (effectiveStatus === 'paid' && afterOrder) {
+          try {
+            await notifyOrderPaid(db, afterOrder);
+          } catch (pushError) {
+            // Push es best-effort: nunca puede revertir el pedido ni romper el webhook.
+            console.error('mercadopago_admin_push_failed', {
+              pedidoId,
+              reason: pushError instanceof Error ? pushError.message : 'unknown',
+            });
+          }
+        }
       }
     }
 
-    // Se intenta en toda entrega cuyo estado efectivo sea paid. La función CAPI
-    // deduplica por purchase_<orderId> y reintenta sólo pending/failed.
+    // Se conserva el Purchase CAPI existente. Su propia idempotencia usa purchase_<orderId>.
     if (effectiveStatus === 'paid') {
       await sendPaidPurchaseToMeta(db, pedidoId);
     }
