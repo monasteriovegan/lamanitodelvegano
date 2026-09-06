@@ -4,11 +4,11 @@ import RemyGlobalToggle from './RemyGlobalToggle';
 import RemyInstagramToggle from './RemyInstagramToggle';
 
 export default async function ConversacionesPage() {
-  await requireRole(['admin', 'soporte']);
+  const admin = await requireRole(['admin', 'soporte']);
   return (
     <div className="relative">
       <div className="fixed right-3 top-16 z-[70] flex flex-col gap-2 sm:right-5 sm:top-20">
-        <RemyGlobalToggle />
+        {admin.rol === 'admin' ? <RemyGlobalToggle /> : null}
         <RemyInstagramToggle />
       </div>
       <ConversationsClient />
