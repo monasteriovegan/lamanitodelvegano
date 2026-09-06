@@ -4,7 +4,6 @@ export type BundleIntent = {
   variantId?: string;
   formato?: string | null;
   variedad?: string | null;
-  [key: string]: unknown;
 };
 
 export type BundleVariant = {
