@@ -69,7 +69,10 @@ begin
     return new;
   end if;
 
-  target_identifier := btrim(coalesce(new.external_user_id, target_conversation.external_conversation_id, ''));
+  -- WhatsApp normalization persists the counterparty phone as the canonical
+  -- conversation external_conversation_id. omnichannel_messages intentionally
+  -- does not duplicate that value in an external_user_id column.
+  target_identifier := btrim(coalesce(target_conversation.external_conversation_id, ''));
   if target_identifier = '' then
     return new;
   end if;
