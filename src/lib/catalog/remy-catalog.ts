@@ -10,6 +10,8 @@ const SITE_URL = 'https://lamanitodelvegano.cl';
 const QUERY_TERM_ALIASES: Record<string, string[]> = {
   costilla: ['kostill', 'kostilles'],
   costillas: ['kostill', 'kostilles'],
+  vostilla: ['kostill', 'kostilles'],
+  vostillas: ['kostill', 'kostilles'],
 };
 
 function normalize(value: string) {
