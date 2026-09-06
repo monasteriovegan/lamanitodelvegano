@@ -79,7 +79,7 @@ export default function RemyInstagramToggle() {
         </button>
       </div>
       <p className="mt-1.5 text-[9px] leading-4 text-white/40">
-        Solo autoriza Instagram. Remy global debe estar ON para que pueda responder. WhatsApp no cambia.
+        Los DM siguen entrando al CRM. Este control solo autoriza Instagram; Remy global debe estar ON para responder. WhatsApp no cambia.
       </p>
       {error && (
         <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] text-red-300">
