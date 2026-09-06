@@ -31,7 +31,7 @@ type CartRow = {
   order_id: number | null;
 };
 
-const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill|fiestas?\s+patrias?|(?:el\s+)?18/i;
+const PRODUCT_INTENT = /producto|cat[aá]logo|precio|valor|stock|disponib|sabor|ingred|alerg|gluten|barra|bomb[oó]n|alfajor|trufa|torta|box|manjar|prote[ií]n|chocolate|seit[aá]n|lomo|kostill|costill|vostill|fiestas?\s+patrias?|(?:el\s+)?18/i;
 const CART_INTENT = /carrito|agrega|agregar|a[nñ]ade|a[nñ]adir|quita|quitar|saca|sacar|llevo|quiero\s+(?:uno|una|dos|tres|comprar)|dame|ponme/i;
 const CHECKOUT_INTENT = /comprar|compra|pedido|confirm|finaliz|checkout|pagar|pago|mercado\s*pago|flow|transfer|direcci[oó]n|comuna|despach|env[ií]o|fecha|entrega|tel[eé]fono|celular/i;
 const STATUS_INTENT = /estado.*pedido|pedido.*estado|seguimiento|rastrear|d[oó]nde.*pedido|despachado|entregado|cu[aá]ndo.*llega/i;
