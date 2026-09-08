@@ -1,13 +1,13 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
-import { PageHeader, Badge } from '../_ui/AdminUI';
-import Link from 'next/link';
+import { PageHeader } from '../_ui/AdminUI';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 
 export const dynamic = 'force-dynamic';
 
+const CHILE_TIME_ZONE = 'America/Santiago';
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -15,11 +15,21 @@ const fmt = (n: number) =>
     minimumFractionDigits: 0,
   }).format(n);
 
+function chileDateKey(value: string | Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: CHILE_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(typeof value === 'string' ? new Date(value) : value);
+}
+
 export default async function MetricasPage() {
   await requireRole(['admin']);
   const db = createSupabaseServiceClient();
   const capabilities = getSchemaCapabilities();
   const now = new Date();
+  const analyticsSince = new Date(Date.now() - 30 * 86400000).toISOString();
 
   // Last 6 months
   const months = Array.from({ length: 6 }, (_, i) => {
@@ -31,20 +41,31 @@ export default async function MetricasPage() {
     };
   });
 
-  // Fetch all orders, customers, and events
-  const [allOrders, customers, marketingResult] = await Promise.all([
+  // Browser activity lives in analytics_events. Checkout/Purchase use the server outbox.
+  const [allOrders, customers, browserResult, serverConversionResult] = await Promise.all([
     new OrderRepository(db, capabilities).list(),
     new CustomerRepository(db, capabilities).list(),
-    capabilities.supportTables ? db
-      .from('analytics_events')
-      .select('*')
-      .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
-      .order('created_at', { ascending: false }) : Promise.resolve({ data: [], error: null }),
+    capabilities.supportTables
+      ? db
+          .from('analytics_events')
+          .select('event_name,event_params,page_path,session_id,created_at')
+          .gte('created_at', analyticsSince)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    capabilities.supportTables
+      ? db
+          .from('conversion_events')
+          .select('event_name,created_at,order_id,value,currency,status,source_channel')
+          .in('event_name', ['InitiateCheckout', 'Purchase'])
+          .gte('created_at', analyticsSince)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
   ]);
-  const marketingEvents = marketingResult.data;
 
   const orders = allOrders;
-  
+  const browserEvents = browserResult.data || [];
+  const rawServerEvents = serverConversionResult.data || [];
+
   // Paid orders (including shipped and completed as fallback)
   const paidOrders = orders.filter(
     o =>
@@ -90,7 +111,7 @@ export default async function MetricasPage() {
       prodMap[name].rev += price * qty;
     });
   });
-  
+
   const topProducts = Object.values(prodMap)
     .sort((a, b) => b.rev - a.rev)
     .slice(0, 8);
@@ -99,45 +120,79 @@ export default async function MetricasPage() {
   // Top Customers
   const topCustomers = customers.slice(0, 5);
 
-  // Marketing Events totals
+  // Canonical web funnel. Never trust a historical Purchase row's label alone:
+  // confirm the linked order is actually a web order.
+  const webOrderIds = new Set(orders.filter(o => o.source === 'web').map(o => Number(o.id)));
+  const serverEvents = rawServerEvents.filter((event: any) => {
+    if (event.event_name === 'InitiateCheckout') return event.source_channel === 'web';
+    if (event.event_name === 'Purchase') {
+      return event.status === 'sent' && webOrderIds.has(Number(event.order_id));
+    }
+    return false;
+  });
+
   const EVENT_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-    pageview: { label: 'Visitas a páginas', color: '#74c69d', icon: '👁' },
-    click_pedir_whatsapp: { label: 'Clic WhatsApp / Pedir', color: '#00ffb3', icon: '💬' },
-    abrir_catalogo: { label: 'Apertura de catálogo', color: '#f59e0b', icon: '📖' },
-    consultar_producto_whatsapp: { label: 'Consulta producto x WhatsApp', color: '#8b5cf6', icon: '🛍' },
+    PageView: { label: 'Visitas a páginas', color: '#74c69d', icon: '👁' },
+    ViewContent: { label: 'Vistas de producto', color: '#60a5fa', icon: '👀' },
+    AddToCart: { label: 'Agregados al carrito', color: '#f59e0b', icon: '🛒' },
+    InitiateCheckout: { label: 'Inicios de checkout', color: '#8b5cf6', icon: '💳' },
+    Purchase: { label: 'Compras web', color: '#00ffb3', icon: '✅' },
+    Contact: { label: 'Contactos', color: '#f472b6', icon: '💬' },
   };
 
-  const mEvents = marketingEvents || [];
-  const eventTotals: Record<string, number> = {};
-  mEvents.forEach((e: any) => {
-    eventTotals[e.event_name] = (eventTotals[e.event_name] || 0) + 1;
+  const eventTotals: Record<string, number> = Object.fromEntries(
+    Object.keys(EVENT_LABELS).map(key => [key, 0]),
+  );
+
+  // Navigation/action events are first-party browser observations.
+  browserEvents.forEach((event: any) => {
+    if (event.event_name === 'InitiateCheckout') return; // server checkout is authoritative
+    if (EVENT_LABELS[event.event_name]) eventTotals[event.event_name] += 1;
   });
+  // Checkout and Purchase are counted from the server-authoritative outbox.
+  serverEvents.forEach((event: any) => {
+    eventTotals[event.event_name] = (eventTotals[event.event_name] || 0) + 1;
+  });
+
+  const metricEvents = [
+    ...browserEvents
+      .filter((event: any) => event.event_name !== 'InitiateCheckout' && EVENT_LABELS[event.event_name])
+      .map((event: any) => ({ event_name: event.event_name, created_at: event.created_at })),
+    ...serverEvents.map((event: any) => ({ event_name: event.event_name, created_at: event.created_at })),
+  ];
 
   const mDays: { label: string; date: string; counts: Record<string, number> }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     mDays.push({
-      label: d.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
-      date: d.toISOString().split('T')[0],
+      label: d.toLocaleDateString('es-CL', { timeZone: CHILE_TIME_ZONE, weekday: 'short', day: 'numeric' }),
+      date: chileDateKey(d),
       counts: {},
     });
   }
-  mEvents.forEach((e: any) => {
-    const dateStr = e.created_at.split('T')[0];
-    const day = mDays.find(d => d.date === dateStr);
-    if (day) day.counts[e.event_name] = (day.counts[e.event_name] || 0) + 1;
+
+  metricEvents.forEach((event: any) => {
+    const day = mDays.find(d => d.date === chileDateKey(event.created_at));
+    if (day) day.counts[event.event_name] = (day.counts[event.event_name] || 0) + 1;
   });
-  
-  const conversionEvents = mEvents.filter((e: any) => e.event_name !== 'pageview');
+
+  const conversionEvents = metricEvents.filter((event: any) => event.event_name !== 'PageView');
   const maxDayTotal = Math.max(
     ...mDays.map(d =>
       Object.entries(d.counts)
-        .filter(([k]) => k !== 'pageview')
-        .reduce((s, [, v]) => s + v, 0)
+        .filter(([key]) => key !== 'PageView')
+        .reduce((sum, [, value]) => sum + value, 0)
     ),
     1
   );
+
+  const webPurchaseValue = serverEvents
+    .filter((event: any) => event.event_name === 'Purchase')
+    .reduce((sum: number, event: any) => sum + Number(event.value || 0), 0);
+  const checkoutToPurchaseRate = eventTotals.InitiateCheckout
+    ? ((eventTotals.Purchase / eventTotals.InitiateCheckout) * 100).toFixed(1)
+    : '0.0';
 
   const kpis = [
     { label: 'Ingresos Totales', value: fmt(totalRevenue), color: 'text-white' },
@@ -248,14 +303,17 @@ export default async function MetricasPage() {
         </div>
       </div>
 
-      {/* Marketing Events (Pixel / GA4) */}
+      {/* First-party + server conversion analytics */}
       <div className="border-t border-white/10 pt-6">
-        <h2 className="font-display font-bold text-lg text-white mb-1">📊 Analítica de Conversión (GA4 & Meta Pixel)</h2>
-        <p className="text-xs text-muted mb-6">
-          Eventos de marketing capturados en el sitio web de clientes durante los últimos 30 días.
+        <h2 className="font-display font-bold text-lg text-white mb-1">📊 Analítica de Conversión Web</h2>
+        <p className="text-xs text-muted mb-2">
+          Navegación medida directamente por La Manito; checkout y compras confirmados desde registros del servidor.
+        </p>
+        <p className="text-[10px] text-muted/70 mb-6">
+          Las visitas, vistas de producto, carrito y contactos comienzan a acumularse desde la activación de esta medición interna. Checkout y Purchase conservan el historial server disponible.
         </p>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {Object.entries(EVENT_LABELS).map(([key, info]) => (
             <div key={key} className="bg-[#050e0a] border border-white/10 rounded-2xl p-4">
               <div className="text-[10px] uppercase tracking-wider text-muted font-medium mb-1">
@@ -268,18 +326,29 @@ export default async function MetricasPage() {
           ))}
         </div>
 
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-[#050e0a] border border-white/10 rounded-2xl p-4">
+            <div className="text-[10px] uppercase tracking-wider text-muted font-medium mb-1">💰 Valor compras web</div>
+            <div className="font-display font-bold text-xl text-neon">{fmt(webPurchaseValue)}</div>
+          </div>
+          <div className="bg-[#050e0a] border border-white/10 rounded-2xl p-4">
+            <div className="text-[10px] uppercase tracking-wider text-muted font-medium mb-1">📈 Checkout → compra</div>
+            <div className="font-display font-bold text-xl text-white">{checkoutToPurchaseRate}%</div>
+          </div>
+        </div>
+
         {/* conversion timeline graph */}
         <div className="bg-[#050e0a] border border-white/10 rounded-2xl p-6 mb-6">
           <h3 className="font-display font-bold text-sm text-white mb-4">Eventos de conversión — últimos 7 días</h3>
           {conversionEvents.length === 0 ? (
             <p className="text-xs text-muted">
-              Aún no hay eventos de conversión registrados. Asegúrate de configurar las variables de Meta Pixel y GA4 en producción.
+              Todavía no hay acciones de conversión first-party/server para este período. Las nuevas acciones web aparecerán aquí automáticamente.
             </p>
           ) : (
             <div className="flex items-end gap-4 h-32">
               {mDays.map(day => {
-                const dayConversions = Object.entries(day.counts).filter(([k]) => k !== 'pageview');
-                const total = dayConversions.reduce((s, [, v]) => s + v, 0);
+                const dayConversions = Object.entries(day.counts).filter(([key]) => key !== 'PageView');
+                const total = dayConversions.reduce((sum, [, value]) => sum + value, 0);
                 return (
                   <div key={day.date} className="flex-1 flex flex-col items-center gap-1.5">
                     <div className="font-mono text-[10px] text-neon">{total || ''}</div>
