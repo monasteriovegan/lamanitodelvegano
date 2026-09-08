@@ -16,13 +16,14 @@ export default async function PedidoConfirmacionPage({
   const supabase = createSupabaseServiceClient();
   const { data: pedido, error } = await supabase
     .from('pedidos')
-    .select('id,total,estado,payment_status,nombre_cliente,items,tracking_number')
+    .select('id,total,estado,payment_status,source_channel,nombre_cliente,items,tracking_number')
     .eq('id', numericId)
     .maybeSingle();
 
   if (error || !pedido) notFound();
 
   const esExito = pedido.estado === 'Pagado' && pedido.payment_status === 'paid';
+  const isWebPurchase = String(pedido.source_channel || '').trim().toLowerCase() === 'web';
   const orderId = String(pedido.id);
   const trackingId = String(pedido.tracking_number || pedido.id);
 
@@ -40,7 +41,7 @@ export default async function PedidoConfirmacionPage({
     qty?: number;
   }>;
 
-  if (esExito && trackingItems.length > 0) {
+  if (esExito && isWebPurchase && trackingItems.length > 0) {
     const missingSku = trackingItems.some((i) => !i.sku && !i.variantSku && !i.variant_sku);
     if (missingSku) {
       const productIds = trackingItems.map((i) => i.productoId || i.producto_id).filter(Boolean) as string[];
@@ -68,7 +69,7 @@ export default async function PedidoConfirmacionPage({
 
   return (
     <SiteShell>
-      {esExito && <PurchaseTracking pedidoId={orderId} total={Number(pedido.total || 0)} items={trackingItems} />}
+      {esExito && isWebPurchase && <PurchaseTracking pedidoId={orderId} total={Number(pedido.total || 0)} items={trackingItems} />}
       <main className="pt-[100px] px-4 pb-16 max-w-[480px] mx-auto text-center">
         <span className="text-5xl mb-4 block">{esExito ? '✅' : '⏳'}</span>
         <h1 className="font-display font-bold text-xl text-white mb-2">
