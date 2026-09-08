@@ -2,7 +2,7 @@ import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { parseFormatos } from './formatos';
-import { collapseImplicitBundleIntents } from './bundle-intents';
+import { collapseImplicitBundleIntents, findActiveVariantForFormat } from './bundle-intents';
 import type { CheckoutRequest } from '@/types/domain';
 import { CatalogRepository } from '@/lib/catalog/catalog-repository';
 import { resolveCatalogCheckoutItem, type CatalogCheckoutItemIntent } from '@/lib/catalog/catalog-checkout';
@@ -79,6 +79,7 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
         unitsIncluded: variant.unitsIncluded,
         active: variant.active,
         sortOrder: variant.sortOrder,
+        sku: variant.sku,
       })),
     };
   });
@@ -118,7 +119,19 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
     }
 
     const catalogProduct = catalogById.get(reqItem.productoId);
-    const resolvedSku = prod.sku || catalogProduct?.variants?.[0]?.sku || catalogProduct?.sku || null;
+    const matchingVariant = findActiveVariantForFormat(
+      reqItem.formato,
+      (catalogProduct?.variants || []).map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        price: variant.price,
+        unitsIncluded: variant.unitsIncluded,
+        active: variant.active,
+        sortOrder: variant.sortOrder,
+        sku: variant.sku,
+      })),
+    );
+    const resolvedSku = matchingVariant?.sku || prod.sku || catalogProduct?.variants?.[0]?.sku || catalogProduct?.sku || null;
 
     itemsResueltos.push({
       productoId: prod.id,
@@ -132,6 +145,8 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
       variedad: reqItem.variedad || null,
       notas: reqItem.notas || null,
       sku: resolvedSku,
+      variantId: matchingVariant?.id,
+      variantSku: matchingVariant?.sku || undefined,
     });
   }
 
