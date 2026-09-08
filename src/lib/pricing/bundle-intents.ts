@@ -13,6 +13,7 @@ export type BundleVariant = {
   unitsIncluded: number;
   active: boolean;
   sortOrder: number;
+  sku?: string | null;
 };
 
 export type BundleProduct = {
@@ -30,6 +31,15 @@ function normalize(value: unknown) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLocaleLowerCase('es-CL');
+}
+
+export function findActiveVariantForFormat(
+  format: string | null | undefined,
+  variants: BundleVariant[],
+): BundleVariant | null {
+  const normalizedFormat = normalize(format);
+  if (!normalizedFormat) return null;
+  return variants.find((variant) => variant.active && normalize(variant.name) === normalizedFormat) || null;
 }
 
 function combineVarieties<T extends BundleIntent>(items: T[]) {

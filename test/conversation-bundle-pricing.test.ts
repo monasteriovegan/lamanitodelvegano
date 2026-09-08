@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { collapseImplicitBundleIntents } from '../src/lib/pricing/bundle-intents.ts';
+import { collapseImplicitBundleIntents, findActiveVariantForFormat } from '../src/lib/pricing/bundle-intents.ts';
 import { parseFormatos } from '../src/lib/pricing/formatos.ts';
 
 const empanadaProduct = {
@@ -10,8 +10,8 @@ const empanadaProduct = {
   managesStock: false,
   formatLabels: ['220g', 'Pack 10'],
   variants: [
-    { id: 'unit', name: 'Unidad', price: 2900, unitsIncluded: 1, active: true, sortOrder: 10 },
-    { id: 'pack10', name: 'Pack 10', price: 23900, unitsIncluded: 10, active: true, sortOrder: 20 },
+    { id: 'unit', name: 'Unidad', price: 2900, unitsIncluded: 1, active: true, sortOrder: 10, sku: 'FP26-EMP-UNIT' },
+    { id: 'pack10', name: 'Pack 10', price: 23900, unitsIncluded: 10, active: true, sortOrder: 20, sku: 'FP26-EMP-PACK10' },
   ],
 };
 
@@ -45,6 +45,13 @@ test('10 empanadas split by flavor collapse to the Pack 10 promotion at $23.900'
   const price = formats.find((format) => format.label === result[0].formato)?.precio;
   assert.equal(price, 23900);
   assert.equal(Number(price) * result[0].qty, 23900);
+});
+
+test('Pack 10 format resolves to its canonical active variant and SKU', () => {
+  const variant = findActiveVariantForFormat('Pack 10', empanadaProduct.variants);
+  assert.equal(variant?.id, 'pack10');
+  assert.equal(variant?.price, 23900);
+  assert.equal(variant?.sku, 'FP26-EMP-PACK10');
 });
 
 test('3 postres collapse to the active Pack 3 promotion at $10.000', () => {
