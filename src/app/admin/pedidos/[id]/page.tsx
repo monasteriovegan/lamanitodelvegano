@@ -7,6 +7,7 @@ import DeleteOrderButton from './DeleteOrderButton';
 import KitchenPrintButton from './KitchenPrintButton';
 import ClientReceiptPrintButton from './ClientReceiptPrintButton';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { formatDeliveryDateLong } from '@/lib/orders/delivery-date';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,17 +46,25 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-[1100px] w-full">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">✦ Detalle de Pedido Comercial</p>
-          <h1 className="font-display font-bold text-3xl text-white">{order.order_number || `MAN-${order.id.substring(0, 8)}`}</h1>
-          <p className="text-xs text-muted mt-1 font-mono">
-            Registrado el {new Date(order.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </p>
+      <div className="mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">✦ Detalle de Pedido Comercial</p>
+            <h1 className="font-display font-bold text-3xl text-white">{order.order_number || `MAN-${order.id.substring(0, 8)}`}</h1>
+            <p className="text-xs text-muted mt-1 font-mono">
+              Registrado el {new Date(order.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">Canal: {order.source || 'web'}</span>
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">Pago: {order.payment_status || 'pending'}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">Canal: {order.source || 'web'}</span>
-          <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">Pago: {order.payment_status || 'pending'}</span>
+        <div className={`mt-4 rounded-2xl border px-5 py-4 ${order.delivery_date ? 'border-neon/35 bg-neon/[0.08] shadow-[0_0_24px_rgba(0,255,179,0.06)]' : 'border-amber-400/35 bg-amber-400/10'}`}>
+          <p className={`text-[10px] font-display font-bold uppercase tracking-[2.5px] ${order.delivery_date ? 'text-neon' : 'text-amber-300'}`}>Fecha crítica de producción</p>
+          <p className={`mt-1 text-lg sm:text-xl font-bold ${order.delivery_date ? 'text-white' : 'text-amber-200'}`}>
+            {order.delivery_date ? `📅 Entrega: ${formatDeliveryDateLong(order.delivery_date)}` : '⚠️ Fecha de entrega pendiente'}
+          </p>
         </div>
       </div>
 

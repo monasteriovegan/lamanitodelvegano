@@ -3,6 +3,12 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import type { OperationalStatus } from '@/types/domain';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
+import {
+  compareDeliveryDates,
+  formatDeliveryDateChip,
+  formatDeliveryDateLong,
+  summarizeDeliveryDates,
+} from '@/lib/orders/delivery-date';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,32 +43,64 @@ const STATUS_COLORS: Record<OperationalStatus, { bg: string; text: string; borde
   cancelled: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444', border: 'rgba(239,68,68,0.3)' },
 };
 
+type OrderQuery = {
+  buscar?: string;
+  status?: string;
+  entrega?: string;
+  ordenar?: string;
+};
+
 interface PageProps {
-  searchParams: Promise<{ buscar?: string; status?: string }>;
+  searchParams: Promise<OrderQuery>;
+}
+
+function ordersHref(query: OrderQuery) {
+  const params = new URLSearchParams();
+  if (query.buscar) params.set('buscar', query.buscar);
+  if (query.status && query.status !== 'todos') params.set('status', query.status);
+  if (query.entrega) params.set('entrega', query.entrega);
+  if (query.ordenar) params.set('ordenar', query.ordenar);
+  const serialized = params.toString();
+  return serialized ? `/admin/pedidos?${serialized}` : '/admin/pedidos';
+}
+
+function paymentBadge(status: unknown) {
+  const value = String(status || 'pending').toLowerCase();
+  const paid = value === 'paid';
+  return {
+    label: value,
+    className: paid
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      : 'bg-amber-500/15 text-amber-200 border-amber-500/30',
+  };
 }
 
 export default async function AdminPedidosPage({ searchParams }: PageProps) {
   const admin = await requireRole(['admin', 'soporte', 'bodega']);
-  const { buscar = '', status } = await searchParams;
+  const { buscar = '', status, entrega = '', ordenar = '' } = await searchParams;
 
   const supabase = createSupabaseServiceClient();
   const orderRepository = new OrderRepository(supabase);
-  const [rawOrders, statusCountsRaw] = await Promise.all([
+  const [rawOrders, allOrders] = await Promise.all([
     orderRepository.list({ status }),
     orderRepository.list(),
   ]);
   const counts: Record<string, number> = {};
   let totalCount = 0;
 
-  statusCountsRaw.forEach((row: { status: string }) => {
+  allOrders.forEach((row: { status: string }) => {
     if (row.status) {
       counts[row.status] = (counts[row.status] || 0) + 1;
       totalCount++;
     }
   });
 
+  const deliverySummary = summarizeDeliveryDates(allOrders);
   const buscarLower = buscar.toLowerCase().trim();
-  const orders = rawOrders.filter((o: any) => {
+  const filteredOrders = rawOrders.filter((o: any) => {
+    const dateMatches = !entrega
+      || (entrega === 'sin-fecha' ? !o.delivery_date : o.delivery_date === entrega);
+    if (!dateMatches) return false;
     if (!buscarLower) return true;
     const numMatch = (o.order_number || o.id || '').toLowerCase().includes(buscarLower);
     const nameMatch = (o.customer_name || '').toLowerCase().includes(buscarLower);
@@ -73,8 +111,12 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
       || channelInfo(o.source).label.toLowerCase().includes(buscarLower);
     return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch || channelMatch;
   });
+  const orders = ordenar === 'entrega-asc'
+    ? [...filteredOrders].sort(compareDeliveryDates)
+    : filteredOrders;
 
   const fmtCLP = (val: number) => `$${val.toLocaleString('es-CL')}`;
+  const hasFilters = Boolean(buscar || (status && status !== 'todos') || entrega || ordenar);
 
   return (
     <div className="max-w-[1200px] w-full">
@@ -90,39 +132,67 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-6">
-        <Link href="/admin/pedidos" className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all ${!status || status === 'todos' ? 'bg-[rgba(0,255,179,0.15)] border-neon text-neon' : 'bg-white/5 border-white/10 text-muted hover:text-white'}`}>Todos ({totalCount})</Link>
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4">
+        <Link href={ordersHref({ buscar, entrega, ordenar })} className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all ${!status || status === 'todos' ? 'bg-[rgba(0,255,179,0.15)] border-neon text-neon' : 'bg-white/5 border-white/10 text-muted hover:text-white'}`}>Todos ({totalCount})</Link>
         {(Object.keys(STATUS_LABELS) as OperationalStatus[]).map((key) => {
           const count = counts[key] || 0;
           const isActive = status === key;
           const style = STATUS_COLORS[key];
           return (
-            <Link key={key} href={`/admin/pedidos?status=${key}`} className="px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all" style={{ backgroundColor: isActive ? style.bg : 'rgba(255,255,255,0.03)', borderColor: isActive ? style.border : 'rgba(255,255,255,0.08)', color: isActive ? style.text : '#888888' }}>
+            <Link key={key} href={ordersHref({ buscar, status: key, entrega, ordenar })} className="px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap border transition-all" style={{ backgroundColor: isActive ? style.bg : 'rgba(255,255,255,0.03)', borderColor: isActive ? style.border : 'rgba(255,255,255,0.08)', color: isActive ? style.text : '#888888' }}>
               {STATUS_LABELS[key]} ({count})
             </Link>
           );
         })}
       </div>
 
+      <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-display font-bold uppercase tracking-[2px] text-white/50">Jornadas de entrega</p>
+          <Link href={ordersHref({ buscar, status, ordenar })} className={`text-[10px] font-bold ${!entrega ? 'text-neon' : 'text-white/45 hover:text-white'}`}>Todas</Link>
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {deliverySummary.map(({ date, count }) => {
+            const key = date || 'sin-fecha';
+            const isActive = entrega === key;
+            return (
+              <Link
+                key={key}
+                href={ordersHref({ buscar, status, entrega: key, ordenar })}
+                className={`whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${isActive ? 'border-neon bg-neon/15 text-neon' : date ? 'border-white/10 bg-white/5 text-white/75 hover:border-white/25' : 'border-amber-400/25 bg-amber-400/10 text-amber-200 hover:border-amber-400/45'}`}
+              >
+                {date ? `📅 ${formatDeliveryDateChip(date)} · ${count}` : `⚠️ Sin fecha · ${count}`}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       <form method="GET" action="/admin/pedidos" className="flex flex-wrap gap-2.5 mb-6">
-        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, N° pedido, teléfono o canal..." className="flex-1 min-w-[280px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
+        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, N° pedido, teléfono o canal..." className="flex-1 min-w-[260px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
+        <select name="ordenar" defaultValue={ordenar} className="bg-[#07100d] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neon">
+          <option value="">Más recientes</option>
+          <option value="entrega-asc">Entrega más próxima</option>
+        </select>
         {status && <input type="hidden" name="status" value={status} />}
-        <button type="submit" className="bg-neon hover:bg-white text-[#020705] px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(0,255,179,0.2)]">Buscar</button>
-        {(buscar || (status && status !== 'todos')) && <Link href="/admin/pedidos" className="border border-white/10 hover:border-white/20 text-muted px-4 py-2 rounded-lg text-sm flex items-center hover:text-white transition-colors">Limpiar filtros</Link>}
+        {entrega && <input type="hidden" name="entrega" value={entrega} />}
+        <button type="submit" className="bg-neon hover:bg-white text-[#020705] px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_10px_rgba(0,255,179,0.2)]">Aplicar</button>
+        {hasFilters && <Link href="/admin/pedidos" className="border border-white/10 hover:border-white/20 text-muted px-4 py-2 rounded-lg text-sm flex items-center hover:text-white transition-colors">Limpiar filtros</Link>}
       </form>
 
-      <div className="hidden md:block bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-xl overflow-hidden mb-6">
-        <table className="w-full text-left border-collapse">
+      <div className="hidden md:block bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-xl overflow-x-auto mb-6">
+        <table className="w-full min-w-[1050px] text-left border-collapse">
           <thead>
             <tr className="border-b border-[rgba(0,255,179,0.12)] bg-white/[0.02]">
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Número</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Canal</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Cliente</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Estado</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Entrega</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Fecha</th>
-              <th className="px-4 py-3 text-[10px] tracking-wider text-neon uppercase font-display text-right">Acción</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Número</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Cliente</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Pago</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Canal</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Entrega</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Estado</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Creado</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display text-right">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -131,22 +201,28 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               const colorStyle = STATUS_COLORS[opStatus] || STATUS_COLORS.pending;
               const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
               const channel = channelInfo(o.source);
+              const payment = paymentBadge(o.payment_status);
               return (
                 <tr key={o.id} className="hover:bg-white/[0.03] transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-neon font-semibold">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</td>
-                  <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></td>
-                  <td className="px-4 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div></td>
-                  <td className="px-4 py-3 font-bold text-white text-sm font-display">{fmtCLP(o.total || 0)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3 font-mono text-xs text-neon font-semibold">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</td>
+                  <td className="px-3 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div></td>
+                  <td className="px-3 py-3"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span></td>
+                  <td className="px-3 py-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></td>
+                  <td className="px-3 py-3 text-xs">
+                    {o.delivery_date
+                      ? <span className="font-semibold text-white">📅 {formatDeliveryDateLong(o.delivery_date)}</span>
+                      : <span className="font-semibold text-amber-300">⚠️ Fecha pendiente</span>}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-white text-sm font-display">{fmtCLP(o.total || 0)}</td>
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: colorStyle.bg, color: colorStyle.text, borderColor: colorStyle.border }}>{STATUS_LABELS[opStatus] || opStatus}</span>
                       {isTransferPending && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">🏦 Confirmar pago</span>}
                       {o.print_count > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold" title={o.last_printed_at ? `Última impresión: ${new Date(o.last_printed_at).toLocaleString('es-CL')}` : 'Impreso'}>✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}</span>}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">{o.delivery_date ? new Date(o.delivery_date + 'T12:00:00').toLocaleDateString('es-CL') : o.shipping_zone_name || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-muted font-mono">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
-                  <td className="px-4 py-3 text-right"><Link href={`/admin/pedidos/${o.id}`} className="text-neon hover:text-white text-xs font-semibold transition-colors inline-flex items-center gap-1">Ver →</Link></td>
+                  <td className="px-3 py-3 text-xs text-muted font-mono">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
+                  <td className="px-3 py-3 text-right"><Link href={`/admin/pedidos/${o.id}`} className="text-neon hover:text-white text-xs font-semibold transition-colors inline-flex items-center gap-1">Ver →</Link></td>
                 </tr>
               );
             })}
@@ -161,13 +237,18 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
           const colorStyle = STATUS_COLORS[opStatus] || STATUS_COLORS.pending;
           const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
           const channel = channelInfo(o.source);
+          const payment = paymentBadge(o.payment_status);
           return (
             <div key={o.id} className="bg-white/[0.02] border border-[rgba(0,255,179,0.1)] rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap"><span className="font-mono font-bold text-neon text-sm">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</span><span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></div>
-                <div className="flex items-center gap-1.5 flex-wrap justify-end">{o.print_count > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}</span>}<span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: colorStyle.bg, color: colorStyle.text, borderColor: colorStyle.border }}>{STATUS_LABELS[opStatus] || opStatus}</span></div>
+                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: colorStyle.bg, color: colorStyle.text, borderColor: colorStyle.border }}>{STATUS_LABELS[opStatus] || opStatus}</span>
               </div>
               <div><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{[o.customer_email, o.customer_phone].filter(Boolean).join(' · ')}</div></div>
+              <div className={`rounded-lg border px-3 py-2 text-xs font-bold ${o.delivery_date ? 'border-neon/20 bg-neon/[0.06] text-white' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
+                {o.delivery_date ? `📅 Entrega: ${formatDeliveryDateLong(o.delivery_date)}` : '⚠️ Fecha de entrega pendiente'}
+              </div>
+              <div className="flex items-center justify-between gap-2"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span>{o.print_count > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}</span>}</div>
               <div className="flex items-center justify-between pt-2 border-t border-white/5"><span className="font-bold text-white text-base font-display">{fmtCLP(o.total || 0)}</span><Link href={`/admin/pedidos/${o.id}`} className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all">Gestionar →</Link></div>
               {isTransferPending && <div className="text-[11px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-3 py-1.5 rounded-lg">🏦 Pago por transferencia pendiente de verificación</div>}
             </div>
