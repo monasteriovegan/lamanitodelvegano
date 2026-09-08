@@ -19,7 +19,7 @@ type PurchaseItem = {
 
 export type MetaCapiResult =
   | { sent: true; eventId: string; duplicate?: boolean }
-  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'request_failed' };
+  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'non_web_order' | 'request_failed' };
 
 function normalizedHash(value: unknown) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -32,10 +32,10 @@ function normalizedPhoneHash(value: unknown) {
 }
 
 /**
- * Envía Purchase solo después de pago backend-verificado. El event_id es el
- * mismo que usa Pixel y conversion_events funciona además como outbox: un
- * webhook repetido no duplica un evento ya enviado, pero sí reintenta uno que
- * quedó pending/failed por una caída temporal de Meta.
+ * Envía Website Purchase solo después de pago backend-verificado y únicamente
+ * para pedidos cuyo canal canónico sea web. El event_id es el mismo que usa
+ * Pixel y conversion_events funciona además como outbox: un webhook repetido
+ * no duplica un evento ya enviado, pero sí reintenta uno pending/failed.
  */
 export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string | number): Promise<MetaCapiResult> {
   const accessToken = process.env.META_CONVERSIONS_API_ACCESS_TOKEN?.trim();
@@ -44,7 +44,7 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const [{ data: config }, { data: order }] = await Promise.all([
     db.from('integraciones_secretas').select('meta_pixel_id').eq('id', 'global').maybeSingle(),
     db.from('pedidos')
-      .select('id,business_unit_id,customer_id,total,currency,items,customer_email,telefono,payment_status')
+      .select('id,business_unit_id,customer_id,source_channel,total,currency,items,customer_email,telefono,payment_status')
       .eq('id', orderId)
       .eq('payment_status', 'paid')
       .maybeSingle(),
@@ -53,6 +53,9 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const pixelId = String(config?.meta_pixel_id || '').trim();
   if (!pixelId) return { sent: false, reason: 'not_configured' };
   if (!order) return { sent: false, reason: 'order_not_found' };
+  if (String(order.source_channel || '').trim().toLowerCase() !== 'web') {
+    return { sent: false, reason: 'non_web_order' };
+  }
 
   const eventId = `purchase_${order.id}`;
   const { data: existingDelivery, error: existingError } = await db
