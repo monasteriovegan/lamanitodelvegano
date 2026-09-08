@@ -1,6 +1,7 @@
 'use client';
 
 const CURRENCY = 'CLP';
+const FIRST_PARTY_ENDPOINT = '/api/analytics/events';
 
 export type AnalyticsItem = {
   id: string | number;
@@ -30,6 +31,42 @@ function googleTrack(eventName: string, parameters: Record<string, unknown>) {
     return;
   }
   window.gtag('event', eventName, parameters);
+}
+
+function firstPartySessionId() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = 'lmv_analytics_session_id';
+    const existing = window.sessionStorage.getItem(key);
+    if (existing) return existing;
+    const created = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    window.sessionStorage.setItem(key, created);
+    return created;
+  } catch {
+    return null;
+  }
+}
+
+function persistFirstPartyEvent(eventName: string, parameters: Record<string, unknown>) {
+  if (typeof window === 'undefined') return;
+  const body = {
+    event_name: eventName,
+    event_params: parameters,
+    page_path: `${window.location.pathname}${window.location.search}`,
+    session_id: firstPartySessionId(),
+  };
+
+  void fetch(FIRST_PARTY_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    keepalive: true,
+    body: JSON.stringify(body),
+  }).catch(() => {
+    // First-party observability must never block the customer flow or vendor analytics.
+  });
 }
 
 function metaCommerceParameters({ items, value }: CommerceEvent) {
@@ -64,27 +101,37 @@ function attributionParameters() {
 }
 
 export function trackPageView(url = window.location.href) {
+  const parameters = {
+    page_location: url,
+    page_title: document.title,
+  };
   metaTrack('PageView', {});
   googleTrack('page_view', {
-    page_location: url,
+    ...parameters,
     page_path: `${window.location.pathname}${window.location.search}`,
-    page_title: document.title,
   });
+  persistFirstPartyEvent('PageView', parameters);
 }
 
 export function trackViewContent(item: Required<Pick<AnalyticsItem, 'id' | 'name' | 'price'>>) {
-  metaTrack('ViewContent', { ...metaCommerceParameters({ items: [item], value: item.price }), ...attributionParameters() });
+  const parameters = { ...metaCommerceParameters({ items: [item], value: item.price }), ...attributionParameters() };
+  metaTrack('ViewContent', parameters);
   googleTrack('view_item', { currency: CURRENCY, value: item.price, items: googleItems([item]), ...attributionParameters() });
+  persistFirstPartyEvent('ViewContent', parameters);
 }
 
 export function trackAddToCart(event: CommerceEvent) {
-  metaTrack('AddToCart', { ...metaCommerceParameters(event), ...attributionParameters() });
+  const parameters = { ...metaCommerceParameters(event), ...attributionParameters() };
+  metaTrack('AddToCart', parameters);
   googleTrack('add_to_cart', { currency: CURRENCY, value: event.value, items: googleItems(event.items), ...attributionParameters() });
+  persistFirstPartyEvent('AddToCart', parameters);
 }
 
 export function trackInitiateCheckout(event: CommerceEvent) {
-  metaTrack('InitiateCheckout', { ...metaCommerceParameters(event), ...attributionParameters() });
+  const parameters = { ...metaCommerceParameters(event), ...attributionParameters() };
+  metaTrack('InitiateCheckout', parameters);
   googleTrack('begin_checkout', { currency: CURRENCY, value: event.value, items: googleItems(event.items), ...attributionParameters() });
+  persistFirstPartyEvent('InitiateCheckout', parameters);
 }
 
 export function trackContact(contactMethod: 'whatsapp' | 'instagram' | 'web', details: Partial<CommerceEvent> = {}) {
@@ -100,6 +147,7 @@ export function trackContact(contactMethod: 'whatsapp' | 'instagram' | 'web', de
   };
   metaTrack('Contact', parameters);
   googleTrack('contact', { ...parameters, items: details.items ? googleItems(details.items) : undefined });
+  persistFirstPartyEvent('Contact', parameters);
 }
 
 export function trackPurchase(orderId: string, event: CommerceEvent) {
