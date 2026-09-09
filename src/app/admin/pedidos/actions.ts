@@ -34,6 +34,7 @@ type RawItem = {
 
 type AdminOrderPayload = {
   draftKey?: string;
+  conversationId?: string | null;
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -95,52 +96,50 @@ function parseShipping(value: unknown) {
 
 export async function cambiarEstadoPedido(id: string, nuevoEstado: EstadoPedido) {
   await requireRole(['admin', 'soporte', 'bodega']);
-
   const supabase = createSupabaseServiceClient();
   const pedido = await new OrderRepository(supabase).update(id, { status: normalizeOrderStatus(nuevoEstado) });
-
   if (nuevoEstado === 'Despachado' && pedido.cliente?.email) {
-    enviarEmail({
-      to: pedido.cliente.email,
-      subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`,
-      html: plantillaPedidoDespachado(pedido as unknown as Pedido),
-    }).then((res) => {
+    enviarEmail({ to: pedido.cliente.email, subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`, html: plantillaPedidoDespachado(pedido as unknown as Pedido) }).then((res) => {
       if (!res.ok) console.error('No se pudo enviar email de despacho:', res.error);
     });
   }
-
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
 }
 
-export async function guardarPedidoGestion(
-  id: string,
-  nuevoEstado: EstadoPedido,
-  trackingNumber: string,
-  adminNotes: string
-) {
+export async function guardarPedidoGestion(id: string, nuevoEstado: EstadoPedido, trackingNumber: string, adminNotes: string) {
   await requireRole(['admin', 'soporte', 'bodega']);
-
   const supabase = createSupabaseServiceClient();
   const pedido = await new OrderRepository(supabase).update(id, {
     status: normalizeOrderStatus(nuevoEstado),
     tracking_number: trackingNumber,
     admin_notes: adminNotes,
   });
-
   if (nuevoEstado === 'Despachado' && pedido?.cliente?.email) {
-    enviarEmail({
-      to: pedido.cliente.email,
-      subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`,
-      html: plantillaPedidoDespachado(pedido as unknown as Pedido),
-    }).then((res) => {
+    enviarEmail({ to: pedido.cliente.email, subject: `Tu pedido #${id.slice(0, 8)} va en camino 🚚`, html: plantillaPedidoDespachado(pedido as unknown as Pedido) }).then((res) => {
       if (!res.ok) console.error('No se pudo enviar email de despacho:', res.error);
     });
   }
-
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
+}
+
+export async function confirmarPagoPedido(id: string) {
+  const admin = await requireRole(['admin', 'soporte']);
+  const db = createSupabaseServiceClient();
+  const repository = new OrderRepository(db);
+  const current = await repository.getById(id);
+  if (!current) throw new Error('Pedido no encontrado.');
+  if (current.payment_status === 'paid') return { ok: true, alreadyPaid: true };
+  await repository.update(id, {
+    status: 'confirmed',
+    payment_status: 'paid',
+  }, admin.email || admin.id || null);
+  revalidatePath(`/admin/pedidos/${id}`);
+  revalidatePath('/admin/pedidos');
+  revalidatePath('/admin');
+  return { ok: true, alreadyPaid: false };
 }
 
 export async function guardarPedidoCompleto(id: string, payload: AdminOrderPayload) {
@@ -154,67 +153,41 @@ export async function guardarPedidoCompleto(id: string, payload: AdminOrderPaylo
   if (!LEGACY_STATUSES.has(estado)) throw new Error('Estado operacional inválido.');
 
   const input: FullOrderUpdateInput = {
-    customerName: cleanText(payload.customerName),
-    customerPhone: cleanText(payload.customerPhone),
-    customerEmail: cleanText(payload.customerEmail),
-    address: cleanText(payload.address),
-    comuna: cleanText(payload.comuna),
-    deliveryDate: cleanText(payload.deliveryDate),
-    paymentMethod: cleanText(payload.paymentMethod),
-    paymentStatus: paymentStatus as FullOrderUpdateInput['paymentStatus'],
-    shippingCost: parseShipping(payload.shippingCost),
-    shippingZoneId: cleanText(payload.shippingZoneId),
-    shippingZoneName: cleanText(payload.shippingZoneName),
-    sourceChannel: sourceChannel as FullOrderUpdateInput['sourceChannel'],
-    estado: estado as FullOrderUpdateInput['estado'],
-    adminNotes: cleanText(payload.adminNotes),
-    notes: cleanText(payload.notes),
-    items,
-    stockItems,
+    customerName: cleanText(payload.customerName), customerPhone: cleanText(payload.customerPhone), customerEmail: cleanText(payload.customerEmail),
+    address: cleanText(payload.address), comuna: cleanText(payload.comuna), deliveryDate: cleanText(payload.deliveryDate),
+    paymentMethod: cleanText(payload.paymentMethod), paymentStatus: paymentStatus as FullOrderUpdateInput['paymentStatus'],
+    shippingCost: parseShipping(payload.shippingCost), shippingZoneId: cleanText(payload.shippingZoneId), shippingZoneName: cleanText(payload.shippingZoneName),
+    sourceChannel: sourceChannel as FullOrderUpdateInput['sourceChannel'], estado: estado as FullOrderUpdateInput['estado'],
+    adminNotes: cleanText(payload.adminNotes), notes: cleanText(payload.notes), items, stockItems,
   };
 
   const db = createSupabaseServiceClient();
   const order = await updateFullOrder(db, id, input, admin.email || admin.id || null);
   let crmSync: boolean | null = null;
-
   if (payload.updateCrm === true) {
     crmSync = false;
     try {
-      const { data: rawOrder, error: rawOrderError } = await db
-        .from('pedidos')
-        .select('business_unit_id,customer_id')
-        .eq('id', Number(id))
-        .maybeSingle();
+      const { data: rawOrder, error: rawOrderError } = await db.from('pedidos').select('business_unit_id,customer_id').eq('id', Number(id)).maybeSingle();
       if (rawOrderError) throw rawOrderError;
       if (!rawOrder?.business_unit_id || !rawOrder?.customer_id) throw new Error('order_customer_not_linked');
-
       const customers = new CustomerRepository(db);
       const current = await customers.getById(String(rawOrder.customer_id));
       if (!current) throw new Error('crm_customer_not_found');
       const phone = cleanText(payload.customerPhone) || current.phone;
       const nombre = cleanText(payload.customerName) || current.nombre;
       if (!phone || !nombre) throw new Error('crm_identity_incomplete');
-
-      await customers.upsertCheckoutContact(
-        String(rawOrder.business_unit_id),
-        {
-          email: cleanText(payload.customerEmail) ?? current.email,
-          phone,
-          nombre,
-          direccion: cleanText(payload.address) ?? current.direccion,
-          comuna: cleanText(payload.comuna) ?? cleanText(current.metadata?.comuna),
-        },
-        String(rawOrder.customer_id),
-      );
+      await customers.upsertCheckoutContact(String(rawOrder.business_unit_id), {
+        email: cleanText(payload.customerEmail) ?? current.email,
+        phone,
+        nombre,
+        direccion: cleanText(payload.address) ?? current.direccion,
+        comuna: cleanText(payload.comuna) ?? cleanText(current.metadata?.comuna),
+      }, String(rawOrder.customer_id));
       crmSync = true;
     } catch (crmError) {
-      console.error('admin_order_crm_sync_failed', {
-        orderId: id,
-        reason: crmError instanceof Error ? crmError.message : 'unknown',
-      });
+      console.error('admin_order_crm_sync_failed', { orderId: id, reason: crmError instanceof Error ? crmError.message : 'unknown' });
     }
   }
-
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
@@ -232,6 +205,62 @@ export async function crearPedidoManual(payload: AdminOrderPayload) {
   if (!customerName) throw new Error('El nombre del cliente es obligatorio.');
   const shippingCost = parseShipping(payload.shippingCost);
   const draftKey = cleanText(payload.draftKey) || randomUUID();
+  const db = createSupabaseServiceClient();
+
+  const conversationId = cleanText(payload.conversationId);
+  if (conversationId) {
+    const { data: conversation, error: conversationError } = await db
+      .from('conversations')
+      .select('id,business_unit_id,customer_id,contact_id,order_id,channel,labels')
+      .eq('id', conversationId)
+      .maybeSingle();
+    if (conversationError) throw conversationError;
+    if (!conversation) throw new Error('conversation_not_found');
+    if (conversation.order_id) throw new Error(`conversation_already_has_order:${conversation.order_id}`);
+    const trustedCustomerId = String(conversation.customer_id || conversation.contact_id || '');
+    if (!trustedCustomerId) throw new Error('conversation_customer_not_found');
+    const trustedChannel = String(conversation.channel || '');
+    if (!['whatsapp', 'instagram'].includes(trustedChannel)) throw new Error('conversation_channel_not_supported');
+
+    const order = await new OrderRepository(db).createConversationOrder({
+      idempotencyKey: `admin-conversation:${conversationId}:${draftKey}`,
+      businessUnitId: String(conversation.business_unit_id || BUSINESS_UNIT_ID),
+      customerId: trustedCustomerId,
+      conversationId,
+      customerEmail: cleanText(payload.customerEmail),
+      customerName,
+      customerPhone: cleanText(payload.customerPhone),
+      address: cleanText(payload.address),
+      comuna: cleanText(payload.comuna),
+      items,
+      stockItems,
+      total: subtotal + shippingCost,
+      paymentMethod: cleanText(payload.paymentMethod) || 'transfer',
+      paymentConfirmed: paymentStatus === 'paid',
+      shippingCost,
+      shippingZoneId: cleanText(payload.shippingZoneId),
+      shippingZoneName: cleanText(payload.shippingZoneName),
+      deliveryDate: cleanText(payload.deliveryDate),
+      sourceChannel: trustedChannel,
+      adminNotes: cleanText(payload.adminNotes),
+      attribution: { utm_source: trustedChannel, utm_medium: 'admin_conversation_manual' },
+    });
+
+    const labels = Array.from(new Set([...(Array.isArray(conversation.labels) ? conversation.labels.map(String) : []), 'pedido', ...(paymentStatus === 'paid' ? ['pagado'] : [])]));
+    const { error: linkError } = await db.from('conversations').update({
+      order_id: order.numeric_id,
+      customer_id: trustedCustomerId,
+      labels,
+      updated_at: new Date().toISOString(),
+    }).eq('id', conversationId).is('order_id', null);
+    if (linkError) throw linkError;
+    await db.from('omnichannel_messages').update({ order_id: order.numeric_id }).eq('conversation_id', conversationId).is('order_id', null);
+
+    revalidatePath('/admin/conversaciones');
+    revalidatePath('/admin/pedidos');
+    revalidatePath('/admin');
+    return { ok: true, orderId: order.numeric_id };
+  }
 
   const input: ManualOrderInput = {
     idempotencyKey: `admin:${admin.id}:${draftKey}`,
@@ -255,8 +284,6 @@ export async function crearPedidoManual(payload: AdminOrderPayload) {
     adminNotes: cleanText(payload.adminNotes),
     attribution: { utm_source: sourceChannel, utm_medium: 'admin_manual' },
   };
-
-  const db = createSupabaseServiceClient();
   const order = await createManualOrder(db, input);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
