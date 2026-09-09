@@ -12,6 +12,7 @@ import {
   autoRegisterWhatsappConversationSale,
   shouldAttemptWhatsappAutoSale,
 } from '@/lib/orders/whatsapp-auto-sale';
+import { reconcileWhatsappOrderReference } from '@/lib/orders/whatsapp-order-reference';
 
 export { createWhatsAppWebhookHandlers };
 
@@ -19,12 +20,21 @@ export const dynamic = 'force-dynamic';
 
 async function autoSale(db: any, result: { conversationId: string }, message: any) {
   if (!shouldAttemptWhatsappAutoSale(message)) return;
+
+  const reconciliation = await reconcileWhatsappOrderReference(db, result.conversationId);
+  if (reconciliation.linked) {
+    console.info('whatsapp_existing_web_order_linked', {
+      conversationId: result.conversationId,
+      orderId: reconciliation.orderId || null,
+    });
+  }
+
   const sale = await autoRegisterWhatsappConversationSale(db, result.conversationId);
   console.info('whatsapp_autosale_result', {
     conversationId: result.conversationId,
     status: sale.status,
     missing: sale.missing || [],
-    orderId: sale.orderId || null,
+    orderId: sale.orderId || reconciliation.orderId || null,
     paymentStatus: sale.paymentStatus || null,
   });
 }
