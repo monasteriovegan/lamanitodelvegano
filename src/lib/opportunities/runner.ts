@@ -164,7 +164,9 @@ export async function runOpportunityCycle(
     const recoveryEnabled = automaticExecutionEnabled && channelRecoveryEnabled;
     const policy = evaluateOpportunityPolicy({
       channel: opportunity.channel,
-      recoveryEnabled,
+      // Keep the policy API stable: here aiEnabled means the authorization for
+      // this recovery execution, not the global conversational Remy switch.
+      aiEnabled: recoveryEnabled,
       sendMode,
       channelEnabled: Boolean(settings?.enabled && settings?.auto_reply_enabled),
       conversationEnabled: Boolean(conversation.ai_enabled),
