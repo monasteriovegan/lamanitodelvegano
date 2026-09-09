@@ -44,7 +44,7 @@ export async function applyAdminPaymentConfirmation(
   await repository.update(input.orderId, {
     status: 'confirmed',
     payment_status: 'paid',
-  }, input.changedBy || null);
+  }, input.changedBy || undefined);
 
   const { data: conversation } = await db
     .from('conversations')
