@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/supabase/require-role';
 import ManualOrderForm from './ManualOrderForm';
@@ -30,9 +31,16 @@ function activeOptionGroups(product: any, prefix = '', keyPrefix = ''): ManualOp
     .filter((group: ManualOptionGroup) => group.options.length > 0);
 }
 
-export default async function NuevoPedidoPage() {
+export default async function NuevoPedidoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ conversationId?: string }>;
+}) {
   await requireRole(['admin', 'soporte']);
+  const { conversationId: rawConversationId } = await searchParams;
+  const conversationId = String(rawConversationId || '').trim();
   const db = createSupabaseServiceClient();
+
   const [{ data: products, error: productError }, { data: customers, error: customerError }] = await Promise.all([
     db.from('productos')
       .select('id,nombre,precio,gramaje,variedades,maneja_stock,stock,product_option_groups(*,product_option_values(*)),product_pack_components:product_pack_components!product_pack_components_pack_product_id_business_unit_id_fkey(*)')
@@ -47,6 +55,53 @@ export default async function NuevoPedidoPage() {
   ]);
   if (productError) throw productError;
   if (customerError) throw customerError;
+
+  let initialContext: {
+    conversationId: string;
+    customerId: string;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    address: string;
+    comuna: string;
+    sourceChannel: 'whatsapp' | 'instagram';
+  } | null = null;
+
+  if (conversationId) {
+    const { data: conversation, error: conversationError } = await db
+      .from('conversations')
+      .select('id,business_unit_id,customer_id,contact_id,channel,order_id')
+      .eq('id', conversationId)
+      .eq('business_unit_id', BUSINESS_UNIT_ID)
+      .maybeSingle();
+    if (conversationError) throw conversationError;
+    if (!conversation || !['whatsapp', 'instagram'].includes(String(conversation.channel))) {
+      throw new Error('La conversación no existe o no admite registro de venta.');
+    }
+    if (conversation.order_id) redirect(`/admin/pedidos/${conversation.order_id}`);
+
+    const customerId = String(conversation.customer_id || conversation.contact_id || '');
+    if (!customerId) throw new Error('La conversación no tiene cliente CRM asociado.');
+    const { data: contact, error: contactError } = await db
+      .from('omnichannel_contacts')
+      .select('id,nombre,display_name,phone,email,direccion,metadata')
+      .eq('id', customerId)
+      .eq('business_unit_id', BUSINESS_UNIT_ID)
+      .maybeSingle();
+    if (contactError) throw contactError;
+    if (!contact) throw new Error('No se encontró el cliente CRM de la conversación.');
+
+    initialContext = {
+      conversationId,
+      customerId,
+      customerName: String(contact.nombre || contact.display_name || ''),
+      customerPhone: String(contact.phone || ''),
+      customerEmail: String(contact.email || ''),
+      address: String(contact.direccion || ''),
+      comuna: typeof contact.metadata?.comuna === 'string' ? contact.metadata.comuna : '',
+      sourceChannel: String(conversation.channel) as 'whatsapp' | 'instagram',
+    };
+  }
 
   const productRows = (products || []) as any[];
   const byId = new Map(productRows.map((row) => [String(row.id), row]));
@@ -80,12 +135,12 @@ export default async function NuevoPedidoPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <p className="text-[11px] tracking-[4px] text-neon uppercase font-display mb-1">✦ Gestión Comercial</p>
-          <h1 className="font-display font-bold text-3xl text-white">Nuevo pedido manual</h1>
-          <p className="text-sm text-muted mt-1">Quedará en el mismo sistema de ventas, CRM, stock e impresión que Web, Instagram y WhatsApp.</p>
+          <h1 className="font-display font-bold text-3xl text-white">{initialContext ? 'Registrar venta desde conversación' : 'Nuevo pedido manual'}</h1>
+          <p className="text-sm text-muted mt-1">{initialContext ? `Cliente y canal vinculados de forma segura a ${initialContext.sourceChannel}.` : 'Quedará en el mismo sistema de ventas, CRM, stock e impresión que Web, Instagram y WhatsApp.'}</p>
         </div>
-        <Link href="/admin/pedidos" className="border border-white/10 px-4 py-2 rounded-lg text-sm text-white hover:border-neon/40">← Pedidos</Link>
+        <Link href={initialContext ? '/admin/conversaciones' : '/admin/pedidos'} className="border border-white/10 px-4 py-2 rounded-lg text-sm text-white hover:border-neon/40">← {initialContext ? 'Conversaciones' : 'Pedidos'}</Link>
       </div>
-      <ManualOrderForm products={manualProducts} customers={(customers || []) as any} />
+      <ManualOrderForm products={manualProducts} customers={(customers || []) as any} initialContext={initialContext} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const db = createSupabaseServiceClient();
   let query = db
     .from('conversations')
-    .select('id,customer_id,contact_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels,ai_enabled')
+    .select('id,customer_id,contact_id,order_id,channel,external_conversation_id,last_message_at,status,automation_status,human_takeover,unread_count,provider,transport,metadata,labels,ai_enabled')
     .in('channel', allowedChannels)
     .order('last_message_at', { ascending: false });
 
@@ -51,56 +51,32 @@ export async function GET(request: Request) {
   }
 
   const data = rows
-    .filter((row: any) => {
-      const lastMessageAt = (summaryMap.get(row.id) as any)?.last_message_at;
-      return Boolean(lastMessageAt);
-    })
+    .filter((row: any) => Boolean((summaryMap.get(row.id) as any)?.last_message_at))
     .map((row: any) => {
       const contact = contactMap.get(row.customer_id || row.contact_id);
       const summary = summaryMap.get(row.id) as any;
       const lastInboundAt = summary?.last_inbound_at || null;
-      const serviceWindowExpiresAt = lastInboundAt
-        ? new Date(new Date(lastInboundAt).getTime() + 24 * 60 * 60 * 1000).toISOString()
-        : null;
+      const serviceWindowExpiresAt = lastInboundAt ? new Date(new Date(lastInboundAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
       const personal = Boolean(contact?.metadata?.personal || row.metadata?.personal || row.labels?.includes?.('personal'));
       const instagramUsername = row.channel === 'instagram'
-        ? normalizeInstagramUsername(row.metadata?.external_username)
-          || normalizeInstagramUsername(contact?.metadata?.instagram_username)
-          || normalizeInstagramUsername(contact?.display_name)
-          || payloadUsernameMap.get(row.id)
-          || null
+        ? normalizeInstagramUsername(row.metadata?.external_username) || normalizeInstagramUsername(contact?.metadata?.instagram_username) || normalizeInstagramUsername(contact?.display_name) || payloadUsernameMap.get(row.id) || null
         : null;
-      const contactName = row.channel === 'instagram' && isPlaceholderInstagramName(contact?.nombre, row.external_conversation_id)
-        ? null
-        : contact?.nombre || null;
+      const contactName = row.channel === 'instagram' && isPlaceholderInstagramName(contact?.nombre, row.external_conversation_id) ? null : contact?.nombre || null;
       const instagramDisplayName = row.channel === 'instagram'
-        ? (
-            contactName && instagramUsername
-              ? `${contactName} · ${instagramUsername}`
-              : contactName || instagramUsername || contact?.display_name || `Instagram ${row.external_conversation_id}`
-          )
+        ? (contactName && instagramUsername ? `${contactName} · ${instagramUsername}` : contactName || instagramUsername || contact?.display_name || `Instagram ${row.external_conversation_id}`)
         : null;
-
       const visibleLastAt = summary?.last_message_at || row.last_message_at || null;
-      const externalOutboundAt = row.channel === 'whatsapp' && typeof row.metadata?.external_outbound_at === 'string'
-        ? row.metadata.external_outbound_at
-        : null;
-      const externalOutboundIsNewer = Boolean(
-        externalOutboundAt
-        && (!visibleLastAt || new Date(externalOutboundAt).getTime() > new Date(visibleLastAt).getTime()),
-      );
+      const externalOutboundAt = row.channel === 'whatsapp' && typeof row.metadata?.external_outbound_at === 'string' ? row.metadata.external_outbound_at : null;
+      const externalOutboundIsNewer = Boolean(externalOutboundAt && (!visibleLastAt || new Date(externalOutboundAt).getTime() > new Date(visibleLastAt).getTime()));
 
       return {
         id: row.id,
+        orderId: row.order_id == null ? null : Number(row.order_id),
         channel: row.channel,
-        name: row.channel === 'instagram'
-          ? instagramDisplayName
-          : contact?.nombre || contact?.display_name || row.external_conversation_id,
+        name: row.channel === 'instagram' ? instagramDisplayName : contact?.nombre || contact?.display_name || row.external_conversation_id,
         phone: row.channel === 'whatsapp' ? (contact?.phone || contact?.external_id || row.external_conversation_id) : null,
         email: contact?.email || null,
-        externalId: row.channel === 'instagram'
-          ? (instagramUsername ? instagramUsername.replace(/^@/, '') : contact?.external_id || row.external_conversation_id)
-          : contact?.external_id || row.external_conversation_id,
+        externalId: row.channel === 'instagram' ? (instagramUsername ? instagramUsername.replace(/^@/, '') : contact?.external_id || row.external_conversation_id) : contact?.external_id || row.external_conversation_id,
         instagramUsername,
         customerId: row.customer_id || row.contact_id || null,
         crmStatus: contact?.crm_status || 'new',
@@ -110,9 +86,7 @@ export async function GET(request: Request) {
         unreadCount: Number(row.unread_count || 0),
         provider: row.provider || null,
         transport: row.transport || null,
-        lastMessage: externalOutboundIsNewer
-          ? 'Respuesta enviada desde WhatsApp Business · contenido no sincronizado'
-          : summary?.last_body || (summary?.last_message_type ? `[${summary.last_message_type}]` : null),
+        lastMessage: externalOutboundIsNewer ? 'Respuesta enviada desde WhatsApp Business · contenido no sincronizado' : summary?.last_body || (summary?.last_message_type ? `[${summary.last_message_type}]` : null),
         lastDirection: externalOutboundIsNewer ? 'outbound' : summary?.last_direction || null,
         lastMessageStatus: externalOutboundIsNewer ? row.metadata?.external_outbound_status || 'sent' : summary?.last_status || null,
         lastMessageAt: externalOutboundIsNewer ? externalOutboundAt : visibleLastAt,

@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { ProductoForm } from '../ProductoForm';
 import { ProductStructureEditor } from '../ProductStructureEditor';
+import { AvailabilityDatesEditor } from '../AvailabilityDatesEditor';
 import type { Producto } from '@/types/domain';
 
 export default async function EditarProductoPage({
@@ -58,6 +59,10 @@ export default async function EditarProductoPage({
         variants={variants}
         optionGroups={optionGroups}
         packComponents={packComponents}
+      />
+      <AvailabilityDatesEditor
+        productId={id}
+        initialValue={String((producto as any).disponibilidad || '')}
       />
       <ProductStructureEditor
         productId={id}

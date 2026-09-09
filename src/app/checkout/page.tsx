@@ -10,6 +10,7 @@ import { formatDeliveryDateLabel } from '@/lib/pricing/fechas';
 import { trackContact, trackInitiateCheckout } from '@/lib/analytics/client';
 
 const FREE_SHIPPING_MINIMUM = 50_000;
+const PENDING_CHECKOUT_KEY = 'lmv_pending_checkout';
 
 function CheckoutContent() {
   const router = useRouter();
@@ -124,6 +125,30 @@ function CheckoutContent() {
     setLoading(true);
     setError(null);
 
+    const resumeFingerprint = JSON.stringify({
+      telefono: telefono.replace(/\D/g, ''),
+      direccion: direccion.trim().toLocaleLowerCase('es-CL'),
+      comuna: comuna.trim().toLocaleLowerCase('es-CL'),
+      zonaId,
+      fechaEntrega,
+      cuponCode: cuponCode.trim().toUpperCase(),
+      items: items.map((item) => ({
+        productoId: item.productoId,
+        variantId: item.variantId || null,
+        qty: item.qty,
+        formato: item.formato || null,
+        variedad: item.variedad || null,
+        selections: item.selections?.map(({ optionValueId, quantity }) => ({ optionValueId, quantity })) || [],
+      })),
+    });
+    let resumePedidoId: string | null = null;
+    try {
+      const pending = JSON.parse(sessionStorage.getItem(PENDING_CHECKOUT_KEY) || 'null');
+      if (pending?.fingerprint === resumeFingerprint && pending?.pedidoId) resumePedidoId = String(pending.pedidoId);
+    } catch {
+      resumePedidoId = null;
+    }
+
     try {
       const checkoutRes = await fetch('/api/checkout', {
         method: 'POST',
@@ -133,6 +158,7 @@ function CheckoutContent() {
         },
         body: JSON.stringify({
           idempotencyKey,
+          resumePedidoId,
           cliente: { nombre, direccion, comuna, telefono, email },
           items: items.map((i) => ({
             productoId: i.productoId,
@@ -161,6 +187,7 @@ function CheckoutContent() {
       }
 
       const pedidoId = String(checkoutData.pedidoId);
+      sessionStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify({ pedidoId, fingerprint: resumeFingerprint }));
 
       if (metodoPago === 'whatsapp') {
         trackContact('whatsapp', {
@@ -228,32 +255,21 @@ function CheckoutContent() {
           <div className="bg-white/[0.03] border border-[rgba(0,255,179,0.1)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-3">Despacho</h2>
             <div className="flex flex-col gap-2.5">
-              <select
-                required
-                value={zonaId}
-                onChange={(e) => { setZonaId(e.target.value); setComuna(''); }}
-                className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white"
-              >
+              <select required value={zonaId} onChange={(e) => { setZonaId(e.target.value); setComuna(''); }} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white">
                 <option value="" className="bg-[#0d1e16]">— Selecciona tu zona —</option>
-                {zonas.map((z) => (
-                  <option key={z.id} value={z.id} className="bg-[#0d1e16]">{z.nombre} — ${z.precio.toLocaleString('es-CL')}</option>
-                ))}
+                {zonas.map((z) => <option key={z.id} value={z.id} className="bg-[#0d1e16]">{z.nombre} — ${z.precio.toLocaleString('es-CL')}</option>)}
               </select>
-
               <select required disabled={!zonaId} value={comuna} onChange={(e) => setComuna(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white disabled:opacity-50">
                 <option value="" className="bg-[#0d1e16]">— Selecciona tu comuna —</option>
                 {comunasDisponibles.map((value) => <option key={value} value={value} className="bg-[#0d1e16]">{value}</option>)}
               </select>
-
               <select required value={fechaEntrega} onChange={(e) => setFechaEntrega(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-3 py-2.5 text-sm text-white">
                 <option value="" className="bg-[#0d1e16]">— Selecciona fecha de entrega —</option>
                 {deliveryDates.map((date) => <option key={date} value={date} className="bg-[#0d1e16]">{formatDeliveryDateLabel(date)}</option>)}
               </select>
             </div>
             <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${subtotal >= FREE_SHIPPING_MINIMUM ? 'border-neon/30 bg-neon/10 text-neon' : 'border-white/10 bg-white/[0.03] text-white/60'}`}>
-              {subtotal >= FREE_SHIPPING_MINIMUM
-                ? '✓ Tu pedido ya tiene despacho Gratis.'
-                : `🚚 Despacho gratis desde $50.000 en productos. Te faltan $${Math.max(0, FREE_SHIPPING_MINIMUM - subtotal).toLocaleString('es-CL')}.`}
+              {subtotal >= FREE_SHIPPING_MINIMUM ? '✓ Tu pedido ya tiene despacho Gratis.' : `🚚 Despacho gratis desde $50.000 en productos. Te faltan $${Math.max(0, FREE_SHIPPING_MINIMUM - subtotal).toLocaleString('es-CL')}.`}
             </div>
           </div>
 
@@ -264,17 +280,8 @@ function CheckoutContent() {
 
           <div className="bg-white/[0.04] border border-[rgba(0,255,179,0.18)] rounded-xl p-4">
             <h2 className="text-sm font-bold text-white mb-1.5">¿Quieres agregar una nota a tu pedido? (opcional)</h2>
-            <p className="text-xs text-white/55 mb-3">
-              Puedes indicar cambios, sabores, restricciones, detalles de preparación o instrucciones para la entrega.
-            </p>
-            <textarea
-              rows={3}
-              maxLength={500}
-              placeholder="Ej: 2 empanadas sin aceituna; postre de frambuesa; entregar después de las 18:00…"
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              className="w-full bg-white/5 border border-[rgba(0,255,179,0.25)] rounded-lg px-3 py-2.5 text-sm text-white resize-y outline-none focus:border-neon"
-            />
+            <p className="text-xs text-white/55 mb-3">Puedes indicar cambios, sabores, restricciones, detalles de preparación o instrucciones para la entrega.</p>
+            <textarea rows={3} maxLength={500} placeholder="Ej: 2 empanadas sin aceituna; postre de frambuesa; entregar después de las 18:00…" value={notas} onChange={(e) => setNotas(e.target.value)} className="w-full bg-white/5 border border-[rgba(0,255,179,0.25)] rounded-lg px-3 py-2.5 text-sm text-white resize-y outline-none focus:border-neon" />
             <div className="mt-1.5 text-right text-[10px] text-white/35">{notas.length}/500</div>
           </div>
 
@@ -297,16 +304,8 @@ function CheckoutContent() {
           {error && <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-rojo text-sm rounded-xl p-3">{error}</div>}
 
           <div className="bg-white/5 rounded-xl p-4">
-            <div className="mb-2 flex items-center justify-between text-xs">
-              <span className="text-muted">Despacho estimado</span>
-              <span className={zonaSeleccionada && envioEstimado === 0 ? 'font-bold text-neon' : 'text-white/70'}>
-                {!zonaSeleccionada ? '—' : envioEstimado === 0 ? 'Gratis' : `$${envioEstimado.toLocaleString('es-CL')}`}
-              </span>
-            </div>
-            <div className="flex items-center justify-between border-t border-white/10 pt-3">
-              <span className="text-sm text-muted">Total estimado*</span>
-              <span className="font-display font-bold text-xl text-neon">${totalEstimado.toLocaleString('es-CL')}</span>
-            </div>
+            <div className="mb-2 flex items-center justify-between text-xs"><span className="text-muted">Despacho estimado</span><span className={zonaSeleccionada && envioEstimado === 0 ? 'font-bold text-neon' : 'text-white/70'}>{!zonaSeleccionada ? '—' : envioEstimado === 0 ? 'Gratis' : `$${envioEstimado.toLocaleString('es-CL')}`}</span></div>
+            <div className="flex items-center justify-between border-t border-white/10 pt-3"><span className="text-sm text-muted">Total estimado*</span><span className="font-display font-bold text-xl text-neon">${totalEstimado.toLocaleString('es-CL')}</span></div>
           </div>
           <p className="text-[10px] text-muted -mt-2">*El total final (con cupón aplicado) se confirma de forma segura en el servidor antes de procesar el pago.</p>
 
