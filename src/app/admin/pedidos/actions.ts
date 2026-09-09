@@ -8,6 +8,7 @@ import { enviarEmail } from '@/lib/email/resend';
 import { plantillaPedidoDespachado } from '@/lib/email/templates';
 import type { EstadoPedido, Pedido } from '@/types/domain';
 import { OrderRepository, normalizeOrderStatus } from '@/lib/repositories/orders-repository';
+import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import {
   createManualOrder,
   updateFullOrder,
@@ -49,6 +50,7 @@ type AdminOrderPayload = {
   estado?: string | null;
   adminNotes?: string | null;
   notes?: string | null;
+  updateCrm?: boolean;
   items?: RawItem[];
 };
 
@@ -173,10 +175,50 @@ export async function guardarPedidoCompleto(id: string, payload: AdminOrderPaylo
 
   const db = createSupabaseServiceClient();
   const order = await updateFullOrder(db, id, input, admin.email || admin.id || null);
+  let crmSync: boolean | null = null;
+
+  if (payload.updateCrm === true) {
+    crmSync = false;
+    try {
+      const { data: rawOrder, error: rawOrderError } = await db
+        .from('pedidos')
+        .select('business_unit_id,customer_id')
+        .eq('id', Number(id))
+        .maybeSingle();
+      if (rawOrderError) throw rawOrderError;
+      if (!rawOrder?.business_unit_id || !rawOrder?.customer_id) throw new Error('order_customer_not_linked');
+
+      const customers = new CustomerRepository(db);
+      const current = await customers.getById(String(rawOrder.customer_id));
+      if (!current) throw new Error('crm_customer_not_found');
+      const phone = cleanText(payload.customerPhone) || current.phone;
+      const nombre = cleanText(payload.customerName) || current.nombre;
+      if (!phone || !nombre) throw new Error('crm_identity_incomplete');
+
+      await customers.upsertCheckoutContact(
+        String(rawOrder.business_unit_id),
+        {
+          email: cleanText(payload.customerEmail) ?? current.email,
+          phone,
+          nombre,
+          direccion: cleanText(payload.address) ?? current.direccion,
+          comuna: cleanText(payload.comuna) ?? cleanText(current.metadata?.comuna),
+        },
+        String(rawOrder.customer_id),
+      );
+      crmSync = true;
+    } catch (crmError) {
+      console.error('admin_order_crm_sync_failed', {
+        orderId: id,
+        reason: crmError instanceof Error ? crmError.message : 'unknown',
+      });
+    }
+  }
+
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
-  return { ok: true, orderId: order.numeric_id };
+  return { ok: true, orderId: order.numeric_id, crmSync };
 }
 
 export async function crearPedidoManual(payload: AdminOrderPayload) {

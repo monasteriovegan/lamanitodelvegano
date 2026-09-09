@@ -1,8 +1,11 @@
 import type { OpportunityChannel } from './types';
 
+type OpportunityRecoveryAuthorization =
+  | { recoveryEnabled: boolean; aiEnabled?: never }
+  | { recoveryEnabled?: never; aiEnabled: boolean };
+
 export type OpportunityPolicyInput = {
   channel: OpportunityChannel;
-  aiEnabled: boolean;
   sendMode: 'disabled' | 'read_only' | 'live';
   channelEnabled: boolean;
   conversationEnabled: boolean;
@@ -15,7 +18,7 @@ export type OpportunityPolicyInput = {
   lastBusinessMessageAt?: string | null;
   lastFollowupAt?: string | null;
   now?: string;
-};
+} & OpportunityRecoveryAuthorization;
 
 export type OpportunityPolicyDecision = {
   recommend: boolean;
@@ -30,6 +33,11 @@ function addHours(iso: string, hours: number) {
 
 export function evaluateOpportunityPolicy(input: OpportunityPolicyInput): OpportunityPolicyDecision {
   const now = input.now || new Date().toISOString();
+  // recoveryEnabled is the canonical authorization. The bracketed legacy alias
+  // keeps existing callers source-compatible without coupling this policy back
+  // to Remy's conversational global switch.
+  const recoveryEnabled = Boolean(input.recoveryEnabled ?? input['aiEnabled']);
+
   if (input.humanTakeover) return { recommend: false, automaticSend: false, reason: 'human_takeover', nextFollowupAt: null };
   if (input.personal) return { recommend: false, automaticSend: false, reason: 'personal_contact', nextFollowupAt: null };
   if (input.paidOrder) return { recommend: false, automaticSend: false, reason: 'paid_order', nextFollowupAt: null };
@@ -45,13 +53,13 @@ export function evaluateOpportunityPolicy(input: OpportunityPolicyInput): Opport
   const channelAllowsAuto = input.sendMode === 'live';
   const automaticSend = Boolean(
     due &&
-    input.aiEnabled &&
+    recoveryEnabled &&
     input.channelEnabled &&
     input.conversationEnabled &&
     channelAllowsAuto
   );
 
-  if (!input.aiEnabled) return { recommend: true, automaticSend: false, reason: 'remy_off_copilot', nextFollowupAt };
+  if (!recoveryEnabled) return { recommend: true, automaticSend: false, reason: 'recovery_disabled', nextFollowupAt };
   if (!input.channelEnabled) return { recommend: true, automaticSend: false, reason: 'channel_disabled', nextFollowupAt };
   if (!input.conversationEnabled) return { recommend: true, automaticSend: false, reason: 'conversation_disabled', nextFollowupAt };
   if (!channelAllowsAuto) return { recommend: true, automaticSend: false, reason: input.sendMode === 'read_only' ? 'send_mode_read_only' : 'send_mode_disabled', nextFollowupAt };

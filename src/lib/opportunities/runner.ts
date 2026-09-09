@@ -111,18 +111,11 @@ export async function runOpportunityCycle(
     .limit(50);
   if (dueError) throw dueError;
 
-  const { data: globalConfig, error: globalError } = await db.from('integraciones_secretas')
-    .select('ai_enabled')
-    .eq('id', 'global')
-    .maybeSingle();
-  if (globalError) throw globalError;
-
   const remyRuntime = await getAgentRuntimeConfig(db, 'remy');
-  // Automatic recovery is intentionally a separate persisted switch from the
-  // global Remy switch. This keeps observation/copilot mode available without
-  // relying on a Vercel environment variable as a hidden source of truth.
-  const automaticExecutionEnabled = remyRuntime.enabled
-    && remyRuntime.metadata?.opportunity_auto_send === true;
+  // Recovery has its own persisted master switch. It must keep working while
+  // the global conversational Remy switch is OFF, but a channel still needs an
+  // explicit authorization in metadata before any automatic recovery can send.
+  const automaticExecutionEnabled = remyRuntime.metadata?.opportunity_auto_send === true;
   const cartCutover = remyRuntime.metadata?.opportunity_cart_cutover === true;
 
   for (const raw of due || []) {
@@ -167,9 +160,13 @@ export async function runOpportunityCycle(
     const labels = Array.isArray(conversation.labels) ? conversation.labels.map(String) : [];
     const personal = Boolean(conversation.metadata?.personal || labels.includes('personal'));
     const sendMode = channelSendMode(settings);
+    const channelRecoveryEnabled = remyRuntime.metadata?.channels?.[opportunity.channel] === true;
+    const recoveryEnabled = automaticExecutionEnabled && channelRecoveryEnabled;
     const policy = evaluateOpportunityPolicy({
       channel: opportunity.channel,
-      aiEnabled: Boolean(globalConfig?.ai_enabled),
+      // Keep the policy API stable: here aiEnabled means the authorization for
+      // this recovery execution, not the global conversational Remy switch.
+      aiEnabled: recoveryEnabled,
       sendMode,
       channelEnabled: Boolean(settings?.enabled && settings?.auto_reply_enabled),
       conversationEnabled: Boolean(conversation.ai_enabled),
@@ -189,7 +186,7 @@ export async function runOpportunityCycle(
     // copilot mode for a human/approved-template decision; the runner never
     // forces a free-text send.
     const metaWindowOpen = serviceWindowOpen(opportunity.last_customer_message_at, now);
-    if (!automaticExecutionEnabled || !policy.automaticSend || !metaWindowOpen) {
+    if (!policy.automaticSend || !metaWindowOpen) {
       blocked += 1;
       continue;
     }

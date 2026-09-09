@@ -1,6 +1,12 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export type AgentRuntimeMetadata = Record<string, unknown> & {
+  channels?: Partial<Record<string, boolean>>;
+  opportunity_auto_send?: boolean;
+  opportunity_cart_cutover?: boolean;
+};
+
 export type AgentRuntimeConfig = {
   agent: string;
   provider: string;
@@ -8,7 +14,7 @@ export type AgentRuntimeConfig = {
   executionMode: 'api' | 'browser' | 'local';
   enabled: boolean;
   allowExternalWebTools: boolean;
-  metadata: Record<string, unknown>;
+  metadata: AgentRuntimeMetadata;
 };
 
 export async function getAgentRuntimeConfig(
@@ -28,6 +34,6 @@ export async function getAgentRuntimeConfig(
     executionMode: (data?.execution_mode || fallback.executionMode || 'api') as AgentRuntimeConfig['executionMode'],
     enabled: data?.enabled !== false,
     allowExternalWebTools: data?.allow_external_web_tools !== false,
-    metadata: data?.metadata && typeof data.metadata === 'object' ? data.metadata as Record<string, unknown> : {},
+    metadata: data?.metadata && typeof data.metadata === 'object' ? data.metadata as AgentRuntimeMetadata : {},
   };
 }

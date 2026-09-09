@@ -155,10 +155,13 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
         .order-actions-with-dedicated-print > div > div:has(button.flex-1) {
           display: none !important;
         }
+        .order-actions-with-dedicated-print > div > .flex.flex-wrap.gap-3.pt-2 > button:nth-of-type(2) {
+          display: none !important;
+        }
       `}</style>
 
       {(admin.rol === 'admin' || admin.rol === 'soporte') && (
-        <div className="mt-6">
+        <div className="mt-6 single-order-editor">
           <OrderEditForm
             order={order}
             products={(products || []).map((row: any) => ({ ...row, precio: Number(row.precio || 0), stock: row.stock == null ? null : Number(row.stock) }))}

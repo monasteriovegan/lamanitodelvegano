@@ -48,6 +48,7 @@ export default function OrderEditForm({ order, products }: { order: any; product
   const [estado, setEstado] = useState(String(order.legacy_status || 'Pendiente'));
   const [notes, setNotes] = useState(String(order.notes || ''));
   const [adminNotes, setAdminNotes] = useState(String(order.admin_notes || ''));
+  const [updateCrm, setUpdateCrm] = useState(false);
   const [items, setItems] = useState<EditableItem[]>(() => (order.items?.length ? order.items.map(toEditableItem) : [newItem(false)]));
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -67,7 +68,7 @@ export default function OrderEditForm({ order, products }: { order: any; product
     setLoading(true);
     setMessage('');
     try {
-      await guardarPedidoCompleto(String(order.id), {
+      const result = await guardarPedidoCompleto(String(order.id), {
         customerName,
         customerPhone,
         customerEmail,
@@ -82,9 +83,12 @@ export default function OrderEditForm({ order, products }: { order: any; product
         estado,
         notes,
         adminNotes,
+        updateCrm,
         items: items.map(({ key: _key, ...item }) => item),
       });
-      setMessage('✓ Pedido actualizado. El cambio quedó registrado en auditoría.');
+      setMessage(updateCrm && result.crmSync === false
+        ? '✓ Pedido actualizado. ⚠ No se pudo sincronizar la ficha CRM; el pedido sí quedó guardado.'
+        : '✓ Pedido actualizado. El cambio quedó registrado en auditoría.');
       setOpen(false);
       router.refresh();
     } catch (error) {
@@ -117,6 +121,21 @@ export default function OrderEditForm({ order, products }: { order: any; product
         <div><label className={labelClass}>Email</label><input type="email" className={inputClass} value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} /></div>
         <div className="md:col-span-2"><label className={labelClass}>Dirección</label><input className={inputClass} value={addressLine} onChange={(e) => setAddressLine(e.target.value)} /></div>
         <div><label className={labelClass}>Comuna</label><input className={inputClass} value={comuna} onChange={(e) => setComuna(e.target.value)} /></div>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <label className="flex items-start gap-2 text-xs text-white/90 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={updateCrm}
+            onChange={(e) => setUpdateCrm(e.target.checked)}
+            className="mt-0.5 rounded accent-[#00ffb3]"
+          />
+          <span>
+            <strong>Actualizar también la ficha maestra del contacto en CRM</strong>
+            <span className="block text-[10px] text-white/45 mt-1">Si no está marcado, los cambios de nombre, teléfono, email o dirección afectan solo a este pedido.</span>
+          </span>
+        </label>
       </div>
 
       <div className="border-t border-white/10 pt-4">
