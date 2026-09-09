@@ -15,6 +15,7 @@ import { verifyCheckoutSchemaReady } from '@/lib/repositories/checkout-schema-re
 type ProductionCheckoutRequest = CatalogCheckoutRequest & {
   cliente: CatalogCheckoutRequest['cliente'] & { comuna?: string };
   fechaEntrega?: string | null;
+  resumePedidoId?: string | number | null;
 };
 
 function parseAvailability(value: unknown): string[] {
@@ -43,6 +44,68 @@ async function validDeliveryDates(productIds: string[]) {
   return genFechas((data || []).map((row: any) => ({ disponibilidad: parseAvailability(row.disponibilidad) })))
     .filter((item) => item.ok)
     .map((item) => dateToYmd(item.fecha));
+}
+
+function normalizedResumeItems(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item: any) => ({
+    productoId: String(item?.productoId || item?.product_id || ''),
+    qty: Number(item?.qty || item?.quantity || 0),
+    precio: Number(item?.precio || item?.unit_price || item?.price || 0),
+    formato: String(item?.formato || ''),
+    variedad: String(item?.variedad || ''),
+    sku: String(item?.sku || ''),
+  })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+
+async function resumeCheckoutOrder(
+  db: ReturnType<typeof createSupabaseServiceClient>,
+  input: {
+    resumePedidoId: unknown;
+    businessUnitId: string;
+    customerId: string;
+    total: number;
+    items: unknown[];
+    shippingZoneId: string;
+    deliveryDate: string;
+    paymentMethod: string;
+  },
+) {
+  const pedidoId = Number(input.resumePedidoId);
+  if (!Number.isInteger(pedidoId) || pedidoId <= 0) return null;
+
+  const { data: existing, error } = await db
+    .from('pedidos')
+    .select('id,business_unit_id,customer_id,items,total,payment_status,source_channel,fecha_entrega,shipping_zone_id,metodopago')
+    .eq('id', pedidoId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!existing) return null;
+
+  const sameOrder = String(existing.business_unit_id || '') === input.businessUnitId
+    && String(existing.customer_id || '') === input.customerId
+    && String(existing.source_channel || '') === 'web'
+    && String(existing.payment_status || '') === 'pending'
+    && Number(existing.total || 0) === Math.round(input.total)
+    && String(existing.shipping_zone_id || '') === input.shippingZoneId
+    && String(existing.fecha_entrega || '') === input.deliveryDate
+    && JSON.stringify(normalizedResumeItems(existing.items)) === JSON.stringify(normalizedResumeItems(input.items));
+
+  if (!sameOrder) return null;
+
+  const { data: updated, error: updateError } = await db
+    .from('pedidos')
+    .update({
+      metodopago: input.paymentMethod,
+      estado: input.paymentMethod === 'whatsapp' ? 'WhatsApp' : 'Pendiente',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', pedidoId)
+    .eq('payment_status', 'pending')
+    .select('id')
+    .single();
+  if (updateError) throw updateError;
+  return updated ? { id: String(updated.id) } : null;
 }
 
 export async function GET(req: NextRequest) {
@@ -164,7 +227,18 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const pedido = await new OrderRepository(supabase, capabilities).createTransactionalCheckout({
+  const resumed = await resumeCheckoutOrder(supabase, {
+    resumePedidoId: body.resumePedidoId,
+    businessUnitId: business.id,
+    customerId: customer.id,
+    total: totalConFidelidad,
+    items: itemsFinales,
+    shippingZoneId: body.zonaId,
+    deliveryDate: fechaEntrega,
+    paymentMethod: body.metodoPago,
+  });
+
+  const pedido = resumed || await new OrderRepository(supabase, capabilities).createTransactionalCheckout({
     idempotencyKey,
     businessUnitId: business.id,
     customerId: customer.id,
@@ -187,9 +261,6 @@ export async function POST(req: NextRequest) {
     notes: body.notas || null,
   });
 
-  // Estos campos operativos deben estar persistidos ANTES de devolver el ID al
-  // navegador. Si esto falla no se inicia Mercado Pago; un retry con la misma
-  // Idempotency-Key recupera el mismo pedido y vuelve a completar los datos.
   const { error: deliveryDetailsError } = await supabase
     .from('pedidos')
     .update({
@@ -201,7 +272,7 @@ export async function POST(req: NextRequest) {
     .eq('id', Number(pedido.id));
   if (deliveryDetailsError) throw deliveryDetailsError;
 
-  if (body.cliente.email) {
+  if (!resumed && body.cliente.email) {
     enviarEmail({
       to: body.cliente.email,
       subject: `Pedido recibido #${pedido.id.slice(0, 8)} — La Manito Del Vegano`,
@@ -227,5 +298,5 @@ export async function POST(req: NextRequest) {
       .eq('recuperado', false);
   }
 
-  return NextResponse.json({ pedidoId: pedido.id, total: totalConFidelidad });
+  return NextResponse.json({ pedidoId: pedido.id, total: totalConFidelidad, resumed: Boolean(resumed) });
 }
