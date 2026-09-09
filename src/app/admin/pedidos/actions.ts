@@ -135,7 +135,7 @@ export async function confirmarPagoPedido(id: string) {
   await repository.update(id, {
     status: 'confirmed',
     payment_status: 'paid',
-  }, admin.email || admin.id || null);
+  }, admin.email || admin.id || undefined);
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
