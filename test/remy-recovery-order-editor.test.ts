@@ -41,5 +41,6 @@ test('full order editor preserves explicit CRM sync opt-in', () => {
   assert.match(editForm, /Actualizar también la ficha maestra del contacto en CRM/);
   assert.match(editForm, /updateCrm,/);
   assert.match(actions, /updateCrm\?:\s*boolean/);
-  assert.match(actions, /update_crm:\s*true/);
+  assert.match(actions, /payload\.updateCrm\s*===\s*true/);
+  assert.match(actions, /upsertCheckoutContact/);
 });
