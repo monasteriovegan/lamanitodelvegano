@@ -2,7 +2,7 @@ import type { OpportunityChannel } from './types';
 
 export type OpportunityPolicyInput = {
   channel: OpportunityChannel;
-  aiEnabled: boolean;
+  recoveryEnabled: boolean;
   sendMode: 'disabled' | 'read_only' | 'live';
   channelEnabled: boolean;
   conversationEnabled: boolean;
@@ -45,13 +45,13 @@ export function evaluateOpportunityPolicy(input: OpportunityPolicyInput): Opport
   const channelAllowsAuto = input.sendMode === 'live';
   const automaticSend = Boolean(
     due &&
-    input.aiEnabled &&
+    input.recoveryEnabled &&
     input.channelEnabled &&
     input.conversationEnabled &&
     channelAllowsAuto
   );
 
-  if (!input.aiEnabled) return { recommend: true, automaticSend: false, reason: 'remy_off_copilot', nextFollowupAt };
+  if (!input.recoveryEnabled) return { recommend: true, automaticSend: false, reason: 'recovery_disabled', nextFollowupAt };
   if (!input.channelEnabled) return { recommend: true, automaticSend: false, reason: 'channel_disabled', nextFollowupAt };
   if (!input.conversationEnabled) return { recommend: true, automaticSend: false, reason: 'conversation_disabled', nextFollowupAt };
   if (!channelAllowsAuto) return { recommend: true, automaticSend: false, reason: input.sendMode === 'read_only' ? 'send_mode_read_only' : 'send_mode_disabled', nextFollowupAt };
