@@ -8,6 +8,7 @@ type FilterType = 'all' | Channel | 'pending' | 'unread' | 'remy' | 'human';
 
 type Conversation = {
   id: string;
+  orderId: number | null;
   channel: Channel;
   name: string;
   phone: string | null;
@@ -123,18 +124,11 @@ export default function ConversationsClient() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [bulkEnabling, setBulkEnabling] = useState(false);
 
-  const pausedIndividuallyCount = useMemo(() => conversations.filter((item) => (
-    (item.channel === 'whatsapp' || item.channel === 'instagram') && !item.aiEnabled && !item.personal
-  )).length, [conversations]);
-
+  const pausedIndividuallyCount = useMemo(() => conversations.filter((item) => ((item.channel === 'whatsapp' || item.channel === 'instagram') && !item.aiEnabled && !item.personal)).length, [conversations]);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const isAtBottomRef = useRef(true);
   const previousMessagesLengthRef = useRef(0);
-
-  const chatMessages = useMemo(() => messages
-    .filter((m) => !m.message_type?.startsWith('status:'))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()), [messages]);
-
+  const chatMessages = useMemo(() => messages.filter((m) => !m.message_type?.startsWith('status:')).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()), [messages]);
   const selected = useMemo(() => conversations.find((c) => c.id === selectedId) || null, [conversations, selectedId]);
   const windowState = useMemo(() => remainingWindow(selected?.serviceWindowExpiresAt || null), [selected?.serviceWindowExpiresAt]);
 
@@ -148,10 +142,7 @@ export default function ConversationsClient() {
     if (filter === 'human' && !c.humanTakeover) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      return (c.name || '').toLowerCase().includes(q)
-        || (c.phone || '').includes(q)
-        || (c.externalId || '').toLowerCase().includes(q)
-        || (c.lastMessage || '').toLowerCase().includes(q);
+      return (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q) || (c.externalId || '').toLowerCase().includes(q) || (c.lastMessage || '').toLowerCase().includes(q);
     }
     return true;
   }), [conversations, filter, search]);
@@ -175,9 +166,7 @@ export default function ConversationsClient() {
       const next: Conversation[] = body.data || [];
       setConversations(next);
       setSelectedId((curr) => (curr && next.some((c) => c.id === curr) ? curr : null));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar conversaciones');
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Error al cargar conversaciones'); }
   }, []);
 
   const loadMessages = useCallback(async (conversationId: string, background = false) => {
@@ -188,140 +177,51 @@ export default function ConversationsClient() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Error al cargar mensajes');
       setMessages(body.data || []);
-      if (!background) {
-        setConversations((current) => current.map((c) => c.id === conversationId ? { ...c, unreadCount: 0 } : c));
-      }
-    } catch (err) {
-      if (!background) setError(err instanceof Error ? err.message : 'Error al cargar mensajes');
-    } finally {
-      if (!background) setLoadingMessages(false);
-    }
+      if (!background) setConversations((current) => current.map((c) => c.id === conversationId ? { ...c, unreadCount: 0 } : c));
+    } catch (err) { if (!background) setError(err instanceof Error ? err.message : 'Error al cargar mensajes'); }
+    finally { if (!background) setLoadingMessages(false); }
   }, []);
 
   const loadCustomer = useCallback(async (customerId: string) => {
     setLoadingCustomer(true);
-    try {
-      const res = await fetch(`/api/admin/customers/${customerId}`, { cache: 'no-store' });
-      if (res.ok) {
-        const body = await res.json();
-        setCustomerData(body.data || null);
-      }
-    } catch {
-      setCustomerData(null);
-    } finally {
-      setLoadingCustomer(false);
-    }
+    try { const res = await fetch(`/api/admin/customers/${customerId}`, { cache: 'no-store' }); if (res.ok) { const body = await res.json(); setCustomerData(body.data || null); } }
+    catch { setCustomerData(null); }
+    finally { setLoadingCustomer(false); }
   }, []);
 
   const bulkEnableAi = async () => {
     if (bulkEnabling || pausedIndividuallyCount === 0) return;
     const confirmed = window.confirm(`Esto va a reactivar Remy en ${pausedIndividuallyCount} conversación${pausedIndividuallyCount === 1 ? '' : 'es'} donde lo apagaste manualmente. No afecta a las conversaciones marcadas como Personal ni a las que tiene tomadas un humano. ¿Continuar?`);
     if (!confirmed) return;
-    setBulkEnabling(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin/conversations/bulk-enable-ai', { method: 'POST' });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || 'No se pudo reactivar Remy en las conversaciones');
-      await loadConversations();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo reactivar Remy en las conversaciones');
-    } finally {
-      setBulkEnabling(false);
-    }
+    setBulkEnabling(true); setError(null);
+    try { const response = await fetch('/api/admin/conversations/bulk-enable-ai', { method: 'POST' }); const body = await response.json(); if (!response.ok) throw new Error(body.error || 'No se pudo reactivar Remy en las conversaciones'); await loadConversations(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo reactivar Remy en las conversaciones'); }
+    finally { setBulkEnabling(false); }
   };
 
-  useEffect(() => {
-    setLoading(true);
-    loadConversations().finally(() => setLoading(false));
-  }, [loadConversations]);
+  useEffect(() => { setLoading(true); loadConversations().finally(() => setLoading(false)); }, [loadConversations]);
+  useEffect(() => { if (selectedId) { loadMessages(selectedId); setNewMessagesCount(0); isAtBottomRef.current = true; } }, [selectedId, loadMessages]);
+  useEffect(() => { if (selected?.customerId) loadCustomer(selected.customerId); else setCustomerData(null); }, [selected?.customerId, loadCustomer]);
+  useEffect(() => { const timer = window.setInterval(() => { loadConversations().catch(() => undefined); if (selectedId) loadMessages(selectedId, true).catch(() => undefined); }, 8000); return () => window.clearInterval(timer); }, [loadConversations, loadMessages, selectedId]);
 
-  useEffect(() => {
-    if (selectedId) {
-      loadMessages(selectedId);
-      setNewMessagesCount(0);
-      isAtBottomRef.current = true;
-    }
-  }, [selectedId, loadMessages]);
-
-  useEffect(() => {
-    if (selected?.customerId) loadCustomer(selected.customerId);
-    else setCustomerData(null);
-  }, [selected?.customerId, loadCustomer]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      loadConversations().catch(() => undefined);
-      if (selectedId) loadMessages(selectedId, true).catch(() => undefined);
-    }, 8000);
-    return () => window.clearInterval(timer);
-  }, [loadConversations, loadMessages, selectedId]);
-
-  const handleScroll = useCallback(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    isAtBottomRef.current = atBottom;
-    if (atBottom) setNewMessagesCount(0);
-  }, []);
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
-    setNewMessagesCount(0);
-    isAtBottomRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (chatMessages.length > previousMessagesLengthRef.current) {
-      if (isAtBottomRef.current) scrollToBottom(previousMessagesLengthRef.current === 0 ? 'auto' : 'smooth');
-      else setNewMessagesCount((c) => c + chatMessages.length - previousMessagesLengthRef.current);
-    }
-    previousMessagesLengthRef.current = chatMessages.length;
-  }, [chatMessages, scrollToBottom]);
+  const handleScroll = useCallback(() => { const el = messagesContainerRef.current; if (!el) return; const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80; isAtBottomRef.current = atBottom; if (atBottom) setNewMessagesCount(0); }, []);
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => { const el = messagesContainerRef.current; if (!el) return; el.scrollTo({ top: el.scrollHeight, behavior }); setNewMessagesCount(0); isAtBottomRef.current = true; }, []);
+  useEffect(() => { if (chatMessages.length > previousMessagesLengthRef.current) { if (isAtBottomRef.current) scrollToBottom(previousMessagesLengthRef.current === 0 ? 'auto' : 'smooth'); else setNewMessagesCount((c) => c + chatMessages.length - previousMessagesLengthRef.current); } previousMessagesLengthRef.current = chatMessages.length; }, [chatMessages, scrollToBottom]);
 
   async function sendMessage() {
     if (!selected || !text.trim() || sending) return;
-    setSending(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/admin/messages/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: selected.id, text: text.trim() }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message || body.error || 'No se pudo enviar el mensaje');
-      setText('');
-      await loadMessages(selected.id);
-      await loadConversations();
-      setTimeout(() => scrollToBottom('smooth'), 100);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar');
-    } finally {
-      setSending(false);
-    }
+    setSending(true); setError(null);
+    try { const response = await fetch('/api/admin/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId: selected.id, text: text.trim() }) }); const body = await response.json(); if (!response.ok) throw new Error(body.message || body.error || 'No se pudo enviar el mensaje'); setText(''); await loadMessages(selected.id); await loadConversations(); setTimeout(() => scrollToBottom('smooth'), 100); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Error al enviar'); }
+    finally { setSending(false); }
   }
 
   async function updateConversation(patch: Partial<Pick<Conversation, 'personal' | 'aiEnabled' | 'humanTakeover'>>) {
     if (!selected || updating) return;
-    setUpdating(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/admin/conversations/${selected.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || 'No se pudo actualizar la conversación');
-      await loadConversations();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar');
-    } finally {
-      setUpdating(false);
-    }
+    setUpdating(true); setError(null);
+    try { const response = await fetch(`/api/admin/conversations/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); const body = await response.json(); if (!response.ok) throw new Error(body.error || 'No se pudo actualizar la conversación'); await loadConversations(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Error al actualizar'); }
+    finally { setUpdating(false); }
   }
 
   return (
@@ -330,44 +230,16 @@ export default function ConversationsClient() {
       <div className="flex-1 flex min-h-0 relative overflow-hidden">
         <aside className={`w-full lg:w-[360px] xl:w-[400px] shrink-0 border-r border-white/10 flex flex-col bg-[#06140e] ${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-3 border-b border-white/10 space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="font-display font-black text-base text-white flex items-center gap-2"><span>💬</span> Conversaciones</h1>
-              <div className="flex items-center gap-1.5">
-                {pausedIndividuallyCount > 0 && <button onClick={() => void bulkEnableAi()} disabled={bulkEnabling} title="Reactivar Remy en conversaciones pausadas" className="text-[10px] text-amber-200 bg-amber-400/10 border border-amber-400/25 px-2 py-0.5 rounded-md hover:bg-amber-400/20 transition-colors">{bulkEnabling ? 'Reactivando…' : `Reactivar en las ${pausedIndividuallyCount} pausadas`}</button>}
-                <span className="text-[11px] font-mono text-neon bg-neon/10 border border-neon/20 px-2 py-0.5 rounded-full">{filteredConversations.length} activas</span>
-              </div>
-            </div>
-            <div className="relative">
-              <input type="text" placeholder="Buscar por nombre, teléfono o texto…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:border-neon/50 outline-none" />
-              {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-xs text-white/40 hover:text-white">×</button>}
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-              {[
-                { id: 'all' as FilterType, label: 'Todos', count: filterCounts.all },
-                { id: 'whatsapp' as FilterType, label: '🟢 WA', count: filterCounts.whatsapp },
-                { id: 'instagram' as FilterType, label: '🟣 IG', count: filterCounts.instagram },
-                { id: 'pending' as FilterType, label: '⏳ Pendientes', count: filterCounts.pending },
-                { id: 'unread' as FilterType, label: '🔴 No leídos', count: filterCounts.unread },
-                { id: 'remy' as FilterType, label: '🤖 Remy', count: filterCounts.remy },
-                { id: 'human' as FilterType, label: '👤 Humano', count: filterCounts.human },
-              ].map((f) => <button key={f.id} onClick={() => setFilter(f.id)} className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-1 shrink-0 ${filter === f.id ? 'bg-neon text-black font-bold' : 'bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white border border-white/5'}`}><span>{f.label}</span><span className={`text-[9px] px-1 py-0.2 rounded-full ${filter === f.id ? 'bg-black/20 text-black' : 'bg-white/10 text-white/50'}`}>{f.count}</span></button>)}
-            </div>
+            <div className="flex items-center justify-between gap-2"><h1 className="font-display font-black text-base text-white flex items-center gap-2"><span>💬</span> Conversaciones</h1><div className="flex items-center gap-1.5">{pausedIndividuallyCount > 0 && <button onClick={() => void bulkEnableAi()} disabled={bulkEnabling} title="Reactivar Remy en conversaciones pausadas" className="text-[10px] text-amber-200 bg-amber-400/10 border border-amber-400/25 px-2 py-0.5 rounded-md hover:bg-amber-400/20 transition-colors">{bulkEnabling ? 'Reactivando…' : `Reactivar en las ${pausedIndividuallyCount} pausadas`}</button>}<span className="text-[11px] font-mono text-neon bg-neon/10 border border-neon/20 px-2 py-0.5 rounded-full">{filteredConversations.length} activas</span></div></div>
+            <div className="relative"><input type="text" placeholder="Buscar por nombre, teléfono o texto…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:border-neon/50 outline-none" />{search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-2 text-xs text-white/40 hover:text-white">×</button>}</div>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">{[
+              { id: 'all' as FilterType, label: 'Todos', count: filterCounts.all }, { id: 'whatsapp' as FilterType, label: '🟢 WA', count: filterCounts.whatsapp }, { id: 'instagram' as FilterType, label: '🟣 IG', count: filterCounts.instagram }, { id: 'pending' as FilterType, label: '⏳ Pendientes', count: filterCounts.pending }, { id: 'unread' as FilterType, label: '🔴 No leídos', count: filterCounts.unread }, { id: 'remy' as FilterType, label: '🤖 Remy', count: filterCounts.remy }, { id: 'human' as FilterType, label: '👤 Humano', count: filterCounts.human },
+            ].map((f) => <button key={f.id} onClick={() => setFilter(f.id)} className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-1 shrink-0 ${filter === f.id ? 'bg-neon text-black font-bold' : 'bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white border border-white/5'}`}><span>{f.label}</span><span className={`text-[9px] px-1 py-0.2 rounded-full ${filter === f.id ? 'bg-black/20 text-black' : 'bg-white/10 text-white/50'}`}>{f.count}</span></button>)}</div>
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-white/5 overscroll-contain">
             {loading ? <div className="p-8 text-center text-xs text-white/40">Cargando conversaciones…</div> : filteredConversations.length === 0 ? <div className="p-8 text-center text-xs text-white/40">No hay conversaciones en este filtro.</div> : filteredConversations.map((c) => {
-              const meta = channelMeta(c.channel);
-              const aiState = conversationAiState(c);
-              const isSelected = c.id === selectedId;
-              const isPending = (c.unreadCount || 0) > 0 && !c.personal;
-              return <button key={c.id} onClick={() => { setSelectedId(c.id); setMobileView('chat'); }} className={`w-full text-left p-3 transition-colors relative flex items-start gap-3 ${isSelected ? 'bg-neon/[0.12] border-l-4 border-neon' : 'hover:bg-white/[0.04] border-l-4 border-transparent'}`}>
-                <div className="relative shrink-0 mt-0.5"><div className="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center font-bold text-sm text-white">{c.name ? c.name.charAt(0).toUpperCase() : '?'}</div><span className="absolute -bottom-1 -right-1 text-[11px] leading-none" title={meta.label}>{meta.icon}</span></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1"><span className="font-bold text-xs text-white truncate">{c.name || 'Sin nombre'}</span><span className="text-[10px] font-mono text-white/40 shrink-0">{formatDate(c.lastMessageAt)}</span></div>
-                  <div className="text-[11px] text-white/50 truncate mt-0.5">{c.phone ? `+${c.phone.replace(/^\+/, '')}` : `@${c.externalId}`}</div>
-                  <p className="text-xs text-white/70 truncate mt-1 leading-snug">{c.lastDirection === 'outbound' && <span className="text-neon/80 font-semibold">Tú: </span>}{c.lastMessage || <span className="text-white/30 italic">Sin mensajes</span>}</p>
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap"><span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${aiState.color}`}>{aiState.dot} {aiState.label}</span>{isPending && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">⏳ Por responder</span>}{(c.unreadCount || 0) > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto">{c.unreadCount}</span>}</div>
-                </div>
-              </button>;
+              const meta = channelMeta(c.channel); const aiState = conversationAiState(c); const isSelected = c.id === selectedId; const isPending = (c.unreadCount || 0) > 0 && !c.personal;
+              return <button key={c.id} onClick={() => { setSelectedId(c.id); setMobileView('chat'); }} className={`w-full text-left p-3 transition-colors relative flex items-start gap-3 ${isSelected ? 'bg-neon/[0.12] border-l-4 border-neon' : 'hover:bg-white/[0.04] border-l-4 border-transparent'}`}><div className="relative shrink-0 mt-0.5"><div className="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center font-bold text-sm text-white">{c.name ? c.name.charAt(0).toUpperCase() : '?'}</div><span className="absolute -bottom-1 -right-1 text-[11px] leading-none" title={meta.label}>{meta.icon}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-1"><span className="font-bold text-xs text-white truncate">{c.name || 'Sin nombre'}</span><span className="text-[10px] font-mono text-white/40 shrink-0">{formatDate(c.lastMessageAt)}</span></div><div className="text-[11px] text-white/50 truncate mt-0.5">{c.phone ? `+${c.phone.replace(/^\+/, '')}` : `@${c.externalId}`}</div><p className="text-xs text-white/70 truncate mt-1 leading-snug">{c.lastDirection === 'outbound' && <span className="text-neon/80 font-semibold">Tú: </span>}{c.lastMessage || <span className="text-white/30 italic">Sin mensajes</span>}</p><div className="flex items-center gap-1.5 mt-2 flex-wrap"><span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${aiState.color}`}>{aiState.dot} {aiState.label}</span>{c.orderId && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-neon/10 text-neon border border-neon/20">Pedido #{c.orderId}</span>}{isPending && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">⏳ Por responder</span>}{(c.unreadCount || 0) > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white ml-auto">{c.unreadCount}</span>}</div></div></button>;
             })}
           </div>
         </aside>
@@ -375,12 +247,9 @@ export default function ConversationsClient() {
         <main className={`flex-1 flex flex-col min-w-0 bg-[#020b07] relative ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
           {selected ? <>
             <header className="shrink-0 px-4 py-2.5 border-b border-white/10 bg-[#05160f]/90 backdrop-blur-md flex items-center justify-between gap-2 z-10">
-              <div className="flex items-center gap-3 min-w-0">
-                <button onClick={() => setMobileView('list')} className="lg:hidden p-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-white" aria-label="Volver a lista de chats">← Chats</button>
-                <div className="relative shrink-0"><div className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center font-bold text-xs text-white">{selected.name ? selected.name.charAt(0).toUpperCase() : '?'}</div><span className="absolute -bottom-1 -right-1 text-[10px] leading-none">{channelMeta(selected.channel).icon}</span></div>
-                <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white truncate">{selected.name || 'Sin nombre'}</span><span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${windowState.open ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>{windowState.label}</span></div><div className="text-[11px] text-white/50 truncate flex items-center gap-1.5"><span>{selected.phone ? `+${selected.phone.replace(/^\+/, '')}` : `@${selected.externalId}`}</span><span>·</span><span className="capitalize">{selected.channel}</span></div></div>
-              </div>
+              <div className="flex items-center gap-3 min-w-0"><button onClick={() => setMobileView('list')} className="lg:hidden p-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-white" aria-label="Volver a lista de chats">← Chats</button><div className="relative shrink-0"><div className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center font-bold text-xs text-white">{selected.name ? selected.name.charAt(0).toUpperCase() : '?'}</div><span className="absolute -bottom-1 -right-1 text-[10px] leading-none">{channelMeta(selected.channel).icon}</span></div><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-bold text-sm text-white truncate">{selected.name || 'Sin nombre'}</span><span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${windowState.open ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>{windowState.label}</span></div><div className="text-[11px] text-white/50 truncate flex items-center gap-1.5"><span>{selected.phone ? `+${selected.phone.replace(/^\+/, '')}` : `@${selected.externalId}`}</span><span>·</span><span className="capitalize">{selected.channel}</span></div></div></div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {(selected.channel === 'whatsapp' || selected.channel === 'instagram') && !selected.personal && (selected.orderId ? <Link href={`/admin/pedidos/${selected.orderId}`} className="text-xs px-2.5 py-1 rounded-lg border border-neon/40 bg-neon/15 text-neon font-bold">Ver pedido #{selected.orderId}</Link> : <Link href={`/admin/pedidos/nuevo?conversationId=${encodeURIComponent(selected.id)}`} className="text-xs px-2.5 py-1 rounded-lg border border-neon bg-neon text-black font-bold">＋ Registrar venta</Link>)}
                 <button onClick={() => updateConversation({ aiEnabled: !selected.aiEnabled })} disabled={updating || selected.personal} title="Alternar respuesta automática de Remy" className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-all flex items-center gap-1 ${selected.aiEnabled && !selected.personal && !selected.humanTakeover ? 'border-neon/40 bg-neon/15 text-neon' : 'border-white/10 bg-white/5 text-white/50'}`}><span>🤖</span><span className="hidden sm:inline">{selected.aiEnabled ? 'Remy Activo' : 'Remy Pausado'}</span></button>
                 <button onClick={() => updateConversation({ humanTakeover: !selected.humanTakeover })} disabled={updating} className={`text-xs px-2.5 py-1 rounded-lg border font-semibold ${selected.humanTakeover ? 'border-sky-400/40 bg-sky-400/20 text-sky-200' : 'border-white/10 bg-white/5 text-white/70'}`}><span>👤</span><span className="hidden sm:inline">{selected.humanTakeover ? 'Liberar' : 'Tomar'}</span></button>
                 <button onClick={() => updateConversation({ personal: !selected.personal })} disabled={updating} className={`text-xs px-2.5 py-1 rounded-lg border ${selected.personal ? 'border-white/30 bg-white/20 text-white font-bold' : 'border-white/10 bg-white/5 text-white/40'}`}>Personal</button>
@@ -389,25 +258,10 @@ export default function ConversationsClient() {
             </header>
 
             <div className="flex-1 flex min-h-0 relative">
-              <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 overscroll-contain relative">
-                {loadingMessages ? <div className="flex h-full items-center justify-center text-xs text-white/40">Cargando mensajes…</div> : chatMessages.length === 0 ? <div className="flex h-full flex-col items-center justify-center text-center p-6 text-white/40"><span className="text-3xl mb-2">💬</span><p className="text-sm font-semibold text-white/60">Aún no hay mensajes en esta conversación</p></div> : chatMessages.map((m) => {
-                  const isOut = m.direction === 'outbound';
-                  return <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[82%] sm:max-w-[70%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words shadow-md ${isOut ? 'bg-gradient-to-br from-[#0c402d] to-[#082a1d] text-emerald-50 border border-emerald-500/30 rounded-br-sm' : 'bg-white/[0.07] text-white border border-white/10 rounded-bl-sm'}`}><p>{m.body}</p><div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-white/45"><span>{formatFullDate(m.timestamp)}</span>{isOut && renderOutboundStatus(m.status)}</div></div></div>;
-                })}
-              </div>
+              <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 overscroll-contain relative">{loadingMessages ? <div className="flex h-full items-center justify-center text-xs text-white/40">Cargando mensajes…</div> : chatMessages.length === 0 ? <div className="flex h-full flex-col items-center justify-center text-center p-6 text-white/40"><span className="text-3xl mb-2">💬</span><p className="text-sm font-semibold text-white/60">Aún no hay mensajes en esta conversación</p></div> : chatMessages.map((m) => { const isOut = m.direction === 'outbound'; return <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[82%] sm:max-w-[70%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words shadow-md ${isOut ? 'bg-gradient-to-br from-[#0c402d] to-[#082a1d] text-emerald-50 border border-emerald-500/30 rounded-br-sm' : 'bg-white/[0.07] text-white border border-white/10 rounded-bl-sm'}`}><p>{m.body}</p><div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-white/45"><span>{formatFullDate(m.timestamp)}</span>{isOut && renderOutboundStatus(m.status)}</div></div></div>; })}</div>
               {newMessagesCount > 0 && <button onClick={() => scrollToBottom('smooth')} className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-neon text-black text-xs font-black px-4 py-2 rounded-full shadow-[0_0_20px_rgba(0,255,179,0.4)]">⬇ {newMessagesCount} nuevos mensajes</button>}
-              {showCrmDrawer && <aside className="w-full sm:w-[320px] lg:w-[340px] shrink-0 border-l border-white/10 bg-[#05140e] flex flex-col z-20 absolute inset-y-0 right-0 sm:relative shadow-2xl">
-                <div className="p-3 border-b border-white/10 flex items-center justify-between"><div className="font-bold text-xs text-white uppercase tracking-wider">👤 Ficha del Cliente</div><button onClick={() => setShowCrmDrawer(false)} className="text-sm text-white/50 hover:text-white p-1">×</button></div>
-                <div className="p-4 overflow-y-auto flex-1 space-y-4 text-xs">{loadingCustomer ? <div className="text-white/40 text-center py-6">Cargando datos CRM…</div> : <>
-                  <div><div className="text-[10px] uppercase font-bold text-neon/80 tracking-wider">Identidad</div><div className="font-bold text-sm text-white mt-1">{customerData?.full_name || selected.name || 'Sin nombre'}</div><div className="text-white/60 font-mono mt-0.5">{selected.phone || 'Sin teléfono'}</div>{customerData?.email && <div className="text-white/60 mt-0.5">{customerData.email}</div>}</div>
-                  {customerData?.address_line1 && <div><div className="text-[10px] uppercase font-bold text-neon/80 tracking-wider">Dirección</div><div className="text-white/80 mt-1">{customerData.address_line1} {customerData.city ? `(${customerData.city})` : ''}</div></div>}
-                  <div className="grid grid-cols-2 gap-2 bg-white/[0.03] border border-white/10 rounded-xl p-3"><div><div className="text-[10px] text-white/40">Total Pedidos</div><div className="font-mono font-bold text-base text-white mt-0.5">{customerData?.total_orders || 0}</div></div><div><div className="text-[10px] text-white/40">Total Comprado</div><div className="font-mono font-bold text-base text-neon mt-0.5">${(customerData?.total_spent || 0).toLocaleString('es-CL')}</div></div></div>
-                  {customerData?.notes && <div><div className="text-[10px] uppercase font-bold text-amber-300/80 tracking-wider">Notas CRM</div><p className="text-white/80 mt-1 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2 leading-relaxed">{customerData.notes}</p></div>}
-                  {selected.customerId && <div className="pt-2 border-t border-white/10"><Link href={`/admin/clientes/${selected.customerId}`} className="w-full block text-center py-2 px-3 rounded-xl bg-white/[0.05] border border-white/10 text-neon font-bold text-xs hover:bg-white/10">Ver historial completo en CRM →</Link></div>}
-                </>}</div>
-              </aside>}
+              {showCrmDrawer && <aside className="w-full sm:w-[320px] lg:w-[340px] shrink-0 border-l border-white/10 bg-[#05140e] flex flex-col z-20 absolute inset-y-0 right-0 sm:relative shadow-2xl"><div className="p-3 border-b border-white/10 flex items-center justify-between"><div className="font-bold text-xs text-white uppercase tracking-wider">👤 Ficha del Cliente</div><button onClick={() => setShowCrmDrawer(false)} className="text-sm text-white/50 hover:text-white p-1">×</button></div><div className="p-4 overflow-y-auto flex-1 space-y-4 text-xs">{loadingCustomer ? <div className="text-white/40 text-center py-6">Cargando datos CRM…</div> : <><div><div className="text-[10px] uppercase font-bold text-neon/80 tracking-wider">Identidad</div><div className="font-bold text-sm text-white mt-1">{customerData?.full_name || selected.name || 'Sin nombre'}</div><div className="text-white/60 font-mono mt-0.5">{selected.phone || 'Sin teléfono'}</div>{customerData?.email && <div className="text-white/60 mt-0.5">{customerData.email}</div>}</div>{customerData?.address_line1 && <div><div className="text-[10px] uppercase font-bold text-neon/80 tracking-wider">Dirección</div><div className="text-white/80 mt-1">{customerData.address_line1} {customerData.city ? `(${customerData.city})` : ''}</div></div>}<div className="grid grid-cols-2 gap-2 bg-white/[0.03] border border-white/10 rounded-xl p-3"><div><div className="text-[10px] text-white/40">Total Pedidos</div><div className="font-mono font-bold text-base text-white mt-0.5">{customerData?.total_orders || 0}</div></div><div><div className="text-[10px] text-white/40">Total Comprado</div><div className="font-mono font-bold text-base text-neon mt-0.5">${(customerData?.total_spent || 0).toLocaleString('es-CL')}</div></div></div>{customerData?.notes && <div><div className="text-[10px] uppercase font-bold text-amber-300/80 tracking-wider">Notas CRM</div><p className="text-white/80 mt-1 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2 leading-relaxed">{customerData.notes}</p></div>}{selected.customerId && <div className="pt-2 border-t border-white/10"><Link href={`/admin/clientes/${selected.customerId}`} className="w-full block text-center py-2 px-3 rounded-xl bg-white/[0.05] border border-white/10 text-neon font-bold text-xs hover:bg-white/10">Ver historial completo en CRM →</Link></div>}</>}</div></aside>}
             </div>
-
             <footer className="shrink-0 p-3 border-t border-white/10 bg-[#04120c] z-10"><div className="flex items-end gap-2 max-w-full"><textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }} rows={1} placeholder={`Responder a ${selected.name || 'este chat'} (Enter para enviar, Shift+Enter para nueva línea)…`} className="flex-1 max-h-32 min-h-[44px] bg-white/[0.06] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-white/40 outline-none focus:border-neon resize-none leading-relaxed" /><button onClick={() => void sendMessage()} disabled={sending || !text.trim()} className="h-[44px] px-5 bg-neon hover:bg-white text-black font-extrabold text-xs sm:text-sm rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0">{sending ? 'Enviando…' : 'Enviar 🚀'}</button></div></footer>
           </> : <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-white/40"><span className="text-4xl mb-3">💬</span><p className="text-base font-bold text-white">Selecciona una conversación</p><p className="text-xs text-white/50 mt-1 max-w-sm">Elige un chat de la lista para ver el historial. Solo al abrirlo se marca como leído.</p></div>}
         </main>
