@@ -4,6 +4,8 @@ import { sendMessage } from '@/lib/messaging/send';
 import { persistMessage } from '@/lib/messaging/messages';
 import { normalizePhone } from '@/lib/messaging/normalize';
 import { ConversationRepository } from '@/lib/repositories/conversations-repository';
+import { applyAdminPaymentConfirmation } from '@/lib/orders/admin-payment-confirmation';
+import { reconcileWhatsappOrderReference } from '@/lib/orders/whatsapp-order-reference';
 
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -61,6 +63,12 @@ export async function POST(request: Request) {
 
   try {
     const text = body.text.trim();
+    let effectiveOrderId = conversation.order_id;
+    if (conversation.channel === 'whatsapp' && !effectiveOrderId) {
+      const reconciliation = await reconcileWhatsappOrderReference(db, conversation.id);
+      effectiveOrderId = reconciliation.orderId || null;
+    }
+
     const result = await sendMessage({
       channel: conversation.channel as 'whatsapp' | 'instagram',
       conversationId: conversation.id,
@@ -88,12 +96,21 @@ export async function POST(request: Request) {
       raw_payload: result.raw,
     });
 
+    const paymentConfirmation = await applyAdminPaymentConfirmation(db, {
+      conversationId: conversation.id,
+      orderId: effectiveOrderId,
+      text,
+      changedBy: admin.email || admin.id || null,
+    });
+
     return Response.json({
       ok: true,
       channel: conversation.channel,
       messageId: message.messageId,
       providerMessageId: result.providerMessageId,
       ai_called: false,
+      paymentConfirmed: paymentConfirmation.confirmed,
+      orderId: paymentConfirmation.orderId || effectiveOrderId || null,
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'unknown';
