@@ -33,6 +33,17 @@ type CustomerOption = {
   metadata?: Record<string, unknown> | null;
 };
 
+type ConversationInitialContext = {
+  conversationId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  address: string;
+  comuna: string;
+  sourceChannel: 'whatsapp' | 'instagram';
+};
+
 type EditableItem = {
   key: string;
   custom: boolean;
@@ -67,29 +78,32 @@ const labelClass = 'block text-[10px] uppercase tracking-wider text-muted font-b
 export default function ManualOrderForm({
   products,
   customers,
+  initialContext,
 }: {
   products: ProductOption[];
   customers: CustomerOption[];
+  initialContext?: ConversationInitialContext | null;
 }) {
   const router = useRouter();
   const [draftKey] = useState(() => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
-  const [customerId, setCustomerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [address, setAddress] = useState('');
-  const [comuna, setComuna] = useState('');
+  const [customerId, setCustomerId] = useState(initialContext?.customerId || '');
+  const [customerName, setCustomerName] = useState(initialContext?.customerName || '');
+  const [customerPhone, setCustomerPhone] = useState(initialContext?.customerPhone || '');
+  const [customerEmail, setCustomerEmail] = useState(initialContext?.customerEmail || '');
+  const [address, setAddress] = useState(initialContext?.address || '');
+  const [comuna, setComuna] = useState(initialContext?.comuna || '');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingZoneName, setShippingZoneName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('transfer');
   const [paymentStatus, setPaymentStatus] = useState('pending');
-  const [sourceChannel, setSourceChannel] = useState('manual');
+  const [sourceChannel, setSourceChannel] = useState(initialContext?.sourceChannel || 'manual');
   const [adminNotes, setAdminNotes] = useState('');
   const [items, setItems] = useState<EditableItem[]>([newItem(false)]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const conversationBound = Boolean(initialContext?.conversationId);
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Math.max(0, Number(item.qty || 0)) * Math.max(0, Number(item.precio || 0)), 0),
     [items],
@@ -121,6 +135,7 @@ export default function ManualOrderForm({
   const orderOptionGroupsFor = (productId: string) => products.find((row) => row.id === productId)?.orderOptionGroups || [];
 
   const selectCustomer = (id: string) => {
+    if (conversationBound) return;
     setCustomerId(id);
     const customer = customers.find((row) => row.id === id);
     if (!customer) return;
@@ -139,6 +154,7 @@ export default function ManualOrderForm({
     try {
       const result = await crearPedidoManual({
         draftKey,
+        conversationId: initialContext?.conversationId || null,
         customerId: customerId || null,
         customerName,
         customerPhone,
@@ -167,7 +183,13 @@ export default function ManualOrderForm({
       router.push(`/admin/pedidos/${result.orderId}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear el pedido.');
+      const message = err instanceof Error ? err.message : 'No se pudo crear el pedido.';
+      const existing = message.match(/conversation_already_has_order:(\d+)/);
+      if (existing?.[1]) {
+        router.push(`/admin/pedidos/${existing[1]}`);
+        return;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -175,14 +197,19 @@ export default function ManualOrderForm({
 
   return (
     <form onSubmit={submit} className="space-y-6">
+      {conversationBound && (
+        <div className="rounded-xl border border-neon/30 bg-neon/10 px-4 py-3 text-sm text-neon">
+          ✓ Venta vinculada a la conversación de <strong className="capitalize">{initialContext?.sourceChannel}</strong>. El cliente y el canal se validarán nuevamente en el servidor al guardar.
+        </div>
+      )}
       {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
         <h2 className="font-display font-bold text-white mb-4">Cliente</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className={labelClass}>Cliente CRM existente (opcional)</label>
-            <select value={customerId} onChange={(e) => selectCustomer(e.target.value)} className={inputClass}>
+            <label className={labelClass}>Cliente CRM existente {conversationBound ? '(vinculado a la conversación)' : '(opcional)'}</label>
+            <select value={customerId} onChange={(e) => selectCustomer(e.target.value)} disabled={conversationBound} className={`${inputClass} disabled:opacity-60`}>
               <option value="" className="bg-[#030907]">Cliente nuevo / ingresar datos</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id} className="bg-[#030907]">
@@ -270,14 +297,14 @@ export default function ManualOrderForm({
           <div><label className={labelClass}>Zona / retiro</label><input className={inputClass} value={shippingZoneName} onChange={(e) => setShippingZoneName(e.target.value)} placeholder="Ej: Retiro taller / Maipú" /></div>
           <div><label className={labelClass}>Método pago</label><select className={inputClass} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option className="bg-[#030907]" value="transfer">Transferencia</option><option className="bg-[#030907]" value="cash">Efectivo</option><option className="bg-[#030907]" value="card">Tarjeta</option><option className="bg-[#030907]" value="other">Otro</option></select></div>
           <div><label className={labelClass}>Estado pago</label><select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option className="bg-[#030907]" value="pending">Pendiente</option><option className="bg-[#030907]" value="paid">Pagado</option><option className="bg-[#030907]" value="partial">Parcial</option><option className="bg-[#030907]" value="refunded">Reembolsado</option></select></div>
-          <div><label className={labelClass}>Canal</label><select className={inputClass} value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)}><option className="bg-[#030907]" value="manual">Manual</option><option className="bg-[#030907]" value="instagram">Instagram</option><option className="bg-[#030907]" value="whatsapp">WhatsApp</option><option className="bg-[#030907]" value="web">Web</option></select></div>
+          <div><label className={labelClass}>Canal</label><select className={`${inputClass} disabled:opacity-60`} value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)} disabled={conversationBound}><option className="bg-[#030907]" value="manual">Manual</option><option className="bg-[#030907]" value="instagram">Instagram</option><option className="bg-[#030907]" value="whatsapp">WhatsApp</option><option className="bg-[#030907]" value="web">Web</option></select></div>
           <div className="md:col-span-3"><label className={labelClass}>Notas administrativas</label><textarea className={inputClass} rows={3} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} /></div>
         </div>
       </section>
 
       <div className="rounded-2xl border border-neon/20 bg-neon/5 p-5 flex flex-wrap items-center justify-between gap-4">
         <div><div className="text-xs text-muted">Subtotal ${subtotal.toLocaleString('es-CL')} · Envío ${shippingCost.toLocaleString('es-CL')}</div><div className="font-display text-2xl font-bold text-neon">Total ${total.toLocaleString('es-CL')}</div></div>
-        <div className="flex gap-2"><Link href="/admin/pedidos" className="px-4 py-2.5 rounded-lg border border-white/10 text-sm text-white">Cancelar</Link><button disabled={loading} className="px-5 py-2.5 rounded-lg bg-neon text-[#020705] font-bold text-sm disabled:opacity-50">{loading ? 'Creando…' : 'Crear pedido'}</button></div>
+        <div className="flex gap-2"><Link href={conversationBound ? '/admin/conversaciones' : '/admin/pedidos'} className="px-4 py-2.5 rounded-lg border border-white/10 text-sm text-white">Cancelar</Link><button disabled={loading} className="px-5 py-2.5 rounded-lg bg-neon text-[#020705] font-bold text-sm disabled:opacity-50">{loading ? 'Creando…' : conversationBound ? 'Registrar venta' : 'Crear pedido'}</button></div>
       </div>
     </form>
   );
