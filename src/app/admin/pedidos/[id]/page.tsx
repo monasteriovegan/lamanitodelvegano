@@ -15,6 +15,20 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+function paymentMethodLabel(method: unknown) {
+  const key = String(method || '').trim().toLowerCase();
+  const labels: Record<string, string> = {
+    transfer: 'Transferencia',
+    mercadopago: 'Mercado Pago',
+    flow: 'Flow',
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    other: 'Otro',
+    whatsapp: 'Por definir (WhatsApp)',
+  };
+  return labels[key] || (key ? key : 'Sin registrar');
+}
+
 export default async function AdminPedidoDetailPage({ params }: PageProps) {
   const admin = await requireRole(['admin', 'soporte', 'bodega']);
   const { id } = await params;
@@ -58,6 +72,7 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white font-semibold">Canal: {order.source || 'web'}</span>
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-neon/15 border border-neon/30 text-neon font-semibold">Pago: {order.payment_status || 'pending'}</span>
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-200 font-semibold">Medio: {paymentMethodLabel(order.payment_method)}</span>
           </div>
         </div>
         <div className={`mt-4 rounded-2xl border px-5 py-4 ${order.delivery_date ? 'border-neon/35 bg-neon/[0.08] shadow-[0_0_24px_rgba(0,255,179,0.06)]' : 'border-amber-400/35 bg-amber-400/10'}`}>

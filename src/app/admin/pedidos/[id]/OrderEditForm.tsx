@@ -9,6 +9,7 @@ type EditableItem = { key: string; custom: boolean; productoId: string; nombre: 
 
 const inputClass = 'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-neon';
 const labelClass = 'block text-[10px] uppercase tracking-wider text-muted font-bold mb-1.5';
+const REAL_PAYMENT_METHODS = new Set(['transfer', 'mercadopago', 'flow', 'cash', 'card', 'other']);
 
 function key() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`; }
 function toEditableItem(item: any): EditableItem {
@@ -20,6 +21,8 @@ function newItem(custom = false): EditableItem { return { key: key(), custom, pr
 export default function OrderEditForm({ order, products }: { order: any; products: ProductOption[] }) {
   const router = useRouter();
   const address = typeof order.shipping_address === 'object' && order.shipping_address ? order.shipping_address : {};
+  const storedPaymentMethod = String(order.payment_method || '').toLowerCase();
+  const initialPaymentMethod = REAL_PAYMENT_METHODS.has(storedPaymentMethod) ? storedPaymentMethod : 'transfer';
   const [open, setOpen] = useState(false);
   const [customerName, setCustomerName] = useState(String(order.customer_name || ''));
   const [customerPhone, setCustomerPhone] = useState(String(order.customer_phone || ''));
@@ -29,7 +32,8 @@ export default function OrderEditForm({ order, products }: { order: any; product
   const [deliveryDate, setDeliveryDate] = useState(String(order.delivery_date || ''));
   const [shippingCost, setShippingCost] = useState(Number(order.shipping_amount || 0));
   const [shippingZoneName, setShippingZoneName] = useState(String(order.shipping_zone_name || ''));
-  const [paymentMethod, setPaymentMethod] = useState(String(order.payment_method || 'transfer'));
+  const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
+  const [confirmPaymentMethod, setConfirmPaymentMethod] = useState(initialPaymentMethod);
   const [paymentStatus, setPaymentStatus] = useState(String(order.payment_status || 'pending'));
   const [sourceChannel, setSourceChannel] = useState(String(order.source || 'manual'));
   const [estado, setEstado] = useState(String(order.legacy_status || 'Pendiente'));
@@ -48,14 +52,15 @@ export default function OrderEditForm({ order, products }: { order: any; product
 
   const confirmPayment = async () => {
     if (paymentStatus === 'paid' || confirmingPayment) return;
-    if (!window.confirm('¿Confirmas que este pago fue recibido? El pedido quedará Pagado y el cambio se registrará en auditoría.')) return;
+    if (!window.confirm('¿Confirmas que este pago fue recibido? Se guardará también el medio de pago seleccionado y el cambio quedará auditado.')) return;
     setConfirmingPayment(true);
     setMessage('');
     try {
-      await confirmarPagoPedido(String(order.id));
+      await confirmarPagoPedido(String(order.id), confirmPaymentMethod);
+      setPaymentMethod(confirmPaymentMethod);
       setPaymentStatus('paid');
       setEstado('Pagado');
-      setMessage('✓ Pago confirmado. Pedido marcado como Pagado y cambio registrado en auditoría.');
+      setMessage('✓ Pago confirmado con medio de pago registrado y auditado.');
       router.refresh();
     } catch (error) {
       setMessage(`⚠ ${error instanceof Error ? error.message : 'No se pudo confirmar el pago.'}`);
@@ -79,14 +84,27 @@ export default function OrderEditForm({ order, products }: { order: any; product
   if (!open) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="font-display font-bold text-white">Correcciones del pedido</h2><p className="text-xs text-muted mt-1">Cliente, productos, cantidades, despacho, pago, canal y fecha.</p></div>
-          <div className="flex flex-wrap gap-2">
-            {paymentStatus !== 'paid' && <button type="button" onClick={() => void confirmPayment()} disabled={confirmingPayment} className="bg-neon text-[#020705] px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">{confirmingPayment ? 'Confirmando…' : '✓ Confirmar pago'}</button>}
-            <button type="button" onClick={() => setOpen(true)} className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all">Editar pedido</button>
+          <div className="flex flex-wrap items-end gap-2">
+            {paymentStatus !== 'paid' && (
+              <label className="min-w-[190px]">
+                <span className={labelClass}>Medio de pago recibido</span>
+                <select className={inputClass} value={confirmPaymentMethod} onChange={(e) => setConfirmPaymentMethod(e.target.value)}>
+                  <option className="bg-[#030907]" value="transfer">Transferencia</option>
+                  <option className="bg-[#030907]" value="mercadopago">Mercado Pago</option>
+                  <option className="bg-[#030907]" value="flow">Flow</option>
+                  <option className="bg-[#030907]" value="cash">Efectivo</option>
+                  <option className="bg-[#030907]" value="card">Tarjeta</option>
+                  <option className="bg-[#030907]" value="other">Otro</option>
+                </select>
+              </label>
+            )}
+            {paymentStatus !== 'paid' && <button type="button" onClick={() => void confirmPayment()} disabled={confirmingPayment} className="bg-neon text-[#020705] px-4 py-2.5 rounded-lg text-sm font-bold disabled:opacity-50">{confirmingPayment ? 'Confirmando…' : '✓ Confirmar pago'}</button>}
+            <button type="button" onClick={() => setOpen(true)} className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-4 py-2.5 rounded-lg text-sm font-bold text-white transition-all">Editar pedido</button>
           </div>
         </div>
-        {paymentStatus === 'paid' && <p className="text-xs text-neon mt-3">✓ Pago confirmado</p>}
+        {paymentStatus === 'paid' && <p className="text-xs text-neon mt-3">✓ Pago confirmado · medio registrado: {paymentMethod}</p>}
         {message && <p className="text-xs text-neon mt-3">{message}</p>}
       </div>
     );
@@ -109,7 +127,7 @@ export default function OrderEditForm({ order, products }: { order: any; product
         <div className="space-y-3">{items.map((item, index) => <div key={item.key} className="border border-white/10 rounded-xl p-3"><div className="flex justify-between mb-2"><span className="text-[10px] uppercase font-bold text-neon">Ítem {index + 1} · {item.custom ? 'Producto personalizado' : 'Catálogo'}</span>{items.length > 1 && <button type="button" className="text-xs text-red-300" onClick={() => setItems((rows) => rows.filter((row) => row.key !== item.key))}>Quitar</button>}</div><div className="grid grid-cols-1 md:grid-cols-6 gap-2">{!item.custom ? <div className="md:col-span-3"><label className={labelClass}>Producto</label><select className={inputClass} value={item.productoId} onChange={(e) => selectProduct(item.key, e.target.value)}><option value="" className="bg-[#030907]">Seleccionar…</option>{products.map((product) => <option key={product.id} value={product.id} className="bg-[#030907]">{product.nombre}</option>)}</select></div> : <div className="md:col-span-3"><label className={labelClass}>Nombre</label><input className={inputClass} value={item.nombre} onChange={(e) => updateItem(item.key, { nombre: e.target.value })} /></div>}<div><label className={labelClass}>Cant.</label><input type="number" min={1} className={inputClass} value={item.qty} onChange={(e) => updateItem(item.key, { qty: Number(e.target.value) })} /></div><div className="md:col-span-2"><label className={labelClass}>Precio unit.</label><input type="number" min={0} className={inputClass} value={item.precio} onChange={(e) => updateItem(item.key, { precio: Number(e.target.value) })} /></div><div className="md:col-span-2"><label className={labelClass}>Formato</label><input className={inputClass} value={item.formato} onChange={(e) => updateItem(item.key, { formato: e.target.value })} /></div><div className="md:col-span-2"><label className={labelClass}>Variante / composición</label><input className={inputClass} value={item.variedad} onChange={(e) => updateItem(item.key, { variedad: e.target.value })} /></div><div className="md:col-span-2"><label className={labelClass}>Nota</label><input className={inputClass} value={item.notas} onChange={(e) => updateItem(item.key, { notas: e.target.value })} /></div></div></div>)}</div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 border-t border-white/10 pt-4">
-        <div><label className={labelClass}>Fecha entrega</label><input type="date" className={inputClass} value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div><div><label className={labelClass}>Costo envío</label><input type="number" min={0} className={inputClass} value={shippingCost} onChange={(e) => setShippingCost(Number(e.target.value))} /></div><div className="md:col-span-2"><label className={labelClass}>Zona / modalidad</label><input className={inputClass} value={shippingZoneName} onChange={(e) => setShippingZoneName(e.target.value)} /></div><div><label className={labelClass}>Método pago</label><select className={inputClass} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option className="bg-[#030907]" value="transfer">Transferencia</option><option className="bg-[#030907]" value="cash">Efectivo</option><option className="bg-[#030907]" value="card">Tarjeta</option><option className="bg-[#030907]" value="other">Otro</option></select></div><div><label className={labelClass}>Estado pago</label><select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option className="bg-[#030907]" value="pending">Pendiente</option><option className="bg-[#030907]" value="paid">Pagado</option><option className="bg-[#030907]" value="partial">Parcial</option><option className="bg-[#030907]" value="refunded">Reembolsado</option></select></div><div><label className={labelClass}>Canal</label><select className={inputClass} value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)}><option className="bg-[#030907]" value="instagram">Instagram</option><option className="bg-[#030907]" value="whatsapp">WhatsApp</option><option className="bg-[#030907]" value="web">Web</option><option className="bg-[#030907]" value="manual">Manual</option></select></div><div><label className={labelClass}>Estado</label><select className={inputClass} value={estado} onChange={(e) => setEstado(e.target.value)}><option className="bg-[#030907]">Pendiente</option><option className="bg-[#030907]">Pagado</option><option className="bg-[#030907]">Despachado</option><option className="bg-[#030907]">Completado</option><option className="bg-[#030907]">Cancelado</option></select></div><div className="md:col-span-2"><label className={labelClass}>Notas cliente</label><textarea rows={3} className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} /></div><div className="md:col-span-2"><label className={labelClass}>Notas administrativas</label><textarea rows={3} className={inputClass} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} /></div>
+        <div><label className={labelClass}>Fecha entrega</label><input type="date" className={inputClass} value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></div><div><label className={labelClass}>Costo envío</label><input type="number" min={0} className={inputClass} value={shippingCost} onChange={(e) => setShippingCost(Number(e.target.value))} /></div><div className="md:col-span-2"><label className={labelClass}>Zona / modalidad</label><input className={inputClass} value={shippingZoneName} onChange={(e) => setShippingZoneName(e.target.value)} /></div><div><label className={labelClass}>Método pago</label><select className={inputClass} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option className="bg-[#030907]" value="transfer">Transferencia</option><option className="bg-[#030907]" value="mercadopago">Mercado Pago</option><option className="bg-[#030907]" value="flow">Flow</option><option className="bg-[#030907]" value="cash">Efectivo</option><option className="bg-[#030907]" value="card">Tarjeta</option><option className="bg-[#030907]" value="other">Otro</option></select></div><div><label className={labelClass}>Estado pago</label><select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}><option className="bg-[#030907]" value="pending">Pendiente</option><option className="bg-[#030907]" value="paid">Pagado</option><option className="bg-[#030907]" value="partial">Parcial</option><option className="bg-[#030907]" value="refunded">Reembolsado</option></select></div><div><label className={labelClass}>Canal</label><select className={inputClass} value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)}><option className="bg-[#030907]" value="instagram">Instagram</option><option className="bg-[#030907]" value="whatsapp">WhatsApp</option><option className="bg-[#030907]" value="web">Web</option><option className="bg-[#030907]" value="manual">Manual</option></select></div><div><label className={labelClass}>Estado</label><select className={inputClass} value={estado} onChange={(e) => setEstado(e.target.value)}><option className="bg-[#030907]">Pendiente</option><option className="bg-[#030907]">Pagado</option><option className="bg-[#030907]">Despachado</option><option className="bg-[#030907]">Completado</option><option className="bg-[#030907]">Cancelado</option></select></div><div className="md:col-span-2"><label className={labelClass}>Notas cliente</label><textarea rows={3} className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} /></div><div className="md:col-span-2"><label className={labelClass}>Notas administrativas</label><textarea rows={3} className={inputClass} value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} /></div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4"><div><p className="text-xs text-muted">Subtotal ${subtotal.toLocaleString('es-CL')} · Envío ${shippingCost.toLocaleString('es-CL')}</p><p className="font-display font-bold text-xl text-neon">Nuevo total ${total.toLocaleString('es-CL')}</p></div><div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} className="border border-white/10 px-4 py-2 rounded-lg text-sm text-white">Cancelar</button><button disabled={loading} className="bg-neon text-[#020705] font-bold px-5 py-2 rounded-lg text-sm disabled:opacity-50">{loading ? 'Guardando…' : 'Guardar cambios'}</button></div></div>
     </form>

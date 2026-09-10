@@ -18,6 +18,7 @@ import {
 
 const BUSINESS_UNIT_ID = 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
 const PAYMENT_STATUSES = new Set(['pending', 'paid', 'failed', 'refunded', 'partial']);
+const PAYMENT_METHODS = new Set(['transfer', 'mercadopago', 'flow', 'cash', 'card', 'other']);
 const CHANNELS = new Set(['web', 'whatsapp', 'instagram', 'messenger', 'manual', 'admin']);
 const LEGACY_STATUSES = new Set(['Pendiente', 'Pagado', 'Despachado', 'Completado', 'Cancelado']);
 
@@ -125,21 +126,36 @@ export async function guardarPedidoGestion(id: string, nuevoEstado: EstadoPedido
   revalidatePath('/admin');
 }
 
-export async function confirmarPagoPedido(id: string) {
+export async function confirmarPagoPedido(id: string, paymentMethod: string) {
   const admin = await requireRole(['admin', 'soporte']);
+  paymentMethod = String(paymentMethod || '').trim().toLowerCase();
+  if (!PAYMENT_METHODS.has(paymentMethod)) throw new Error('Medio de pago inválido.');
+
   const db = createSupabaseServiceClient();
   const repository = new OrderRepository(db);
   const current = await repository.getById(id);
   if (!current) throw new Error('Pedido no encontrado.');
-  if (current.payment_status === 'paid') return { ok: true, alreadyPaid: true };
+  if (current.payment_status === 'refunded') throw new Error('Un pedido reembolsado no puede confirmarse como pagado.');
+
+  if (current.payment_status === 'paid') {
+    if (current.payment_method !== paymentMethod) {
+      await repository.update(id, { payment_method: paymentMethod }, admin.email || admin.id || undefined);
+    }
+    revalidatePath(`/admin/pedidos/${id}`);
+    revalidatePath('/admin/pedidos');
+    revalidatePath('/admin');
+    return { ok: true, alreadyPaid: true, paymentMethod };
+  }
+
   await repository.update(id, {
     status: 'confirmed',
     payment_status: 'paid',
+    payment_method: paymentMethod,
   }, admin.email || admin.id || undefined);
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
-  return { ok: true, alreadyPaid: false };
+  return { ok: true, alreadyPaid: false, paymentMethod };
 }
 
 export async function guardarPedidoCompleto(id: string, payload: AdminOrderPayload) {

@@ -38,12 +38,21 @@ export async function applyAdminPaymentConfirmation(
   const repository = new OrderRepository(db);
   const current = await repository.getById(input.orderId);
   if (!current) return { confirmed: false, reason: 'order_not_found' };
-  if (current.payment_status === 'paid') return { confirmed: true, orderId: input.orderId, reason: 'already_paid' };
   if (current.payment_status === 'refunded') return { confirmed: false, orderId: input.orderId, reason: 'refunded_order' };
+
+  if (current.payment_status === 'paid') {
+    if (!current.payment_method || current.payment_method === 'whatsapp') {
+      await repository.update(input.orderId, {
+        payment_method: 'transfer',
+      }, input.changedBy || undefined);
+    }
+    return { confirmed: true, orderId: input.orderId, reason: 'already_paid' };
+  }
 
   await repository.update(input.orderId, {
     status: 'confirmed',
     payment_status: 'paid',
+    payment_method: 'transfer',
   }, input.changedBy || undefined);
 
   const { data: conversation } = await db

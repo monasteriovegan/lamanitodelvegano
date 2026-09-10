@@ -249,6 +249,7 @@ export class OrderRepository {
     input: {
       status?: string;
       payment_status?: string;
+      payment_method?: string;
       tracking_number?: string;
       admin_notes?: string;
       notes?: string;
@@ -282,6 +283,10 @@ export class OrderRepository {
       update.estado = toLegacyOrderStatus(normalizeOrderStatus(input.status));
     }
 
+    if (input.payment_method !== undefined) {
+      update.metodopago = input.payment_method || null;
+    }
+
     if (this.capabilities.orderExtensions) {
       if (input.payment_status !== undefined) update.payment_status = input.payment_status;
       if (input.tracking_number !== undefined) update.tracking_number = input.tracking_number || null;
@@ -296,7 +301,6 @@ export class OrderRepository {
       update.fecha_entrega = input.delivery_date || null;
     }
 
-    // Actualización de cliente en JSON y campos planos
     const clienteData = {
       ...(before.cliente && typeof before.cliente === 'object' ? before.cliente : {}),
     };
@@ -313,7 +317,6 @@ export class OrderRepository {
       clienteData.telefono = normalizedPhone;
       clienteChanged = true;
 
-      // Si el operador marcó explícitamente actualizar la ficha CRM
       if (input.update_crm && before.customer_id) {
         await this.db
           .from('omnichannel_contacts')
@@ -347,7 +350,6 @@ export class OrderRepository {
       update.cliente = clienteData;
     }
 
-    // Manejo de Registro de Impresión (F)
     const existingMetadata = {
       ...(before.shipping_address && typeof before.shipping_address === 'object' && before.shipping_address.metadata
         ? before.shipping_address.metadata
@@ -386,7 +388,6 @@ export class OrderRepository {
 
     const updated = mapPedidoToAdminOrder(data);
 
-    // Registro de auditoría
     if (this.capabilities.supportTables) {
       const changes: string[] = [];
       if (before.legacy_status !== updated.legacy_status) {
@@ -394,6 +395,9 @@ export class OrderRepository {
       }
       if (before.payment_status !== updated.payment_status) {
         changes.push(`Pago: ${before.payment_status} → ${updated.payment_status}`);
+      }
+      if (before.payment_method !== updated.payment_method) {
+        changes.push(`Medio de pago: ${before.payment_method || '—'} → ${updated.payment_method || '—'}`);
       }
       if (before.customer_phone !== updated.customer_phone) {
         changes.push(`Teléfono: ${before.customer_phone || '—'} → ${updated.customer_phone || '—'}`);

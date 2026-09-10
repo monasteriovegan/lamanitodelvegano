@@ -34,6 +34,20 @@ function channelInfo(source: unknown) {
   return CHANNEL_LABELS[key] || { label: key || 'Web', icon: '•', className: 'bg-white/5 text-white/80 border-white/15' };
 }
 
+function paymentMethodLabel(method: unknown) {
+  const key = String(method || '').trim().toLowerCase();
+  const labels: Record<string, string> = {
+    transfer: 'Transferencia',
+    mercadopago: 'Mercado Pago',
+    flow: 'Flow',
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    other: 'Otro',
+    whatsapp: 'Por definir (WhatsApp)',
+  };
+  return labels[key] || (key ? key : 'Sin registrar');
+}
+
 const STATUS_COLORS: Record<OperationalStatus, { bg: string; text: string; border: string }> = {
   pending: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
   confirmed: { bg: 'rgba(52,211,153,0.15)', text: '#34d399', border: 'rgba(52,211,153,0.3)' },
@@ -67,8 +81,15 @@ function ordersHref(query: OrderQuery) {
 function paymentBadge(status: unknown) {
   const value = String(status || 'pending').toLowerCase();
   const paid = value === 'paid';
+  const labels: Record<string, string> = {
+    paid: 'Pagado',
+    pending: 'Pendiente',
+    partial: 'Parcial',
+    refunded: 'Reembolsado',
+    failed: 'Fallido',
+  };
   return {
-    label: value,
+    label: labels[value] || value,
     className: paid
       ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
       : 'bg-amber-500/15 text-amber-200 border-amber-500/30',
@@ -109,7 +130,9 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
     const zoneMatch = (o.shipping_zone_name || '').toLowerCase().includes(buscarLower);
     const channelMatch = String(o.source || '').toLowerCase().includes(buscarLower)
       || channelInfo(o.source).label.toLowerCase().includes(buscarLower);
-    return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch || channelMatch;
+    const paymentMatch = String(o.payment_method || '').toLowerCase().includes(buscarLower)
+      || paymentMethodLabel(o.payment_method).toLowerCase().includes(buscarLower);
+    return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch || channelMatch || paymentMatch;
   });
   const orders = ordenar === 'entrega-asc'
     ? [...filteredOrders].sort(compareDeliveryDates)
@@ -169,7 +192,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
       </div>
 
       <form method="GET" action="/admin/pedidos" className="flex flex-wrap gap-2.5 mb-6">
-        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, N° pedido, teléfono o canal..." className="flex-1 min-w-[260px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
+        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, N° pedido, teléfono, canal o medio de pago..." className="flex-1 min-w-[260px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
         <select name="ordenar" defaultValue={ordenar} className="bg-[#07100d] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neon">
           <option value="">Más recientes</option>
           <option value="entrega-asc">Entrega más próxima</option>
@@ -181,12 +204,12 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
       </form>
 
       <div className="hidden md:block bg-white/[0.02] border border-[rgba(0,255,179,0.12)] rounded-xl overflow-x-auto mb-6">
-        <table className="w-full min-w-[1050px] text-left border-collapse">
+        <table className="w-full min-w-[1100px] text-left border-collapse">
           <thead>
             <tr className="border-b border-[rgba(0,255,179,0.12)] bg-white/[0.02]">
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Número</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Cliente</th>
-              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Pago</th>
+              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Pago / medio</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Canal</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Entrega</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
@@ -206,7 +229,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                 <tr key={o.id} className="hover:bg-white/[0.03] transition-colors">
                   <td className="px-3 py-3 font-mono text-xs text-neon font-semibold">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</td>
                   <td className="px-3 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div></td>
-                  <td className="px-3 py-3"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span></td>
+                  <td className="px-3 py-3"><div className="flex flex-col items-start gap-1"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span><span className="text-[10px] font-semibold text-white/70">Medio: {paymentMethodLabel(o.payment_method)}</span></div></td>
                   <td className="px-3 py-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></td>
                   <td className="px-3 py-3 text-xs">
                     {o.delivery_date
@@ -248,7 +271,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               <div className={`rounded-lg border px-3 py-2 text-xs font-bold ${o.delivery_date ? 'border-neon/20 bg-neon/[0.06] text-white' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
                 {o.delivery_date ? `📅 Entrega: ${formatDeliveryDateLong(o.delivery_date)}` : '⚠️ Fecha de entrega pendiente'}
               </div>
-              <div className="flex items-center justify-between gap-2"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span>{o.print_count > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}</span>}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-col items-start gap-1"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span><span className="text-[10px] font-semibold text-white/70">Medio: {paymentMethodLabel(o.payment_method)}</span></div>{o.print_count > 0 && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">✓ {o.print_count > 1 ? `Reimpreso (${o.print_count})` : 'Impreso'}</span>}</div>
               <div className="flex items-center justify-between pt-2 border-t border-white/5"><span className="font-bold text-white text-base font-display">{fmtCLP(o.total || 0)}</span><Link href={`/admin/pedidos/${o.id}`} className="bg-white/5 hover:bg-neon hover:text-[#020705] border border-white/10 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all">Gestionar →</Link></div>
               {isTransferPending && <div className="text-[11px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-3 py-1.5 rounded-lg">🏦 Pago por transferencia pendiente de verificación</div>}
             </div>
