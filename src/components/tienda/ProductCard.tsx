@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { Producto } from '@/types/domain';
+import type { CatalogOptionGroup, CatalogVariant } from '@/lib/catalog/types';
 import { useCart } from '@/lib/cart/CartContext';
 import { itemKey } from '@/lib/cart/CartContext';
 import { trackAddToCart } from '@/lib/analytics/client';
@@ -21,9 +22,16 @@ const TAG_LABELS: Record<string, string> = {
   promo: 'Promo',
 };
 
-export function ProductCard({ producto, onOpenDetail }: { producto: Producto; onOpenDetail: () => void }) {
+type CanonicalProducto = Producto & {
+  variants?: CatalogVariant[];
+  optionGroups?: CatalogOptionGroup[];
+};
+
+export function ProductCard({ producto, onOpenDetail }: { producto: CanonicalProducto; onOpenDetail: () => void }) {
   const { items, addItem, changeQty } = useCart();
-  const tieneFormatosOVariedades = !!(producto.gramaje?.trim() || producto.variedades?.trim());
+  const tieneSeleccionesCanonicas = (producto.variants || []).filter((variant) => variant.active !== false).length > 1
+    || (producto.optionGroups || []).some((group) => group.active !== false);
+  const tieneFormatosOVariedades = !!(producto.gramaje?.trim() || producto.variedades?.trim()) || tieneSeleccionesCanonicas;
   const priceSummary = formatPriceSummary(producto);
 
   const key = itemKey({ productoId: producto.id, formato: null, variedad: null });
@@ -42,7 +50,7 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
       emoji: producto.emoji || '🌱',
     });
 
-    trackAddToCart({ items: [{ id: producto.id, name: producto.nombre, price: producto.precio }], value: producto.precio });
+    trackAddToCart({ items: [{ id: producto.sku || producto.id, name: producto.nombre, price: producto.precio }], value: producto.precio });
   }
 
   return (

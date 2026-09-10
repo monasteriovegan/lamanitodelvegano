@@ -38,21 +38,18 @@ export function formatPriceSummary(product: ProductPricingInput): PriceSummary {
 
   if (activeVariants.length > 1) {
     const sorted = [...activeVariants].sort((a, b) => a.price - b.price);
-    const unitVariant = sorted[0];
-    const packVariant = sorted[sorted.length - 1];
-
-    const unitQty = unitVariant.selectionQuantity || 1;
-    const packQty = packVariant.selectionQuantity || (packVariant.name?.match(/\d+/)?.[0] ? parseInt(packVariant.name.match(/\d+/)![0], 10) : 1);
-
-    const packSummary = `${unitQty} por ${formatPriceCLP(unitVariant.price)} · ${packQty} por ${formatPriceCLP(packVariant.price)}`;
+    const firstVariant = sorted[0];
+    const lastVariant = sorted[sorted.length - 1];
+    const firstLabel = firstVariant.name?.trim() || `${firstVariant.selectionQuantity || 1} unidades`;
+    const lastLabel = lastVariant.name?.trim() || `${lastVariant.selectionQuantity || 1} unidades`;
 
     return {
-      displayPrice: unitVariant.price,
-      formattedDisplayPrice: formatPriceCLP(unitVariant.price),
+      displayPrice: firstVariant.price,
+      formattedDisplayPrice: formatPriceCLP(firstVariant.price),
       originalPrice: product.precio_anterior || null,
       formattedOriginalPrice: product.precio_anterior ? formatPriceCLP(product.precio_anterior) : null,
-      packSummary,
-      unitPriceLabel: unitQty === 1 ? `1 unidad ${formatPriceCLP(unitVariant.price)}` : undefined,
+      packSummary: `${firstLabel} ${formatPriceCLP(firstVariant.price)} · ${lastLabel} ${formatPriceCLP(lastVariant.price)}`,
+      unitPriceLabel: firstVariant.selectionQuantity === 1 ? `1 unidad ${formatPriceCLP(firstVariant.price)}` : undefined,
     };
   }
 
