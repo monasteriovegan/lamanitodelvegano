@@ -28,10 +28,14 @@ export function formatPriceCLP(amount: number): string {
   return `$${Math.round(amount).toLocaleString('es-CL')}`;
 }
 
+function isWeightVariantName(name?: string | null) {
+  return /^\s*\d+(?:[.,]\d+)?\s*(?:g|kg)\b/i.test(String(name || ''));
+}
+
 /**
  * Genera un resumen de precios estructurado a partir del Catálogo Master.
- * Si existen variantes de pack o precios promocionales reales,
- * los destaca para aumentar la claridad y conversión comercial.
+ * Conserva el formato histórico de packs por cantidad y usa el nombre canónico
+ * cuando las variantes representan pesos (ej. 120 g / 240 g).
  */
 export function formatPriceSummary(product: ProductPricingInput): PriceSummary {
   const activeVariants = (product.variants || []).filter((v) => v.active !== false);
@@ -40,8 +44,13 @@ export function formatPriceSummary(product: ProductPricingInput): PriceSummary {
     const sorted = [...activeVariants].sort((a, b) => a.price - b.price);
     const firstVariant = sorted[0];
     const lastVariant = sorted[sorted.length - 1];
-    const firstLabel = firstVariant.name?.trim() || `${firstVariant.selectionQuantity || 1} unidades`;
-    const lastLabel = lastVariant.name?.trim() || `${lastVariant.selectionQuantity || 1} unidades`;
+    const weightBased = isWeightVariantName(firstVariant.name) && isWeightVariantName(lastVariant.name);
+    const firstLabel = weightBased
+      ? String(firstVariant.name).trim()
+      : `${firstVariant.selectionQuantity || 1} por`;
+    const lastLabel = weightBased
+      ? String(lastVariant.name).trim()
+      : `${lastVariant.selectionQuantity || 1} por`;
 
     return {
       displayPrice: firstVariant.price,
