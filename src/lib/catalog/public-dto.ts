@@ -1,6 +1,8 @@
 import type { CatalogCampaign, CatalogProduct } from './types.ts';
+import { effectiveCatalogOptionGroups } from './selection.ts';
 
 export function toPublicCatalogProduct(product: CatalogProduct) {
+  const optionGroups = effectiveCatalogOptionGroups(product);
   return {
     id: product.id,
     slug: product.slug,
@@ -23,7 +25,7 @@ export function toPublicCatalogProduct(product: CatalogProduct) {
       stock: variant.stock,
       imageUrl: variant.imageUrl || null,
     })),
-    optionGroups: product.optionGroups.filter((group) => group.active).map((group) => ({
+    optionGroups: optionGroups.map((group) => ({
       id: group.id,
       code: group.code,
       name: group.name,
@@ -54,7 +56,7 @@ export function toPublicCatalogCampaign(campaign: CatalogCampaign) {
     name: campaign.name,
     description: campaign.description,
     bannerImage: campaign.bannerImage,
-    badgeText: campaign.badgeText,
+    badgeText: campaign.badText,
     startsAt: campaign.startsAt,
     endsAt: campaign.endsAt,
     products: campaign.products.map((product) => ({
