@@ -19,7 +19,7 @@ type PurchaseItem = {
 
 export type MetaCapiResult =
   | { sent: true; eventId: string; duplicate?: boolean }
-  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'request_failed' };
+  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'not_web_order' | 'request_failed' };
 
 function normalizedHash(value: unknown) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -44,7 +44,7 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const [{ data: config }, { data: order }] = await Promise.all([
     db.from('integraciones_secretas').select('meta_pixel_id').eq('id', 'global').maybeSingle(),
     db.from('pedidos')
-      .select('id,business_unit_id,customer_id,total,currency,items,customer_email,telefono,payment_status')
+      .select('id,business_unit_id,customer_id,total,currency,items,customer_email,telefono,payment_status,source_channel')
       .eq('id', orderId)
       .eq('payment_status', 'paid')
       .maybeSingle(),
@@ -53,6 +53,9 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const pixelId = String(config?.meta_pixel_id || '').trim();
   if (!pixelId) return { sent: false, reason: 'not_configured' };
   if (!order) return { sent: false, reason: 'order_not_found' };
+  if (String(order.source_channel || '').toLowerCase() !== 'web') {
+    return { sent: false, reason: 'not_web_order' };
+  }
 
   const eventId = `purchase_${order.id}`;
   const { data: existingDelivery, error: existingError } = await db
@@ -255,4 +258,22 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   if (sentError) throw sentError;
 
   return { sent: true, eventId };
+}
+
+/**
+ * Sincroniza una compra web pagada sin permitir que una caída de Meta revierta
+ * o bloquee la confirmación de pago del negocio. El sender mantiene la
+ * idempotencia por purchase_<orderId> y rechaza pedidos que no sean web.
+ */
+export async function syncPaidWebPurchaseToMeta(
+  db: SupabaseClient,
+  orderId: string | number,
+  context = 'paid_web_order',
+): Promise<MetaCapiResult> {
+  try {
+    return await sendPaidPurchaseToMeta(db, orderId);
+  } catch {
+    console.error('meta_capi_purchase_sync_failed', { orderId: String(orderId), context });
+    return { sent: false, reason: 'request_failed' };
+  }
 }
