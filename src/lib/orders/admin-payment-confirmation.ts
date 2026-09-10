@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
+import { syncPaidWebPurchaseToMeta } from '@/lib/meta/conversions-api';
 
 function normalizeConfirmationText(text: string) {
   return text
@@ -46,6 +47,7 @@ export async function applyAdminPaymentConfirmation(
         payment_method: 'transfer',
       }, input.changedBy || undefined);
     }
+    await syncPaidWebPurchaseToMeta(db, input.orderId, 'operator_payment_phrase_existing');
     return { confirmed: true, orderId: input.orderId, reason: 'already_paid' };
   }
 
@@ -54,6 +56,8 @@ export async function applyAdminPaymentConfirmation(
     payment_status: 'paid',
     payment_method: 'transfer',
   }, input.changedBy || undefined);
+
+  await syncPaidWebPurchaseToMeta(db, input.orderId, 'operator_payment_phrase');
 
   const { data: conversation } = await db
     .from('conversations')
