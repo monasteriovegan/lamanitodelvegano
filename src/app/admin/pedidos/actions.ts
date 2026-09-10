@@ -9,6 +9,7 @@ import { plantillaPedidoDespachado } from '@/lib/email/templates';
 import type { EstadoPedido, Pedido } from '@/types/domain';
 import { OrderRepository, normalizeOrderStatus } from '@/lib/repositories/orders-repository';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
+import { syncPaidWebPurchaseToMeta } from '@/lib/meta/conversions-api';
 import {
   createManualOrder,
   updateFullOrder,
@@ -141,6 +142,7 @@ export async function confirmarPagoPedido(id: string, paymentMethod: string) {
     if (current.payment_method !== paymentMethod) {
       await repository.update(id, { payment_method: paymentMethod }, admin.email || admin.id || undefined);
     }
+    await syncPaidWebPurchaseToMeta(db, id, 'admin_confirm_payment_existing');
     revalidatePath(`/admin/pedidos/${id}`);
     revalidatePath('/admin/pedidos');
     revalidatePath('/admin');
@@ -152,6 +154,7 @@ export async function confirmarPagoPedido(id: string, paymentMethod: string) {
     payment_status: 'paid',
     payment_method: paymentMethod,
   }, admin.email || admin.id || undefined);
+  await syncPaidWebPurchaseToMeta(db, id, 'admin_confirm_payment');
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath('/admin/pedidos');
   revalidatePath('/admin');
@@ -179,6 +182,9 @@ export async function guardarPedidoCompleto(id: string, payload: AdminOrderPaylo
 
   const db = createSupabaseServiceClient();
   const order = await updateFullOrder(db, id, input, admin.email || admin.id || null);
+  if (paymentStatus === 'paid') {
+    await syncPaidWebPurchaseToMeta(db, id, 'admin_full_order_save');
+  }
   let crmSync: boolean | null = null;
   if (payload.updateCrm === true) {
     crmSync = false;
