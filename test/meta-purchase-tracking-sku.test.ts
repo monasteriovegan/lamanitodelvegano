@@ -27,6 +27,7 @@ test('Meta Purchase Tracking uses canonical Catalog SKU as content_ids instead o
       total: 2900,
       currency: 'CLP',
       payment_status: 'paid',
+      source_channel: 'web',
       customer_email: 'test@example.com',
       telefono: '+56912345678',
       items: [
@@ -143,6 +144,7 @@ test('sendPaidPurchaseToMeta resolves canonical SKU from DB if missing in stored
       total: 2900,
       currency: 'CLP',
       payment_status: 'paid',
+      source_channel: 'web',
       customer_email: 'test@example.com',
       telefono: '+56912345678',
       items: [
@@ -250,6 +252,7 @@ test('sendPaidPurchaseToMeta is idempotent and returns duplicate: true when alre
       total: 2900,
       currency: 'CLP',
       payment_status: 'paid',
+      source_channel: 'web',
       customer_email: 'test@example.com',
       telefono: '+56912345678',
       items: [{ productoId: '170f0000-0000-0000-0000-00000000f6df', sku: 'FP26-EMP-UNIT', qty: 1 }],
