@@ -159,6 +159,23 @@ test('storefront does not offer Flow while it is disabled', () => {
   assert.match(checkout, /Coordinar por WhatsApp/);
 });
 
+test('disabled Flow is rejected before customer or order writes', () => {
+  const checkoutRoute = readFileSync(new URL('../src/app/api/checkout/route.ts', import.meta.url), 'utf8');
+  const flowGuard = checkoutRoute.indexOf("paymentMethod === 'flow'");
+  const customerWrite = checkoutRoute.indexOf('upsertCheckoutContact');
+  assert.ok(flowGuard > -1);
+  assert.ok(customerWrite > flowGuard);
+  assert.match(checkoutRoute, /flow_enabled/);
+  assert.match(checkoutRoute, /Flow está temporalmente desactivado/);
+});
+
+test('Mercado Pago preference remains guest-safe instead of wallet-only', () => {
+  const paymentLink = readFileSync(new URL('../src/lib/payments/payment-link.ts', import.meta.url), 'utf8');
+  assert.match(paymentLink, /checkout\/preferences/);
+  assert.doesNotMatch(paymentLink, /wallet_purchase/);
+  assert.doesNotMatch(paymentLink, /purpose\s*:\s*['"]wallet_purchase['"]/);
+});
+
 test('canonical option products keep a customer quantity selector', () => {
   const productPanel = readFileSync(new URL('../src/components/tienda/ProductPurchasePanel.tsx', import.meta.url), 'utf8');
   const campaign = readFileSync(new URL('../src/components/tienda/CampaignCatalog.tsx', import.meta.url), 'utf8');
