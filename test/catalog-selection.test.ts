@@ -115,19 +115,20 @@ test('acepta distribución cinco más cinco', () => {
   assert.equal(result.line?.selections.reduce((sum, item) => sum + item.quantity, 0), 10);
 });
 
-test('acepta una combinación múltiple que suma exactamente diez', () => {
+test('dos Pack 10 exigen una combinación múltiple que suma exactamente veinte', () => {
   const result = resolveCatalogLine(empanada, {
     productId: empanada.id,
     variantId: 'empanada-pack-10',
     quantity: 2,
     selections: [
-      { optionValueId: 'pino-seitan', quantity: 4 },
-      { optionValueId: 'napolitana', quantity: 3 },
-      { optionValueId: 'champinon', quantity: 3 },
+      { optionValueId: 'pino-seitan', quantity: 8 },
+      { optionValueId: 'napolitana', quantity: 6 },
+      { optionValueId: 'champinon', quantity: 6 },
     ],
   });
 
   assert.equal(result.ok, true);
+  assert.equal(result.line?.selections.reduce((sum, item) => sum + item.quantity, 0), 20);
   assert.equal(result.line?.lineTotal, 47800);
 });
 
