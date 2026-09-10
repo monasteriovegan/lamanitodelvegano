@@ -23,7 +23,12 @@ const TAG_LABELS: Record<string, string> = {
 
 export function ProductCard({ producto, onOpenDetail }: { producto: Producto; onOpenDetail: () => void }) {
   const { items, addItem, changeQty } = useCart();
-  const tieneFormatosOVariedades = !!(producto.gramaje?.trim() || producto.variedades?.trim());
+  const tieneFormatosOVariedades = !!(
+    producto.gramaje?.trim() ||
+    producto.variedades?.trim() ||
+    (producto.variants && producto.variants.length > 1) ||
+    (producto.optionGroups && producto.optionGroups.length > 0)
+  );
   const priceSummary = formatPriceSummary(producto);
 
   const key = itemKey({ productoId: producto.id, formato: null, variedad: null });

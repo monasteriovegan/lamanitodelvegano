@@ -58,6 +58,32 @@ export interface Producto {
   is_featured?: boolean;
   ingredients?: string[] | null;
   allergens?: string[] | null;
+  variants?: Array<{
+    id: string;
+    name: string;
+    sku?: string | null;
+    price: number;
+    compareAtPrice?: number | null;
+    compare_at_price?: number | null;
+    selectionQuantity: number;
+    unitsIncluded?: number;
+    isDefault?: boolean;
+    active?: boolean;
+  }>;
+  optionGroups?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    selectionMode: 'single' | 'quantity';
+    required: boolean;
+    values: Array<{
+      id: string;
+      code: string;
+      label: string;
+      priceDelta: number;
+      active?: boolean;
+    }>;
+  }>;
 }
 
 export interface Zona {
