@@ -20,7 +20,8 @@ test('public purchase panel supports canonical variant selection and exact optio
   assert.match(source, /producto\.optionGroups/);
   assert.match(source, /selectionQuantity/);
   assert.match(source, /variantId/);
-  assert.match(source, /variantSku/);
+  assert.match(source, /toCatalogCartItem/);
+  assert.match(source, /selectedVariant\.sku/);
   assert.match(source, /selections/);
 });
 
@@ -41,7 +42,7 @@ test('price summary labels weight variants by their names instead of treating gr
   assert.equal(summary.packSummary, '120 g $10.900 · 240 g $18.900');
 });
 
-test('price summary labels box variants using their catalog names', () => {
+test('price summary preserves quantity-pack convention for box variants', () => {
   const summary = formatPriceSummary({
     precio: 10_900,
     variants: [
@@ -50,5 +51,5 @@ test('price summary labels box variants using their catalog names', () => {
       { id: '24', name: '24 unidades', price: 19_900, selectionQuantity: 24, active: true },
     ],
   });
-  assert.equal(summary.packSummary, '9 unidades $10.900 · 24 unidades $19.900');
+  assert.equal(summary.packSummary, '9 por $10.900 · 24 por $19.900');
 });
