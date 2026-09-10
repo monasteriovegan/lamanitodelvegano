@@ -63,7 +63,7 @@ function CheckoutContent() {
     });
   }, [items, subtotal]);
 
-  const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'flow' | 'whatsapp'>('mercadopago');
+  const [metodoPago, setMetodoPago] = useState<'mercadopago' | 'whatsapp'>('mercadopago');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -202,8 +202,7 @@ function CheckoutContent() {
         return;
       }
 
-      const pagoEndpoint = metodoPago === 'mercadopago' ? '/api/pagos/mercadopago' : '/api/pagos/flow';
-      const pagoRes = await fetch(pagoEndpoint, {
+      const pagoRes = await fetch('/api/pagos/mercadopago', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pedidoId }),
@@ -217,7 +216,7 @@ function CheckoutContent() {
       }
 
       clearCart();
-      window.location.href = pagoData.init_point || pagoData.url;
+      window.location.href = pagoData.init_point;
     } catch {
       setError('Error de conexión. Intenta de nuevo.');
       setLoading(false);
@@ -290,7 +289,6 @@ function CheckoutContent() {
             <div className="flex flex-col gap-2">
               {[
                 { value: 'mercadopago', label: '🟦 Mercado Pago' },
-                { value: 'flow', label: '💳 Flow' },
                 { value: 'whatsapp', label: '💬 Coordinar por WhatsApp' },
               ].map((opt) => (
                 <label key={opt.value} className={`flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg border cursor-pointer ${metodoPago === opt.value ? 'border-neon bg-[rgba(0,255,179,0.05)] text-white' : 'border-white/10 text-white/60'}`}>
@@ -299,6 +297,7 @@ function CheckoutContent() {
                 </label>
               ))}
             </div>
+            {metodoPago === 'mercadopago' && <p className="mt-2 text-xs text-white/50">El pago se completa de forma segura en Mercado Pago.</p>}
           </div>
 
           {error && <div className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-rojo text-sm rounded-xl p-3">{error}</div>}

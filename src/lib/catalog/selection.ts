@@ -1,9 +1,47 @@
 import type {
   CatalogLineIntent,
   CatalogLineResult,
+  CatalogOptionGroup,
   CatalogProduct,
+  CatalogVariant,
   ResolvedCatalogSelection,
 } from './types.ts';
+
+/**
+ * Returns every option the customer must be able to choose for a sellable line.
+ * Direct product options keep their canonical identity. Options belonging to a
+ * linked pack component keep the child option/value IDs, but get a contextual
+ * display name so production can see which component the choice belongs to.
+ */
+export function effectiveCatalogOptionGroups(product: CatalogProduct): CatalogOptionGroup[] {
+  const groups: CatalogOptionGroup[] = product.optionGroups
+    .filter((group) => group.active && group.productId === product.id)
+    .map((group) => ({ ...group, values: group.values.map((value) => ({ ...value })) }));
+
+  const seen = new Set(groups.map((group) => group.id));
+  for (const component of product.packComponents || []) {
+    for (const group of component.optionGroups || []) {
+      if (!group.active || seen.has(group.id)) continue;
+      seen.add(group.id);
+      groups.push({
+        ...group,
+        name: `${component.componentName} — ${group.name}`,
+        values: group.values.map((value) => ({ ...value })),
+      });
+    }
+  }
+
+  return groups.sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** Quantity-mode options describe physical units inside each purchased variant. */
+export function requiredSelectionQuantity(
+  group: CatalogOptionGroup,
+  variant: Pick<CatalogVariant, 'selectionQuantity'>,
+  lineQuantity: number,
+) {
+  return group.selectionMode === 'quantity' ? variant.selectionQuantity * lineQuantity : 1;
+}
 
 export function resolveCatalogLine(product: CatalogProduct, input: CatalogLineIntent): CatalogLineResult {
   if (!product.active || input.productId !== product.id) {
@@ -25,7 +63,7 @@ export function resolveCatalogLine(product: CatalogProduct, input: CatalogLineIn
     return { ok: false, error: 'variant_not_available' };
   }
 
-  const groups = product.optionGroups.filter((group) => group.active && group.productId === product.id);
+  const groups = effectiveCatalogOptionGroups(product);
   const valueIndex = new Map(groups.flatMap((group) => (
     group.values
       .filter((value) => value.active && value.optionGroupId === group.id)
@@ -59,19 +97,25 @@ export function resolveCatalogLine(product: CatalogProduct, input: CatalogLineIn
     });
   }
 
-  for (const group of groups.filter((item) => item.required)) {
+  for (const group of groups) {
     const selectedForGroup = resolved.filter((item) => item.optionGroupId === group.id);
-    if (selectedForGroup.length === 0) return { ok: false, error: 'required_option_missing' };
-    if (group.selectionMode === 'single' && selectedForGroup.length !== 1) {
+    const selectedQuantity = selectedForGroup.reduce((sum, item) => sum + item.quantity, 0);
+    const expectedQuantity = requiredSelectionQuantity(group, variant, input.quantity);
+
+    if (group.required && selectedForGroup.length === 0) {
+      return { ok: false, error: 'required_option_missing' };
+    }
+    if (group.selectionMode === 'single' && selectedForGroup.length > 1) {
       return { ok: false, error: 'single_option_quantity_invalid' };
     }
-  }
-
-  const quantitySelectionTotal = resolved
-    .filter((item) => groups.find((group) => group.id === item.optionGroupId)?.selectionMode === 'quantity')
-    .reduce((sum, item) => sum + item.quantity, 0);
-  if (quantitySelectionTotal !== variant.selectionQuantity) {
-    return { ok: false, error: 'selection_quantity_mismatch' };
+    if (group.required && selectedQuantity !== expectedQuantity) {
+      return {
+        ok: false,
+        error: group.selectionMode === 'single'
+          ? 'single_option_quantity_invalid'
+          : 'selection_quantity_mismatch',
+      };
+    }
   }
 
   return {

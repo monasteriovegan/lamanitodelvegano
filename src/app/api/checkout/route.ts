@@ -136,9 +136,13 @@ export async function POST(req: NextRequest) {
   const idempotencyKey = req.headers.get('Idempotency-Key') || body.idempotencyKey;
   const comuna = String(body.cliente?.comuna || '').trim();
   const fechaEntrega = String(body.fechaEntrega || '').trim();
+  const paymentMethod = String(body.metodoPago || '').trim().toLowerCase();
 
   if (!body.cliente?.nombre || !body.cliente?.telefono || !body.cliente?.direccion || !comuna || !fechaEntrega || !idempotencyKey) {
     return NextResponse.json({ error: 'Faltan datos del cliente o de la entrega.' }, { status: 400 });
+  }
+  if (!['mercadopago', 'whatsapp', 'flow'].includes(paymentMethod)) {
+    return NextResponse.json({ error: 'Método de pago inválido.' }, { status: 400 });
   }
 
   const supabase = createSupabaseServiceClient();
@@ -151,6 +155,24 @@ export async function POST(req: NextRequest) {
       },
       { status: 503 },
     );
+  }
+
+  // Flow is controlled from the persisted integration configuration. When it is
+  // disabled or incomplete we fail before creating/updating customers or orders,
+  // so a hidden/old client cannot leave a dead pending order behind.
+  if (paymentMethod === 'flow') {
+    const { data: flowConfig, error: flowConfigError } = await supabase
+      .from('integraciones_secretas')
+      .select('flow_enabled,flow_api_key,flow_secret_key')
+      .eq('id', 'global')
+      .maybeSingle();
+    const flowReady = !flowConfigError
+      && Boolean(flowConfig?.flow_enabled)
+      && Boolean(String(flowConfig?.flow_api_key || '').trim())
+      && Boolean(String(flowConfig?.flow_secret_key || '').trim());
+    if (!flowReady) {
+      return NextResponse.json({ error: 'Flow está temporalmente desactivado.' }, { status: 503 });
+    }
   }
 
   const capabilities = getSchemaCapabilities();
@@ -235,7 +257,7 @@ export async function POST(req: NextRequest) {
     items: itemsFinales,
     shippingZoneId: body.zonaId,
     deliveryDate: fechaEntrega,
-    paymentMethod: body.metodoPago,
+    paymentMethod,
   });
 
   const pedido = resumed || await new OrderRepository(supabase, capabilities).createTransactionalCheckout({
@@ -249,7 +271,7 @@ export async function POST(req: NextRequest) {
     comuna,
     items: itemsFinales,
     total: totalConFidelidad,
-    paymentMethod: body.metodoPago,
+    paymentMethod,
     shippingCost: calculo.costoEnvio || 0,
     shippingZoneId: body.zonaId,
     shippingZoneName: calculo.zonaNombre || null,

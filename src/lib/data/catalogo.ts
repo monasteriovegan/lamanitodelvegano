@@ -1,5 +1,8 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
+import { CatalogRepository } from '@/lib/catalog/catalog-repository';
+import { effectiveCatalogOptionGroups } from '@/lib/catalog/selection';
+import type { CatalogProduct } from '@/lib/catalog/types';
 import type { Producto, Categoria, Zona, AjustesPublicos } from '@/types/domain';
 
 /**
@@ -24,7 +27,26 @@ const PRODUCT_PUBLIC_RELATIONS = `
   product_option_groups(*, product_option_values(*))
 `;
 
-function mapProductoRow(p: any): Producto {
+function publicOptionGroupsFromCatalog(product?: CatalogProduct | null) {
+  if (!product) return undefined;
+  const groups = effectiveCatalogOptionGroups(product).map((group) => ({
+    id: group.id,
+    code: group.code,
+    name: group.name,
+    selectionMode: group.selectionMode,
+    required: group.required,
+    values: group.values.filter((value) => value.active).map((value) => ({
+      id: value.id,
+      code: value.code,
+      label: value.label,
+      priceDelta: value.priceDelta,
+      active: true,
+    })),
+  }));
+  return groups.length ? groups : undefined;
+}
+
+function mapProductoRow(p: any, catalogProduct?: CatalogProduct | null): Producto {
   const variants = (p.product_variants || [])
     .filter((v: any) => v.is_active !== false)
     .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
@@ -41,7 +63,7 @@ function mapProductoRow(p: any): Producto {
       active: true,
     }));
 
-  const optionGroups = (p.product_option_groups || [])
+  const directOptionGroups = (p.product_option_groups || [])
     .filter((g: any) => g.is_active !== false)
     .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
     .map((g: any) => ({
@@ -62,30 +84,36 @@ function mapProductoRow(p: any): Producto {
         })),
     }));
 
+  const canonicalOptionGroups = publicOptionGroupsFromCatalog(catalogProduct);
+
   return {
     ...p,
     variants: variants.length ? variants : undefined,
-    optionGroups: optionGroups.length ? optionGroups : undefined,
+    optionGroups: canonicalOptionGroups || (directOptionGroups.length ? directOptionGroups : undefined),
   } as Producto;
 }
 
 export async function getProductosActivos(businessUnitId?: string | null): Promise<Producto[]> {
   const supabase = createSupabaseServiceClient();
   const businessId = await resolveBusinessUnitId(businessUnitId);
-  const { data, error } = await supabase
-    .from('productos')
-    .select(PRODUCT_PUBLIC_RELATIONS)
-    .eq('business_unit_id', businessId)
-    .eq('activo', true)
-    .order('destacado', { ascending: false });
+  const [{ data, error }, catalogProducts] = await Promise.all([
+    supabase
+      .from('productos')
+      .select(PRODUCT_PUBLIC_RELATIONS)
+      .eq('business_unit_id', businessId)
+      .eq('activo', true)
+      .order('destacado', { ascending: false }),
+    new CatalogRepository(supabase).listActive(businessId),
+  ]);
 
   if (error) {
     console.error('Error cargando productos:', error);
     return [];
   }
+  const catalogById = new Map(catalogProducts.map((product) => [product.id, product]));
   return (data || [])
     .filter((p: any) => !/prueba/i.test(p.slug || '') && !/prueba/i.test(p.nombre || ''))
-    .map(mapProductoRow);
+    .map((p: any) => mapProductoRow(p, catalogById.get(String(p.id))));
 }
 
 export async function getCategorias(): Promise<Categoria[]> {
@@ -122,29 +150,35 @@ export async function getAjustesPublicos(): Promise<AjustesPublicos | null> {
 export async function getProductoById(id: string, businessUnitId?: string | null): Promise<Producto | null> {
   const supabase = createSupabaseServiceClient();
   const businessId = await resolveBusinessUnitId(businessUnitId);
-  const { data, error } = await supabase
-    .from('productos')
-    .select(PRODUCT_PUBLIC_RELATIONS)
-    .eq('id', id)
-    .eq('business_unit_id', businessId)
-    .eq('activo', true)
-    .maybeSingle();
+  const [{ data, error }, catalogProducts] = await Promise.all([
+    supabase
+      .from('productos')
+      .select(PRODUCT_PUBLIC_RELATIONS)
+      .eq('id', id)
+      .eq('business_unit_id', businessId)
+      .eq('activo', true)
+      .maybeSingle(),
+    new CatalogRepository(supabase).listActive(businessId),
+  ]);
 
   if (error || !data) return null;
-  return mapProductoRow(data);
+  return mapProductoRow(data, catalogProducts.find((product) => product.id === String(data.id)));
 }
 
 export async function getProductoBySlug(slug: string, businessUnitId?: string | null): Promise<Producto | null> {
   const supabase = createSupabaseServiceClient();
   const businessId = await resolveBusinessUnitId(businessUnitId);
-  const { data, error } = await supabase
-    .from('productos')
-    .select(PRODUCT_PUBLIC_RELATIONS)
-    .eq('slug', slug)
-    .eq('business_unit_id', businessId)
-    .eq('activo', true)
-    .maybeSingle();
+  const [{ data, error }, catalogProducts] = await Promise.all([
+    supabase
+      .from('productos')
+      .select(PRODUCT_PUBLIC_RELATIONS)
+      .eq('slug', slug)
+      .eq('business_unit_id', businessId)
+      .eq('activo', true)
+      .maybeSingle(),
+    new CatalogRepository(supabase).listActive(businessId),
+  ]);
 
   if (error || !data || /prueba/i.test(data.slug || '') || /prueba/i.test(data.nombre || '')) return null;
-  return mapProductoRow(data);
+  return mapProductoRow(data, catalogProducts.find((product) => product.id === String(data.id)));
 }
