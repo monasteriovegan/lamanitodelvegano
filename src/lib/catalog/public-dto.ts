@@ -56,7 +56,7 @@ export function toPublicCatalogCampaign(campaign: CatalogCampaign) {
     name: campaign.name,
     description: campaign.description,
     bannerImage: campaign.bannerImage,
-    badgeText: campaign.badText,
+    badgeText: campaign.badgeText,
     startsAt: campaign.startsAt,
     endsAt: campaign.endsAt,
     products: campaign.products.map((product) => ({
