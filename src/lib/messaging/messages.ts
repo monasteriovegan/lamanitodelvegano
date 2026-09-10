@@ -237,10 +237,24 @@ export async function persistMessage(
     const created = await messages.create(conversation.id, customerId, message);
     await updateTransportHealth(db, message);
 
-    if (message.message_type === 'image' && created?.id) {
-      void processInboundImageOcrAsync(db, created.id, message).catch((err) => {
-        console.error('image_ocr_background_error', { messageId: created.id, error: err });
-      });
+    if (message.direction === 'inbound' && message.message_type === 'image' && created?.id) {
+      void processInboundImageOcrAsync(db, created.id, message)
+        .then(async () => {
+          if (message.channel !== 'whatsapp') return;
+          try {
+            const { autoRegisterWhatsappConversationSale } = await import('@/lib/orders/whatsapp-auto-sale');
+            await autoRegisterWhatsappConversationSale(db, conversation.id);
+          } catch (error) {
+            console.error('image_ocr_sale_reconcile_failed', {
+              conversationId: conversation.id,
+              messageId: created.id,
+              reason: error instanceof Error ? error.message : 'unknown',
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('image_ocr_background_error', { messageId: created.id, error: err });
+        });
     }
 
     void evaluateConversationOpportunity(db, conversation.id).catch((error) => {
