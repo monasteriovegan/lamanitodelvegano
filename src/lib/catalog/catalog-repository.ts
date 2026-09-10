@@ -172,7 +172,7 @@ export function mapCatalogProductRow(businessUnitId: string, row: DbRow | null |
     ingredients: Array.isArray(row.ingredients) ? row.ingredients : (typeof row.ingredients === 'string' ? row.ingredients.split(',').map((s: string) => s.trim()) : []),
     allergens: Array.isArray(row.allergens) ? row.allergens : (typeof row.allergens === 'string' ? row.allergens.split(',').map((s: string) => s.trim()) : []),
     variants: normalizedVariants.length ? normalizedVariants : legacyVariants(row),
-    optionGroups: normalizedGroups.length ? normalizedGroups : legacyOptionGroups(row),
+    optionGroups: normalizedGroups.length ? normalizedGroups : (normalizedVariants.length ? [] : legacyOptionGroups(row)),
     packComponents,
   };
 }
