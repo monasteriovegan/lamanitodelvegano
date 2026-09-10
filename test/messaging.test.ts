@@ -58,6 +58,34 @@ test('normaliza estados sin inventar mensajes de cliente', () => {
   assert.equal(message.sender_type, 'system');
 });
 
+test('normaliza smb_message_echoes enviados desde WhatsApp Business como salida humana', () => {
+  const [message] = normalizeMetaWhatsApp({
+    entry: [{
+      changes: [{
+        field: 'smb_message_echoes',
+        value: {
+          metadata: { phone_number_id: 'phone-1' },
+          smb_message_echoes: [{
+            id: 'wamid.business.echo',
+            to: '56911111111',
+            timestamp: '1700000000',
+            type: 'text',
+            text: { body: 'Perfecto confirmado el pago y el pedido' },
+          }],
+        },
+      }],
+    }],
+  });
+
+  assert.ok(message);
+  assert.equal(message.provider_message_id, 'wamid.business.echo');
+  assert.equal(message.external_thread_id, '56911111111');
+  assert.equal(message.direction, 'outbound');
+  assert.equal(message.sender_type, 'human');
+  assert.equal(message.text, 'Perfecto confirmado el pago y el pedido');
+  assert.equal((message.raw_payload as Record<string, unknown>)?.source, 'whatsapp_business_app');
+});
+
 test('normaliza Baileys con su key real y marca fromMe como humano', () => {
   const message = normalizeBaileys({
     messageId: 'BAE5KEY',
