@@ -10,6 +10,9 @@ const manualPage = readFileSync(new URL('../src/app/admin/pedidos/nuevo/page.tsx
 const manualForm = readFileSync(new URL('../src/app/admin/pedidos/nuevo/ManualOrderForm.tsx', import.meta.url), 'utf8');
 const orderActions = readFileSync(new URL('../src/app/admin/pedidos/actions.ts', import.meta.url), 'utf8');
 const orderEditor = readFileSync(new URL('../src/app/admin/pedidos/[id]/OrderEditForm.tsx', import.meta.url), 'utf8');
+const orderList = readFileSync(new URL('../src/app/admin/pedidos/page.tsx', import.meta.url), 'utf8');
+const orderDetail = readFileSync(new URL('../src/app/admin/pedidos/[id]/page.tsx', import.meta.url), 'utf8');
+const orderRepository = readFileSync(new URL('../src/lib/repositories/orders-repository.ts', import.meta.url), 'utf8');
 const whatsappRoute = readFileSync(new URL('../src/app/api/whatsapp/route.ts', import.meta.url), 'utf8');
 const orderReference = readFileSync(new URL('../src/lib/orders/whatsapp-order-reference.ts', import.meta.url), 'utf8');
 const adminSend = readFileSync(new URL('../src/app/api/admin/messages/send/route.ts', import.meta.url), 'utf8');
@@ -69,6 +72,31 @@ test('operator payment phrases confirm only a linked order from the authenticate
   assert.match(adminSend, /applyAdminPaymentConfirmation/);
   assert.match(adminSend, /sender_type:\s*'human'/);
   assert.doesNotMatch(whatsappRoute, /applyAdminPaymentConfirmation/);
+});
+
+test('operator payment confirmation records transfer as the real payment method', () => {
+  assert.match(paymentConfirmation, /payment_method:\s*'transfer'|metodopago:\s*'transfer'/);
+  assert.match(orderRepository, /payment_method\?:\s*string/);
+  assert.match(orderRepository, /update\.metodopago\s*=\s*input\.payment_method/);
+});
+
+test('explicit confirm-payment action requires and persists the real payment method', () => {
+  assert.match(orderActions, /confirmarPagoPedido\(id:\s*string,\s*paymentMethod/);
+  assert.match(orderActions, /payment_method:\s*paymentMethod/);
+  assert.match(orderEditor, /Medio de pago recibido/);
+  assert.match(orderEditor, /value="transfer"/);
+  assert.match(orderEditor, /value="mercadopago"/);
+  assert.match(orderEditor, /value="cash"/);
+  assert.match(orderEditor, /value="card"/);
+  assert.match(orderEditor, /value="other"/);
+});
+
+test('orders list and detail show payment status and real payment method separately from channel', () => {
+  assert.match(orderList, /paymentMethodLabel/);
+  assert.match(orderList, /o\.payment_method/);
+  assert.match(orderDetail, /paymentMethodLabel/);
+  assert.match(orderDetail, /order\.payment_method/);
+  assert.match(orderDetail, /Canal:/);
 });
 
 test('product admin exposes delivery availability dates and persists them server-side', () => {
