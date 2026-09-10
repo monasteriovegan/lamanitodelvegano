@@ -9,6 +9,7 @@ import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository, type AdminOrder } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
+import { buildConversationSaleTranscript } from '@/lib/orders/conversation-sale-transcript';
 import type { CheckoutRequest } from '@/types/domain';
 
 type DraftItem = {
@@ -61,11 +62,6 @@ export type ConversationSaleConfirmOptions = {
   // is a *suggestion* surfaced to the admin, not a decision by itself).
   adminConfirmedPayment?: boolean;
 };
-
-function compact(value: unknown, max = 12000) {
-  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
-  return text.length <= max ? text : text.slice(text.length - max);
-}
 
 function chileDate() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -136,17 +132,7 @@ export async function prepareConversationSaleDraft(
   if (productsError) throw productsError;
   if (zonesError) throw zonesError;
 
-  const messages = [...(rawMessages || [])].reverse()
-    .flatMap((message: any) => {
-      const actor = message.direction === 'inbound' ? 'CLIENTE' : 'NEGOCIO';
-      const body = cleanString(message.body);
-      if (body) return [`${actor}: ${compact(body, 800)}`];
-      if (message.direction === 'inbound' && ['image', 'document'].includes(String(message.message_type || ''))) {
-        return [`${actor}: [COMPROBANTE O ARCHIVO ADJUNTO]`];
-      }
-      return [];
-    });
-  const transcript = compact(messages.join('\n'), 14000);
+  const transcript = buildConversationSaleTranscript([...(rawMessages || [])].reverse());
   if (!transcript) throw new Error('conversation_has_no_text');
 
   const catalog = (products || []).map((product: any) => ({

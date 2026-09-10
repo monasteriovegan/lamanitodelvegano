@@ -67,15 +67,22 @@ export function normalizeMetaWhatsApp(payload: any): NormalizedMessage[] {
         });
       }
 
-      for (const echo of value.message_echoes ?? []) {
+      const echoIds = new Set<string>();
+      const echoes = [
+        ...(value.message_echoes ?? []),
+        ...(value.smb_message_echoes ?? []),
+      ];
+      for (const echo of echoes) {
         const to = normalizePhone(String(echo.to ?? ''));
-        if (!to || !echo.id) continue;
+        const echoId = String(echo.id ?? '');
+        if (!to || !echoId || echoIds.has(echoId)) continue;
+        echoIds.add(echoId);
 
         normalized.push({
           channel: 'whatsapp',
           provider: 'meta',
           transport: 'cloud_api',
-          provider_message_id: String(echo.id),
+          provider_message_id: echoId,
           external_thread_id: to,
           external_user_id: to,
           direction: 'outbound',

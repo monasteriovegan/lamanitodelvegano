@@ -6,6 +6,7 @@ import OrderEditForm from './OrderEditForm';
 import DeleteOrderButton from './DeleteOrderButton';
 import KitchenPrintButton from './KitchenPrintButton';
 import ClientReceiptPrintButton from './ClientReceiptPrintButton';
+import OrderPortableActions from './OrderPortableActions';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { formatDeliveryDateLong } from '@/lib/orders/delivery-date';
 
@@ -142,6 +143,7 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
         <div className="flex flex-col gap-4">
           <KitchenPrintButton order={order} />
           <ClientReceiptPrintButton order={order} />
+          <OrderPortableActions order={order} />
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <div className="flex items-center justify-between gap-3">

@@ -112,7 +112,7 @@ async function sendOne(db: SupabaseClient, order: AdminOrder, event: OrderNotifi
             text,
             mode: 'automatic',
             automationAuthorized: true,
-            agent: 'remy',
+            agent: 'system',
           });
           await persistMessage(db, {
             channel: 'whatsapp',
@@ -122,7 +122,7 @@ async function sendOne(db: SupabaseClient, order: AdminOrder, event: OrderNotifi
             external_thread_id: to,
             external_user_id: to,
             direction: 'outbound',
-            sender_type: 'remy',
+            sender_type: 'system',
             text,
             message_type: 'text',
             sent_at: new Date().toISOString(),
