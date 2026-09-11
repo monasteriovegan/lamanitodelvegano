@@ -297,7 +297,7 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
         sort_order: val.sort_order,
       };
       const { error } = await db.from('product_option_values').upsert(valRow, {
-        onConflict: 'business_unit_id,option_group_id,code',
+        onConflict: 'option_group_id,code',
       });
       if (error) console.error('Error upserting option value:', val.code, error);
     }
