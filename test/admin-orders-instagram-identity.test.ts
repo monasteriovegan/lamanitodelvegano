@@ -20,3 +20,11 @@ test('listado de pedidos hidrata y permite buscar por @usuario de Instagram sin 
   assert.match(page, /instagramUsername/);
   assert.match(page, /usernameMatch/);
 });
+
+test('extractor conserva decisiones de producción explícitas en productos personalizados', () => {
+  const source = read('src/lib/orders/conversation-sale.ts');
+  assert.match(source, /masa, rellenos, sabores, cobertura, decoración/i);
+  assert.match(source, /configuración.*producción/i);
+  assert.match(source, /variedad: item\.variety/);
+  assert.match(source, /Nunca inventes/i);
+});
