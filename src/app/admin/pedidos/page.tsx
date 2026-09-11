@@ -48,6 +48,12 @@ function paymentMethodLabel(method: unknown) {
   return labels[key] || (key ? key : 'Sin registrar');
 }
 
+function normalizeInstagramUsername(value: unknown) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  return clean.startsWith('@') ? clean : `@${clean}`;
+}
+
 const STATUS_COLORS: Record<OperationalStatus, { bg: string; text: string; border: string }> = {
   pending: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
   confirmed: { bg: 'rgba(52,211,153,0.15)', text: '#34d399', border: 'rgba(52,211,153,0.3)' },
@@ -106,6 +112,26 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
     orderRepository.list({ status }),
     orderRepository.list(),
   ]);
+
+  const instagramCustomerIds = Array.from(new Set(
+    allOrders
+      .filter((o: any) => String(o.source || '').toLowerCase() === 'instagram' && o.customer_id)
+      .map((o: any) => String(o.customer_id)),
+  ));
+  const instagramUsernameByCustomerId = new Map<string, string>();
+  if (instagramCustomerIds.length > 0) {
+    const { data: instagramContacts, error: instagramContactsError } = await supabase
+      .from('omnichannel_contacts')
+      .select('id,display_name,metadata')
+      .in('id', instagramCustomerIds);
+    if (instagramContactsError) throw instagramContactsError;
+    for (const contact of instagramContacts || []) {
+      const metadata = (contact.metadata || {}) as Record<string, unknown>;
+      const username = normalizeInstagramUsername(metadata.instagram_username || metadata.username || contact.display_name);
+      if (username) instagramUsernameByCustomerId.set(String(contact.id), username);
+    }
+  }
+
   const counts: Record<string, number> = {};
   let totalCount = 0;
 
@@ -128,11 +154,13 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
     const emailMatch = (o.customer_email || '').toLowerCase().includes(buscarLower);
     const phoneMatch = (o.customer_phone || '').toLowerCase().includes(buscarLower);
     const zoneMatch = (o.shipping_zone_name || '').toLowerCase().includes(buscarLower);
+    const instagramUsername = instagramUsernameByCustomerId.get(String(o.customer_id || '')) || '';
+    const usernameMatch = instagramUsername.toLowerCase().includes(buscarLower);
     const channelMatch = String(o.source || '').toLowerCase().includes(buscarLower)
       || channelInfo(o.source).label.toLowerCase().includes(buscarLower);
     const paymentMatch = String(o.payment_method || '').toLowerCase().includes(buscarLower)
       || paymentMethodLabel(o.payment_method).toLowerCase().includes(buscarLower);
-    return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch || channelMatch || paymentMatch;
+    return numMatch || nameMatch || emailMatch || phoneMatch || zoneMatch || usernameMatch || channelMatch || paymentMatch;
   });
   const orders = ordenar === 'entrega-asc'
     ? [...filteredOrders].sort(compareDeliveryDates)
@@ -192,7 +220,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
       </div>
 
       <form method="GET" action="/admin/pedidos" className="flex flex-wrap gap-2.5 mb-6">
-        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, N° pedido, teléfono, canal o medio de pago..." className="flex-1 min-w-[260px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
+        <input name="buscar" defaultValue={buscar} placeholder="Buscar por cliente, @usuario, N° pedido, teléfono, canal o medio de pago..." className="flex-1 min-w-[260px] bg-white/5 border border-[rgba(0,255,179,0.2)] rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neon" />
         <select name="ordenar" defaultValue={ordenar} className="bg-[#07100d] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-neon">
           <option value="">Más recientes</option>
           <option value="entrega-asc">Entrega más próxima</option>
@@ -225,10 +253,11 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
               const channel = channelInfo(o.source);
               const payment = paymentBadge(o.payment_status);
+              const instagramUsername = instagramUsernameByCustomerId.get(String(o.customer_id || '')) || '';
               return (
                 <tr key={o.id} className="hover:bg-white/[0.03] transition-colors">
                   <td className="px-3 py-3 font-mono text-xs text-neon font-semibold">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</td>
-                  <td className="px-3 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div></td>
+                  <td className="px-3 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div>{instagramUsername && <div className="text-xs font-semibold text-fuchsia-200">{instagramUsername}</div>}</td>
                   <td className="px-3 py-3"><div className="flex flex-col items-start gap-1"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span><span className="text-[10px] font-semibold text-white/70">Medio: {paymentMethodLabel(o.payment_method)}</span></div></td>
                   <td className="px-3 py-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></td>
                   <td className="px-3 py-3 text-xs">
@@ -261,13 +290,14 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
           const isTransferPending = o.payment_method === 'transfer' && o.payment_status !== 'paid';
           const channel = channelInfo(o.source);
           const payment = paymentBadge(o.payment_status);
+          const instagramUsername = instagramUsernameByCustomerId.get(String(o.customer_id || '')) || '';
           return (
             <div key={o.id} className="bg-white/[0.02] border border-[rgba(0,255,179,0.1)] rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap"><span className="font-mono font-bold text-neon text-sm">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</span><span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></div>
                 <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: colorStyle.bg, color: colorStyle.text, borderColor: colorStyle.border }}>{STATUS_LABELS[opStatus] || opStatus}</span>
               </div>
-              <div><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{[o.customer_email, o.customer_phone].filter(Boolean).join(' · ')}</div></div>
+              <div><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{[o.customer_email, o.customer_phone].filter(Boolean).join(' · ')}</div>{instagramUsername && <div className="text-xs font-semibold text-fuchsia-200">{instagramUsername}</div>}</div>
               <div className={`rounded-lg border px-3 py-2 text-xs font-bold ${o.delivery_date ? 'border-neon/20 bg-neon/[0.06] text-white' : 'border-amber-400/25 bg-amber-400/10 text-amber-200'}`}>
                 {o.delivery_date ? `📅 Entrega: ${formatDeliveryDateLong(o.delivery_date)}` : '⚠️ Fecha de entrega pendiente'}
               </div>
