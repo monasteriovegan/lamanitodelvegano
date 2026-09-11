@@ -284,7 +284,11 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       groupId = createdGroup?.id || null;
     }
 
-    if (!groupId) continue;
+    const logs: string[] = [];
+    if (!groupId) {
+      logs.push(`No groupId for group ${g.code} on ${g.productSlug}`);
+      continue;
+    }
 
     for (const val of g.values) {
       const valRow = {
@@ -299,9 +303,15 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       const { error } = await db.from('product_option_values').upsert(valRow, {
         onConflict: 'option_group_id,code',
       });
-      if (error) console.error('Error upserting option value:', val.code, error);
+      if (error) {
+        logs.push(`Error on val ${val.code}: ${JSON.stringify(error)}`);
+      } else {
+        logs.push(`Upserted val ${val.code} on group ${groupId}`);
+      }
     }
   }
 
-  return { ok: true, syncedProducts: productsToSync.length };
+  const { data: valCount } = await db.from('product_option_values').select('id, code, label, option_group_id');
+
+  return { ok: true, syncedProducts: productsToSync.length, optionValuesCount: valCount?.length, optionValues: valCount };
 }
