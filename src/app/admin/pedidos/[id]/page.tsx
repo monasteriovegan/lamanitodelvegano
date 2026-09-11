@@ -30,6 +30,12 @@ function paymentMethodLabel(method: unknown) {
   return labels[key] || (key ? key : 'Sin registrar');
 }
 
+function normalizeInstagramUsername(value: unknown) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  return clean.startsWith('@') ? clean : `@${clean}`;
+}
+
 export default async function AdminPedidoDetailPage({ params }: PageProps) {
   const admin = await requireRole(['admin', 'soporte', 'bodega']);
   const { id } = await params;
@@ -40,10 +46,24 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
 
   const { data: rawOrder, error: rawOrderError } = await supabase
     .from('pedidos')
-    .select('business_unit_id')
+    .select('business_unit_id,customer_id,source_channel')
     .eq('id', Number(id))
     .maybeSingle();
   if (rawOrderError) throw rawOrderError;
+
+  let instagramUsername = '';
+  if (String(rawOrder?.source_channel || order.source || '').toLowerCase() === 'instagram' && rawOrder?.customer_id) {
+    const { data: instagramContact, error: instagramContactError } = await supabase
+      .from('omnichannel_contacts')
+      .select('display_name,metadata')
+      .eq('id', rawOrder.customer_id)
+      .maybeSingle();
+    if (instagramContactError) throw instagramContactError;
+    const metadata = (instagramContact?.metadata || {}) as Record<string, unknown>;
+    instagramUsername = normalizeInstagramUsername(
+      metadata.instagram_username || metadata.username || instagramContact?.display_name,
+    );
+  }
 
   const { data: products, error: productError } = rawOrder?.business_unit_id
     ? await supabase
@@ -92,6 +112,7 @@ export default async function AdminPedidoDetailPage({ params }: PageProps) {
               <div><p className="text-xs text-muted uppercase font-semibold">Nombre Completo</p><p className="text-white font-medium mt-0.5">{order.customer_name || 'Sin nombre registrado'}</p></div>
               <div><p className="text-xs text-muted uppercase font-semibold">Correo Electrónico</p><p className="text-white font-medium mt-0.5">{order.customer_email || '—'}</p></div>
               <div><p className="text-xs text-muted uppercase font-semibold">Teléfono</p><p className="text-white font-medium mt-0.5">{order.customer_phone || '—'}</p></div>
+              {instagramUsername && <div><p className="text-xs text-muted uppercase font-semibold">Usuario Instagram</p><p className="text-fuchsia-200 font-semibold mt-0.5">{instagramUsername}</p></div>}
               <div><p className="text-xs text-muted uppercase font-semibold">Dirección & Zona</p><p className="text-white font-medium mt-0.5">{[address?.direccion || address?.address_line1, order.shipping_zone_name].filter(Boolean).join(', ') || 'Retiro en Taller'}</p></div>
             </div>
           </div>
