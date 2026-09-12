@@ -1,6 +1,11 @@
 export type ConversationOrderReferenceMessage = {
+  id?: string | null;
   direction: string;
   body?: string | null;
+  message_type?: string | null;
+  payload?: Record<string, unknown> | null;
+  created_at?: string | null;
+  order_id?: number | null;
 };
 
 const CUSTOMER_ORDER_REFERENCE = /\bpedido\s*(?:n(?:ro|úmero)?\.?\s*)?#?\s*(\d{1,9})\b/iu;
