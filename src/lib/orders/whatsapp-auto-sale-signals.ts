@@ -1,5 +1,5 @@
 import type { NormalizedMessage } from '@/lib/messaging/types';
-import { findCustomerReferencedOrderId } from '@/lib/orders/conversation-order-reference';
+import { findCustomerReferencedOrderId } from './conversation-order-reference.ts';
 
 export { findCustomerReferencedOrderId };
 
