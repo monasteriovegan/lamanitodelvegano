@@ -48,12 +48,11 @@ type WhatsAppWebhookDependencies = {
   observe: (db: any, input: Observation) => Promise<void>;
   persist: (db: any, message: any) => Promise<PersistResult>;
   autoReply: (db: any, result: PersistResult, message: any) => Promise<{ called: boolean; replied: boolean }>;
-  // Optional: cheap, no-AI-cost filter + batched AI extraction that turns a
-  // conversation into a pedido when Remy itself did NOT handle this turn
-  // (switched off, human takeover, outside the 24h window, etc). See
-  // src/lib/orders/whatsapp-auto-sale.ts. Failures here are logged and
-  // swallowed — this is a best-effort enhancement, never a reason to fail
-  // the webhook response to Meta.
+  // Optional: cheap, no-AI-cost filter + batched extraction that turns a
+  // conversation into a pedido. It runs after persistence (and after a live
+  // Remy reply when present), so order reconciliation cannot be skipped just
+  // because the customer received an answer. The concrete autoSale dependency
+  // still applies the sale-signal gate and the order path is idempotent.
   autoSale?: (db: any, result: PersistResult, message: any) => Promise<void>;
   appSecret?: string;
   verifyToken?: string;
@@ -183,28 +182,21 @@ export function createWhatsAppWebhookHandlers(deps: WhatsAppWebhookDependencies)
         }
 
         if (!result.duplicate && !isStatus) {
-          // Messages sent by a human from the WhatsApp Business app must never
-          // invoke Remy, but they do need to reach auto-sale reconciliation so
-          // a human "pago/transferencia recibida" acknowledgement can mark the
-          // already-created order paid immediately.
+          // Human WhatsApp Business echoes never invoke Remy, but they do need
+          // reconciliation so payment/order acknowledgements reach the CRM.
           if (isAppEcho && message.direction === 'outbound') {
             await attemptAutoSale(result, message);
           } else if (message.direction === 'inbound') {
-            let repliedThisTurn = false;
             if (deps.sendMode() === 'live') {
               const ai = await deps.autoReply(db, result, message);
               if (ai.called) aiCalled += 1;
-              if (ai.replied) {
-                aiReplied += 1;
-                repliedThisTurn = true;
-              }
+              if (ai.replied) aiReplied += 1;
             }
-            // Only attempt the batched auto-sale extraction when Remy did not
-            // itself handle this turn, to avoid two independent order-creation
-            // paths racing on the same conversation. Both ultimately go through
-            // the same idempotent checkout RPC, but they use different
-            // idempotency keys, so this keeps them from ever overlapping.
-            if (!repliedThisTurn) await attemptAutoSale(result, message);
+            // Reconcile sequentially after any reply. The route's autoSale
+            // dependency applies the cheap commercial-signal filter first, and
+            // order creation itself is idempotent, so a reply can no longer
+            // cause a legitimate order/receipt to be lost.
+            await attemptAutoSale(result, message);
           }
         }
       }
