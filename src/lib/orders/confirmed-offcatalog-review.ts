@@ -24,7 +24,9 @@ function normalizeName(value: unknown) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('es-CL')
-    .replace(/\s+/g, ' ');
+    .replace(/[^a-z0-9ñ\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function positiveInteger(value: unknown) {
@@ -35,6 +37,30 @@ function positiveInteger(value: unknown) {
 function positiveMoney(value: unknown): number | null {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+}
+
+const OFFCATALOG_STOP_WORDS = new Set([
+  'para', 'como', 'con', 'sin', 'del', 'las', 'los', 'una', 'uno', 'unos', 'unas',
+  'pack', 'caja', 'unidad', 'unidades', 'sabor', 'sabores', 'gramos', 'grs',
+]);
+
+function customerGroundsCandidate(messages: InstagramPaymentMessage[], productName: string) {
+  const customerText = normalizeName(messages
+    .filter((message) => message.direction === 'inbound')
+    .map((message) => clean(message.body))
+    .filter(Boolean)
+    .join(' '));
+  if (!customerText) return false;
+
+  const candidateTokens = normalizeName(productName)
+    .split(' ')
+    .filter((token) => token.length >= 4 && !OFFCATALOG_STOP_WORDS.has(token));
+  if (!candidateTokens.length) return false;
+
+  // A rescue item must be grounded in the customer's own words. This prevents
+  // products merely advertised/listed by the business from becoming phantom
+  // order lines (for example, an outbound greeting listing empanadas).
+  return candidateTokens.some((token) => customerText.includes(token));
 }
 
 /**
@@ -193,7 +219,7 @@ export async function augmentConfirmedOffCatalogDraft(
   const response = await callAiProvider(db, {
     provider: runtime.provider,
     model: runtime.model,
-    systemPrompt: `Revisas una venta YA CONFIRMADA para rescatar únicamente líneas que quedaron fuera del catálogo activo.\nReglas:\n- No inventes productos, cantidades ni precios.\n- Devuelve sólo productos explícitamente pedidos en la conversación que NO correspondan a los nombres del catálogo activo y que NO estén ya en el borrador.\n- Si el precio unitario está explícito, úsalo. Si no está explícito, customUnitPrice=0.\n- No devuelvas despacho, totales, medios de pago ni productos del catálogo.\n- Si no hay líneas fuera de catálogo, items=[].\nDebes llamar a extract_missing_offcatalog_items una sola vez.`,
+    systemPrompt: `Revisas una venta YA CONFIRMADA para rescatar únicamente líneas que quedaron fuera del catálogo activo.\nReglas:\n- No inventes productos, cantidades ni precios.\n- Devuelve sólo productos que el CLIENTE haya pedido explícitamente; una mención/listado hecho sólo por NEGOCIO nunca cuenta como compra.\n- Preguntar por un producto, recibir una oferta o verlo en un saludo comercial no significa comprarlo.\n- El producto debe NO corresponder a los nombres del catálogo activo y NO estar ya en el borrador.\n- Si el precio unitario está explícito, úsalo. Si no está explícito, customUnitPrice=0.\n- No devuelvas despacho, totales, medios de pago ni productos del catálogo.\n- Si no hay líneas fuera de catálogo inequívocamente pedidas por el cliente, items=[].\nDebes llamar a extract_missing_offcatalog_items una sola vez.`,
     messages: [{ role: 'user', content: `CATÁLOGO ACTIVO:\n${JSON.stringify(activeCatalogNames)}\n\nYA EXTRAÍDO:\n${JSON.stringify(alreadyExtracted)}\n\nCONVERSACIÓN:\n${transcript}` }],
     tools: [tool],
     maxOutputTokens: 260,
@@ -206,7 +232,11 @@ export async function augmentConfirmedOffCatalogDraft(
       productName: clean(item?.productName),
       quantity: positiveInteger(item?.quantity),
       customUnitPrice: positiveMoney(item?.customUnitPrice),
-    })).filter((item: ConfirmedOffCatalogCandidate) => item.productName && item.quantity > 0)
+    })).filter((item: ConfirmedOffCatalogCandidate) => (
+      item.productName
+      && item.quantity > 0
+      && customerGroundsCandidate(messages, item.productName)
+    ))
     : [];
 
   return mergeConfirmedOffCatalogCandidates(draft, candidates);
