@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { confirmConversationSale, prepareConversationSaleDraft } from '@/lib/orders/conversation-sale';
 import { augmentConfirmedOffCatalogDraft } from '@/lib/orders/confirmed-offcatalog-review';
+import { linkExplicitReferencedOrder } from '@/lib/orders/conversation-existing-order';
 import {
   hasBusinessPaymentConfirmation,
   hasCustomerNewOrderSignal,
@@ -25,6 +26,9 @@ type InstagramConversationRow = {
   channel: string;
   order_id: number | null;
   labels?: string[] | null;
+  business_unit_id: string | null;
+  customer_id: string | null;
+  contact_id: string | null;
 };
 
 export type InstagramAutoSaleResult = {
@@ -134,12 +138,13 @@ export async function autoRegisterInstagramConversationSale(
 ): Promise<InstagramAutoSaleResult> {
   const { data: conversation, error } = await db
     .from('conversations')
-    .select('id,channel,order_id,labels')
+    .select('id,channel,order_id,labels,business_unit_id,customer_id,contact_id')
     .eq('id', conversationId)
     .maybeSingle();
   if (error) throw error;
   if (!conversation || conversation.channel !== 'instagram') return { status: 'ignored' };
 
+  const typedConversation = conversation as InstagramConversationRow;
   const repeatOrder = Boolean(conversation.order_id);
   const onlyUnlinkedMessages = repeatOrder;
   const messages = await loadConversationMessages(db, conversationId, onlyUnlinkedMessages);
@@ -147,10 +152,20 @@ export async function autoRegisterInstagramConversationSale(
     return { status: 'already_linked', orderId: Number(conversation.order_id) };
   }
 
+  if (!repeatOrder) {
+    // Instagram can legitimately be a second channel for a web order. When the
+    // CRM identity is different, require the customer to mention BOTH the exact
+    // order number and the exact order amount before linking across identities.
+    const referenced = await linkExplicitReferencedOrder(db, typedConversation, messages, {
+      allowCrossCustomerWithMatchingAmount: true,
+    });
+    if (referenced) return referenced;
+  }
+
   if (repeatOrder) {
     const paymentFlag = await flagPossiblePaymentForAdminReview(
       db,
-      conversation as InstagramConversationRow,
+      typedConversation,
       messages,
     );
     if (paymentFlag) return paymentFlag;
