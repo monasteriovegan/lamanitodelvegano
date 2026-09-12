@@ -11,7 +11,7 @@ begin
        select 1
        from public.blocked_delivery_dates blocked
        where blocked.business_unit_id = new.business_unit_id
-         and blocked.date = new.fecha_entrega
+         and blocked.date::text = btrim(new.fecha_entrega)
      ) then
     raise exception 'delivery_date_blocked:%', new.fecha_entrega using errcode = 'P0001';
   end if;
