@@ -32,7 +32,7 @@ export default async function FiestasPatriasPage() {
             <span className="pill">🇨🇱 {dto.badgeText || dto.name}</span>
             <h1 className="mt-4 font-display text-3xl font-extrabold text-white sm:text-5xl">Sabores veganos para compartir este 18</h1>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/65 sm:text-base">{dto.description}</p>
-            <p className="mt-3 text-sm font-bold text-neon">Entregas por encargo: 12, 15 y 16 de septiembre</p>
+            <p className="mt-3 text-sm font-bold text-neon">15 de septiembre: cupos agotados · Encargos disponibles para el 16 y 17 de septiembre</p>
           </div>
           <CampaignCatalog campaign={dto} />
         </section>
