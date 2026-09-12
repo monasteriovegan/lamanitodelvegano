@@ -14,6 +14,7 @@ export const BUSINESS_SALE_SIGNAL = /pedido|confirmad[oa]|agendad[oa]|reservad[o
 export const BUSINESS_PAYMENT_CONFIRMED = /(?:pago|transferencia|abono).{0,40}(?:recibid[oa]|confirmad[oa]|correct[oa]|ok)|(?:recibid[oa]|confirmad[oa]).{0,40}(?:pago|transferencia|abono)/i;
 const TRANSFER_CONTEXT = /transfer(?:encia|ir|ido)?|deposit(?:o|ar|ado)|datos\s+(?:de\s+)?(?:la\s+)?cuenta|comprobante/i;
 const SHORT_CONFIRMATION = /\b(?:confirmad[oa]|recibid[oa]|correct[oa]|todo\s+bien)\b/i;
+const CUSTOMER_ORDER_REFERENCE = /\bpedido\s*(?:n(?:ro|úmero)?\.?\s*)?#?\s*(\d{1,9})\b/iu;
 
 export type WhatsappMessageRow = {
   id: string;
@@ -39,6 +40,18 @@ export function shouldAttemptWhatsappAutoSale(message: NormalizedMessage) {
     || CUSTOMER_FULFILLMENT_SIGNAL.test(text)
     || CUSTOMER_PICKUP_SIGNAL.test(text)
     || CUSTOMER_IDENTITY_SIGNAL.test(text);
+}
+
+export function findCustomerReferencedOrderId(messages: WhatsappMessageRow[]): number | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.direction !== 'inbound') continue;
+    const match = CUSTOMER_ORDER_REFERENCE.exec(String(message.body || ''));
+    if (!match) continue;
+    const orderId = Number(match[1]);
+    if (Number.isInteger(orderId) && orderId > 0) return orderId;
+  }
+  return null;
 }
 
 export function isHumanWhatsappEcho(message: WhatsappMessageRow) {
