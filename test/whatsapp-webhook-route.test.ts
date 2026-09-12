@@ -184,11 +184,11 @@ test('duplicate is acknowledged and recorded without Remy', async () => {
   assert.deepEqual(h.calls(), { persist: 1, autoReply: 0, autoSale: 0 });
 });
 
-test('live mode skips the batched auto-sale extractor when Remy already replied this turn', async () => {
+test('live mode reconciles the sale even when Remy already replied this turn', async () => {
   const h = harness({ mode: 'live', autoReplyResult: { called: true, replied: true } });
   const response = await h.POST(request(JSON.stringify(envelope())));
   assert.equal(response.status, 200);
-  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 0 });
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 1 });
 });
 
 test('live mode still runs the batched auto-sale extractor when Remy did not reply this turn', async () => {
@@ -222,10 +222,10 @@ test('asset-not-connected is acknowledged while database failures return 500', a
   assert.deepEqual(failed.observations, ['received', 'persistence_failed']);
 });
 
-test('live mode may invoke Remy only after successful inbound persistence', async () => {
+test('live mode invokes Remy only after persistence and then reconciles the sale', async () => {
   const h = harness({ mode: 'live' });
   const response = await h.POST(request(JSON.stringify(envelope())));
   assert.equal(response.status, 200);
-  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 0 });
+  assert.deepEqual(h.calls(), { persist: 1, autoReply: 1, autoSale: 1 });
   assert.equal((await response.json()).ai_replied, true);
 });
