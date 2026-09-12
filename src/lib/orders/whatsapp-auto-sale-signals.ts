@@ -1,4 +1,7 @@
 import type { NormalizedMessage } from '@/lib/messaging/types';
+import { findCustomerReferencedOrderId } from './conversation-order-reference.ts';
+
+export { findCustomerReferencedOrderId };
 
 // Pure, dependency-free signal detection for the WhatsApp auto-sale filter.
 // Split out from whatsapp-auto-sale.ts so it can be imported and unit-tested

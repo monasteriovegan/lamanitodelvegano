@@ -46,6 +46,14 @@ test('venta confirmada no desaparece si un producto fuera de catálogo no trae p
   assert.match(instagram, /pricingReview \? 'flagged_for_review' : 'synced'/);
 });
 
+test('rescate fuera de catálogo exige evidencia en palabras del cliente y no en publicidad del negocio', () => {
+  const fallback = read('src/lib/orders/confirmed-offcatalog-review.ts');
+  assert.match(fallback, /customerGroundsCandidate/);
+  assert.match(fallback, /message\.direction === 'inbound'/);
+  assert.match(fallback, /una mención\/listado hecho sólo por NEGOCIO nunca cuenta como compra/);
+  assert.match(fallback, /customerGroundsCandidate\(messages, item\.productName\)/);
+});
+
 test('si hay un total final explícito se puede resolver una única línea fuera de catálogo por residual', () => {
   const fallback = read('src/lib/orders/confirmed-offcatalog-review.ts');
   assert.match(fallback, /unresolvedCustomItems\.length === 1/);

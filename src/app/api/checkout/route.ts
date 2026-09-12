@@ -11,6 +11,7 @@ import { CustomerRepository } from '@/lib/repositories/customers-repository';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import { verifyCheckoutSchemaReady } from '@/lib/repositories/checkout-schema-readiness';
+import { getDeliveryDateBlock } from '@/lib/orders/delivery-date';
 
 type ProductionCheckoutRequest = CatalogCheckoutRequest & {
   cliente: CatalogCheckoutRequest['cliente'] & { comuna?: string };
@@ -41,9 +42,21 @@ async function validDeliveryDates(productIds: string[]) {
     .eq('activo', true);
   if (error) throw error;
   if ((data || []).length !== uniqueIds.length) return [];
-  return genFechas((data || []).map((row: any) => ({ disponibilidad: parseAvailability(row.disponibilidad) })))
+
+  const candidateDates = genFechas((data || []).map((row: any) => ({ disponibilidad: parseAvailability(row.disponibilidad) })))
     .filter((item) => item.ok)
     .map((item) => dateToYmd(item.fecha));
+  if (!candidateDates.length) return [];
+
+  const business = await new BusinessRepository(db).requireDefault();
+  const { data: blockedRows, error: blockedError } = await db
+    .from('blocked_delivery_dates')
+    .select('date')
+    .eq('business_unit_id', business.id)
+    .in('date', candidateDates);
+  if (blockedError) throw blockedError;
+  const blocked = new Set((blockedRows || []).map((row: any) => String(row.date)));
+  return candidateDates.filter((date) => !blocked.has(date));
 }
 
 function normalizedResumeItems(raw: unknown) {
@@ -177,6 +190,14 @@ export async function POST(req: NextRequest) {
 
   const capabilities = getSchemaCapabilities();
   const business = await new BusinessRepository(supabase).requireDefault();
+
+  const deliveryBlock = await getDeliveryDateBlock(supabase, business.id, fechaEntrega);
+  if (deliveryBlock.blocked) {
+    return NextResponse.json(
+      { error: deliveryBlock.reason || 'La fecha de entrega seleccionada ya no está disponible.' },
+      { status: 400 },
+    );
+  }
 
   const allowedDates = await validDeliveryDates((body.items || []).map((item) => item.productoId));
   if (!allowedDates.includes(fechaEntrega)) {

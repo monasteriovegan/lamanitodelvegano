@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
     console.error('mercadopago_link_failed', { detail });
     if (detail === 'order_not_found') return NextResponse.json({ error: 'Pedido no encontrado.' }, { status: 404 });
     if (detail === 'payment_already_paid') return NextResponse.json({ error: 'Este pedido ya está pagado.' }, { status: 409 });
+    if (detail.startsWith('payment_order_ineligible:')) {
+      return NextResponse.json({ error: 'Este pedido ya no está habilitado para pago. Contáctanos para reprogramarlo.' }, { status: 409 });
+    }
     if (detail === 'payment_method_mismatch') return NextResponse.json({ error: 'El pedido no usa Mercado Pago.' }, { status: 409 });
     if (detail === 'mercadopago_not_configured') return NextResponse.json({ error: 'Mercado Pago no está configurado.' }, { status: 503 });
     return NextResponse.json({ error: 'Error al crear la preferencia de pago.' }, { status: 502 });

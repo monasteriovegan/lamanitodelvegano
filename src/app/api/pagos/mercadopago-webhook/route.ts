@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { notifyOrderTransitions } from '@/lib/orders/order-notifications';
 import { notifyOrderPaid } from '@/lib/notifications/order-paid';
+import { getOrderPaymentEligibility } from '@/lib/payments/order-payment-eligibility';
 import {
   getMercadoPagoPayment,
   mapMercadoPagoPaymentStatus,
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(pedidoId) || pedidoId <= 0) return NextResponse.json({ ok: true, ignored: true });
 
     const { data: pedido, error: orderError } = await db.from('pedidos')
-      .select('id,total,currency,metodopago,payment_status,estado')
+      .select('id,business_unit_id,total,currency,metodopago,payment_status,estado,fecha_entrega,admin_notes')
       .eq('id', pedidoId)
       .maybeSingle();
     if (orderError) throw orderError;
@@ -74,6 +75,52 @@ export async function POST(req: NextRequest) {
 
     const nextPaymentStatus = mapMercadoPagoPaymentStatus(payment?.status);
     const currentPaymentStatus = String(pedido.payment_status || 'pending');
+    const eligibility = await getOrderPaymentEligibility(db, pedido);
+
+    // An approved provider payment may arrive after an operator cancelled the
+    // order or after its delivery date was globally blocked. The money really
+    // moved, so we record payment_status=paid, but NEVER resurrect the
+    // operational order, never emit Purchase to Meta, and place it in the
+    // reconciliation queue for review/refund.
+    if (nextPaymentStatus === 'paid' && !eligibility.eligible) {
+      if (currentPaymentStatus !== 'paid') {
+        const reason = eligibility.reason;
+        const note = `[PAGO MERCADO PAGO RECIBIDO CON PEDIDO NO ELEGIBLE: ${reason}. Revisar y gestionar devolución/reprogramación.]`;
+        const adminNotes = [String(pedido.admin_notes || '').trim(), note].filter(Boolean).join(' ');
+        const { data: updatedOrder, error: updateError } = await db.from('pedidos')
+          .update({
+            payment_status: 'paid',
+            admin_notes: adminNotes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', pedidoId)
+          .eq('payment_status', currentPaymentStatus)
+          .select('id')
+          .maybeSingle();
+        if (updateError) throw updateError;
+
+        if (updatedOrder) {
+          await db.from('order_status_history').insert({
+            pedido_id: pedidoId,
+            old_status: String(pedido.estado || 'Pendiente'),
+            new_status: String(pedido.estado || 'Pendiente'),
+            payment_status: 'paid',
+            notes: `Mercado Pago approved · payment ${paymentId} · reconciliation ${reason}`,
+          });
+          await db.from('payment_reconciliation_queue').insert({
+            business_unit_id: pedido.business_unit_id,
+            amount: Math.round(paidAmount),
+            bank: 'Mercado Pago',
+            evidence: { provider: 'mercadopago', payment_id: paymentId, reason, provider_status: payment?.status || null },
+            status: 'linked',
+            linked_order_id: pedidoId,
+            notes: `Pago aprobado para pedido no elegible (${reason}). No se reactivó el pedido ni se envió Purchase a Meta; requiere devolución o reprogramación manual.`,
+          });
+        }
+      }
+      return NextResponse.json({ ok: true, reconciliation_required: true, reason: eligibility.reason });
+    }
+
     const effectiveStatus = currentPaymentStatus === 'paid' && (nextPaymentStatus === 'pending' || nextPaymentStatus === 'failed')
       ? 'paid'
       : nextPaymentStatus;

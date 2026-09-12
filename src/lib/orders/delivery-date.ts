@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type DeliveryDateLike = {
   delivery_date?: string | null;
 };
@@ -37,6 +39,27 @@ function parseCalendarDate(value: unknown): { ymd: string; year: number; month: 
 
 export function normalizeDeliveryDate(value: unknown): string | null {
   return parseCalendarDate(value)?.ymd ?? null;
+}
+
+export async function getDeliveryDateBlock(
+  db: SupabaseClient,
+  businessUnitId: string,
+  value: unknown,
+): Promise<{ blocked: boolean; reason: string | null }> {
+  const date = normalizeDeliveryDate(value);
+  if (!date) return { blocked: false, reason: null };
+
+  const { data, error } = await db
+    .from('blocked_delivery_dates')
+    .select('date,reason')
+    .eq('business_unit_id', businessUnitId)
+    .eq('date', date)
+    .maybeSingle();
+  if (error) throw error;
+
+  return data
+    ? { blocked: true, reason: String(data.reason || '').trim() || null }
+    : { blocked: false, reason: null };
 }
 
 export function formatDeliveryDateLong(value: unknown, fallback = 'Fecha de entrega pendiente'): string {

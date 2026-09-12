@@ -2,12 +2,14 @@ import 'server-only';
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMercadoPagoAccessToken } from './mercadopago';
+import { getOrderPaymentEligibility } from './order-payment-eligibility';
 import { runtimeSiteUrl } from '@/lib/site-url';
 
 export type PaymentProvider = 'mercadopago' | 'flow';
 
 type PedidoPago = {
   id: number;
+  business_unit_id: string | null;
   nombre_cliente: string | null;
   telefono: string | null;
   customer_email: string | null;
@@ -15,6 +17,8 @@ type PedidoPago = {
   external_token: string | null;
   payment_status: string | null;
   metodopago: string | null;
+  fecha_entrega: string | null;
+  estado: string | null;
 };
 
 function defaultOrigin() {
@@ -26,7 +30,7 @@ async function loadOrder(db: SupabaseClient, pedidoId: string | number): Promise
   if (!Number.isInteger(id) || id <= 0) throw new Error('invalid_order_id');
   const { data, error } = await db
     .from('pedidos')
-    .select('id,nombre_cliente,telefono,customer_email,total,external_token,payment_status,metodopago')
+    .select('id,business_unit_id,nombre_cliente,telefono,customer_email,total,external_token,payment_status,metodopago,fecha_entrega,estado')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -56,6 +60,9 @@ export async function createPaymentLink(
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
   if (pedido.payment_status === 'paid') throw new Error('payment_already_paid');
+
+  const eligibility = await getOrderPaymentEligibility(db, pedido);
+  if (!eligibility.eligible) throw new Error(`payment_order_ineligible:${eligibility.reason}`);
 
   if (input.provider === 'mercadopago') {
     if (String(pedido.metodopago || '').toLowerCase() !== 'mercadopago') throw new Error('payment_method_mismatch');

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { confirmConversationSale, prepareConversationSaleDraft, type ConversationSaleDraft } from '@/lib/orders/conversation-sale';
+import { linkExplicitReferencedOrder } from '@/lib/orders/conversation-existing-order';
 import { calcularPedido } from '@/lib/pricing/calcular-pedido';
 import { OrderRepository } from '@/lib/repositories/orders-repository';
 import {
@@ -241,6 +242,13 @@ export async function autoRegisterWhatsappConversationSale(
   const messages = await loadConversationMessages(db, conversationId, onlyUnlinkedMessages);
   if (repeatOrder && messages.length === 0) {
     return { status: 'already_linked', orderId: Number(conversation.order_id) };
+  }
+
+  if (!repeatOrder) {
+    const referenced = await linkExplicitReferencedOrder(db, typedConversation, messages, {
+      allowCrossCustomerWithMatchingAmount: false,
+    });
+    if (referenced) return referenced;
   }
 
   if (repeatOrder) {
