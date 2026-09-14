@@ -215,7 +215,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Total</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Estado</th>
               <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display">Creado</th>
-              <th className="px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display text-right">Acción</th>
+              <th className="sticky right-0 z-20 bg-[#07100d] px-3 py-3 text-[10px] tracking-wider text-neon uppercase font-display text-right">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -226,8 +226,8 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
               const channel = channelInfo(o.source);
               const payment = paymentBadge(o.payment_status);
               return (
-                <tr key={o.id} className="hover:bg-white/[0.03] transition-colors">
-                  <td className="px-3 py-3 font-mono text-xs text-neon font-semibold">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</td>
+                <tr key={o.id} className="group hover:bg-white/[0.03] transition-colors">
+                  <td className="px-3 py-3"><Link href={`/admin/pedidos/${o.id}`} className="font-mono text-xs text-neon font-semibold hover:text-white transition-colors">{o.order_number || `MAN-${o.id.substring(0, 8)}`}</Link></td>
                   <td className="px-3 py-3"><div className="font-semibold text-white text-sm">{o.customer_name || 'Sin nombre'}</div><div className="text-xs text-muted">{o.customer_email || o.customer_phone || ''}</div></td>
                   <td className="px-3 py-3"><div className="flex flex-col items-start gap-1"><span className={`inline-flex text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${payment.className}`}>Pago: {payment.label}</span><span className="text-[10px] font-semibold text-white/70">Medio: {paymentMethodLabel(o.payment_method)}</span></div></td>
                   <td className="px-3 py-3"><span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${channel.className}`}><span aria-hidden="true">{channel.icon}</span>{channel.label}</span></td>
@@ -245,7 +245,7 @@ export default async function AdminPedidosPage({ searchParams }: PageProps) {
                     </div>
                   </td>
                   <td className="px-3 py-3 text-xs text-muted font-mono">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
-                  <td className="px-3 py-3 text-right"><Link href={`/admin/pedidos/${o.id}`} className="text-neon hover:text-white text-xs font-semibold transition-colors inline-flex items-center gap-1">Ver →</Link></td>
+                  <td className="sticky right-0 z-10 bg-[#07100d] px-3 py-3 text-right transition-colors group-hover:bg-[#0b1712]"><Link href={`/admin/pedidos/${o.id}`} className="inline-flex items-center gap-1 rounded-lg border border-neon/20 bg-neon/10 px-3 py-1.5 text-xs font-semibold text-neon transition-colors hover:bg-neon hover:text-[#020705]">Gestionar →</Link></td>
                 </tr>
               );
             })}
