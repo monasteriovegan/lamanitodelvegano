@@ -5,6 +5,7 @@ import {
   evaluateMessagingCapability,
   type MetaSendMode,
 } from '../src/lib/messaging/capability-policy.ts';
+import { metaAssetReference } from '../src/lib/meta/asset-routing.ts';
 import { createWhatsAppCloudSender } from '../src/lib/messaging/whatsapp-cloud-sender.ts';
 
 function sender(mode: MetaSendMode) {
@@ -59,5 +60,13 @@ test('live mode sends once and updates transport health', async () => {
     { automatic: true, businessUnitId: 'tenant' },
   );
   assert.equal(result.providerMessageId, 'wamid.sent');
+  assert.deepEqual(result.raw, {
+    messages: [{ id: 'wamid.sent' }],
+    metadata: { phone_number_id: 'test-phone-id' },
+  });
+  assert.deepEqual(metaAssetReference({ channel: 'whatsapp', raw_payload: result.raw }), {
+    assetType: 'whatsapp_phone_number',
+    externalId: 'test-phone-id',
+  });
   assert.deepEqual(h.calls(), { fetchCalls: 1, credentialCalls: 1, healthWrites: 1 });
 });
