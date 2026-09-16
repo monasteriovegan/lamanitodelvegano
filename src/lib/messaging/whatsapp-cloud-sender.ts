@@ -71,7 +71,10 @@ export function createWhatsAppCloudSender(deps: SenderDependencies) {
     await deps.writeHealth({ status: 'connected', lastError: null, outboundSucceeded: true });
     return {
       providerMessageId: String(body.messages?.[0]?.id ?? ''),
-      raw: body,
+      raw: {
+        ...body,
+        metadata: { phone_number_id: credential.externalId },
+      },
     };
   };
 }
