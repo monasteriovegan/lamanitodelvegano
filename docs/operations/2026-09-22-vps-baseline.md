@@ -74,8 +74,30 @@ Fecha de captura: 2026-09-22 America/Santiago / 2026-09-23 Europe/Berlin.
 - Una conexión SSH nueva fue validada después de activar UFW.
 - No existen reglas para `5432`, `6543`, `8000`, Studio, HTTP ni HTTPS.
 
+## Docker oficial
+
+- Origen: repositorio APT oficial `https://download.docker.com/linux/ubuntu`, suite `noble`, arquitectura `amd64`.
+- Docker Engine/CLI: `29.8.1`.
+- Docker Compose plugin: `v5.5.1`.
+- containerd: `2.3.5`.
+- Servicios `docker` y `containerd`: activos y habilitados.
+- Docker root: `/var/lib/docker`.
+- Estado: 0 contenedores y 0 imágenes; no se ejecutó `hello-world` para no dejar artefactos.
+- `supabaseops` opera Docker mediante `sudo`; el grupo `docker` no tiene miembros.
+- El daemon no escucha en TCP y no hay puertos de contenedores publicados.
+
+## Puertos escuchando
+
+| Alcance | Protocolo/puerto | Proceso | Exposición |
+| --- | --- | --- | --- |
+| `0.0.0.0`, `[::]` | TCP `22` | `sshd`/`systemd` | Público, permitido por UFW |
+| `127.0.0.53`, `127.0.0.54` | TCP/UDP `53` | `systemd-resolved` | Solo loopback |
+
+No escuchan `5432`, `6543`, `8000`, Studio ni ningún socket TCP de Docker.
+
 ## Riesgos abiertos después del acceso base
 
 - `supabaseops` tiene `NOPASSWD:ALL`: es necesario para operación automatizada, pero una pérdida de su clave equivale a compromiso root.
 - El VPS no tiene swap; antes de alojar Postgres debe definirse una política explícita de memoria/swap.
 - La zona horaria del servidor es Europe/Berlin. No bloquea la instalación, pero conviene decidir si se conserva o se normaliza a UTC antes de crear tareas programadas.
+- Docker puede eludir reglas UFW cuando un Compose publica puertos. La fase de instalación de Supabase debe fijar bindings loopback y/o reglas `DOCKER-USER` antes de iniciar cualquier contenedor.
