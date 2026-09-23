@@ -61,6 +61,19 @@ Fecha de captura: 2026-09-22 America/Santiago / 2026-09-23 Europe/Berlin.
   - puerto `22`
 - Ubuntu 24.04 usa activación por `ssh.socket`; `ssh.socket` está activo y habilitado.
 
+## Firewall UFW
+
+- Estado: activo y habilitado al iniciar.
+- Logging: `low`.
+- Política entrante: `deny`.
+- Política saliente: `allow`.
+- Política routed/forwarded: `deny`.
+- Reglas permitidas:
+  - `22/tcp` desde cualquier IPv4, comentario `SSH administration`.
+  - `22/tcp` desde cualquier IPv6, comentario `SSH administration`.
+- Una conexión SSH nueva fue validada después de activar UFW.
+- No existen reglas para `5432`, `6543`, `8000`, Studio, HTTP ni HTTPS.
+
 ## Riesgos abiertos después del acceso base
 
 - `supabaseops` tiene `NOPASSWD:ALL`: es necesario para operación automatizada, pero una pérdida de su clave equivale a compromiso root.
