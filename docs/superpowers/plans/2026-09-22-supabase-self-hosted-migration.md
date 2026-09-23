@@ -43,7 +43,7 @@
 - Consumes: hostname/IP, puerto, usuario actual y autenticación entregados por canal seguro.
 - Produces: inventario no sensible de SO, CPU, RAM, disco, red, usuarios, SSH, UFW, paquetes y servicios.
 
-- [ ] **Step 1: Verificar la identidad del host sin modificarlo**
+- [x] **Step 1: Verificar la identidad del host sin modificarlo**
 
 Run remotely:
 
@@ -59,7 +59,7 @@ lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS
 
 Expected: Ubuntu 24.04 LTS; mínimo 2 vCPU, 4 GB RAM y 40 GB SSD, recomendado 4 vCPU, 8 GB RAM y 80 GB SSD.
 
-- [ ] **Step 2: Inventariar exposición y servicios existentes**
+- [x] **Step 2: Inventariar exposición y servicios existentes**
 
 Run remotely:
 
@@ -74,11 +74,11 @@ docker compose version || true
 
 Expected: inventario completo. Si hay cargas existentes, detener la tarea y diseñar coexistencia antes de instalar o reiniciar servicios.
 
-- [ ] **Step 3: Guardar el baseline sanitizado**
+- [x] **Step 3: Guardar el baseline sanitizado**
 
 Write `docs/operations/2026-09-22-vps-baseline.md` sin IP pública, hostname sensible, claves, tokens ni hashes de contraseñas. Incluir comandos, fecha, versiones, puertos y servicios.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/operations/2026-09-22-vps-baseline.md
@@ -94,7 +94,7 @@ git commit -m "docs: record VPS baseline"
 - Consumes: baseline de Task 1 y nombre de usuario operativo acordado `supabaseops`.
 - Produces: sistema actualizado y acceso sudo no-root comprobado en una segunda sesión.
 
-- [ ] **Step 1: Actualizar índices y simular el upgrade**
+- [x] **Step 1: Actualizar índices y simular el upgrade**
 
 Run remotely:
 
@@ -106,7 +106,7 @@ sudo apt-get -s dist-upgrade
 
 Expected: lista revisable; si propone remover OpenSSH, red o paquetes críticos, detener.
 
-- [ ] **Step 2: Aplicar actualizaciones**
+- [x] **Step 2: Aplicar actualizaciones**
 
 ```bash
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade
@@ -116,7 +116,7 @@ test ! -f /var/run/reboot-required || cat /var/run/reboot-required.pkgs
 
 Expected: exit 0. Si se requiere reboot, registrar servicios y reiniciar en una ventana controlada antes de continuar.
 
-- [ ] **Step 3: Crear usuario administrador**
+- [x] **Step 3: Crear usuario administrador**
 
 ```bash
 id supabaseops >/dev/null 2>&1 || sudo adduser --disabled-password --gecos "Supabase operator" supabaseops
@@ -126,11 +126,11 @@ sudo -l -U supabaseops
 
 Expected: `supabaseops` existe y puede usar sudo; no tiene contraseña reutilizada o publicada.
 
-- [ ] **Step 4: Instalar la clave pública autorizada**
+- [x] **Step 4: Instalar la clave pública autorizada**
 
 Crear `/home/supabaseops/.ssh/authorized_keys` usando `install -d -m 700` y `install -m 600` desde un archivo temporal seguro, luego fijar `chown -R supabaseops:supabaseops /home/supabaseops/.ssh`. Nunca pegar la clave privada en el servidor.
 
-- [ ] **Step 5: Probar una segunda sesión**
+- [x] **Step 5: Probar una segunda sesión**
 
 ```bash
 ssh -p "$MANITO_SSH_PORT" -o PreferredAuthentications=publickey supabaseops@"$MANITO_SSH_HOST"
@@ -139,9 +139,9 @@ sudo -n true
 
 Expected: login por clave y sudo funcionales. Mantener abierta la sesión original hasta completar la prueba.
 
-- [ ] **Step 6: Endurecer SSH sólo después de la prueba**
+- [x] **Step 6: Endurecer SSH sólo después de la prueba**
 
-Crear `/etc/ssh/sshd_config.d/60-supabaseops.conf` con:
+Crear `/etc/ssh/sshd_config.d/00-supabaseops-hardening.conf` con prioridad anterior a los fragmentos cloud-init, porque OpenSSH conserva el primer valor encontrado, con:
 
 ```text
 PermitRootLogin no
@@ -159,7 +159,7 @@ sudo systemctl reload ssh
 
 Expected: `sshd -t` exit 0 y una tercera sesión por clave funciona.
 
-- [ ] **Step 7: Documentar y commit**
+- [x] **Step 7: Documentar y commit**
 
 ```bash
 git add docs/operations/2026-09-22-vps-baseline.md
@@ -175,7 +175,7 @@ git commit -m "docs: record VPS hardening"
 - Consumes: puerto SSH verificado y, si existe, IP/CIDR estable de administración.
 - Produces: política deny-by-default con sólo SSH permitido durante preparación.
 
-- [ ] **Step 1: Instalar UFW**
+- [x] **Step 1: Instalar UFW**
 
 ```bash
 sudo apt-get install -y ufw
@@ -183,7 +183,7 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 ```
 
-- [ ] **Step 2: Permitir SSH antes de habilitar**
+- [x] **Step 2: Permitir SSH antes de habilitar**
 
 Con IP estable:
 
@@ -193,7 +193,7 @@ sudo ufw allow from "$MANITO_ADMIN_CIDR" to any port "$MANITO_SSH_PORT" proto tc
 
 Sin IP estable, permitir temporalmente el puerto SSH global, registrar el riesgo y restringirlo cuando exista un origen estable.
 
-- [ ] **Step 3: Habilitar y verificar**
+- [x] **Step 3: Habilitar y verificar**
 
 ```bash
 sudo ufw --force enable
@@ -203,7 +203,7 @@ sudo ss -lntup
 
 Expected: sólo el puerto SSH está permitido inbound; una sesión nueva sigue funcionando.
 
-- [ ] **Step 4: Documentar y commit**
+- [x] **Step 4: Documentar y commit**
 
 ```bash
 git add docs/operations/2026-09-22-vps-baseline.md
@@ -219,7 +219,7 @@ git commit -m "docs: record VPS firewall baseline"
 - Consumes: Ubuntu actualizado y UFW activo.
 - Produces: Docker Engine y Compose plugin instalados, sin contenedores ni puertos publicados.
 
-- [ ] **Step 1: Instalar prerequisitos y keyring**
+- [x] **Step 1: Instalar prerequisitos y keyring**
 
 ```bash
 sudo apt-get install -y ca-certificates curl gnupg
@@ -228,14 +228,21 @@ sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyring
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
 
-- [ ] **Step 2: Añadir el repositorio Docker para Ubuntu noble**
+- [x] **Step 2: Añadir el repositorio Docker para Ubuntu noble**
 
 ```bash
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 sudo apt-get update
 ```
 
-- [ ] **Step 3: Instalar paquetes fijados por APT**
+- [x] **Step 3: Instalar paquetes fijados por APT**
 
 ```bash
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
@@ -244,7 +251,7 @@ sudo systemctl enable --now docker
 
 No agregar `supabaseops` al grupo `docker`; ese grupo equivale a root. Usar `sudo docker`.
 
-- [ ] **Step 4: Verificar sin publicar puertos**
+- [x] **Step 4: Verificar sin publicar puertos**
 
 ```bash
 sudo docker version
@@ -256,7 +263,7 @@ sudo ss -lntup
 
 Expected: Docker activo, cero contenedores Supabase y ningún puerto nuevo escuchando.
 
-- [ ] **Step 5: Documentar y commit**
+- [x] **Step 5: Documentar y commit**
 
 ```bash
 git add docs/operations/2026-09-22-vps-baseline.md
