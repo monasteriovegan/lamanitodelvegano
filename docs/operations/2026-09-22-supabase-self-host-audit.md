@@ -1,8 +1,10 @@
 # Auditoría para migración a Supabase self-hosted
 
-Fecha: 2026-09-22  
-Repositorio: `monasteriovegan/lamanitodelvegano`  
-Base auditada: `main` en `c553124`  
+Fecha: 2026-09-22
+
+Repositorio: `monasteriovegan/lamanitodelvegano`
+
+Base auditada: `main` en `c553124`
 Alcance: inventario del repositorio y preparación previa a una migración futura. No se consultó ni modificó la base administrada, no se copiaron datos, no se cambiaron DNS ni variables de Vercel y no se instaló Supabase.
 
 ## Resumen ejecutivo
