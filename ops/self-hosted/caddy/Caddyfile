@@ -1,0 +1,29 @@
+supabase.lamanitodelvegano.cl {
+	encode zstd gzip
+
+	@supabase_api path /auth/v1 /auth/v1/* /rest/v1 /rest/v1/* /graphql/v1 /graphql/v1/* /realtime/v1 /realtime/v1/* /storage/v1 /storage/v1/* /functions/v1 /functions/v1/* /.well-known/oauth-authorization-server
+
+	request_body @supabase_api {
+		max_size 16MB
+	}
+
+	handle @supabase_api {
+		reverse_proxy 127.0.0.1:8000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
