@@ -2,6 +2,8 @@
 -- The forward function must be called manually only after the final HTTPS origin exists:
 --   select * from migration_support.apply_legacy_supabase_url_rewrite('https://supabase.example.com');
 -- Signed URLs are intentionally preserved for application-level regeneration.
+-- Omnichannel public URLs are backed up but intentionally left on the legacy origin
+-- while their corresponding binaries remain unavailable.
 
 create schema if not exists migration_support;
 revoke all on schema migration_support from public, anon, authenticated;
@@ -62,12 +64,6 @@ begin
   update public.ajustes
   set data = replace(data::text, old_origin, new_origin)::jsonb
   where data::text like '%' || old_origin || '/storage/v1/object/public/%';
-  get diagnostics step_count = row_count;
-  updated_count := updated_count + step_count;
-
-  update public.omnichannel_messages
-  set payload = replace(payload::text, old_origin, new_origin)::jsonb
-  where payload::text like '%' || old_origin || '/storage/v1/object/public/%';
   get diagnostics step_count = row_count;
   updated_count := updated_count + step_count;
 
