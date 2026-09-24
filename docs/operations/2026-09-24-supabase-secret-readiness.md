@@ -22,7 +22,7 @@ Fecha: 2026-09-24. Este documento registra decisiones y dependencias; no contien
 | Self-hosted anon/publishable, service-role, JWT y JWKS | **CONSERVAR** | Conservar exclusivamente el juego nuevo del VPS. No copiar claves de Platform. |
 | Password PostgreSQL y claves internas del stack | **CONSERVAR** | Permanecen en `.env` protegido del VPS; rotación sólo mediante procedimiento coordinado. |
 | Claves anon/service-role/JWT/password DB de Platform como configuración futura | **ELIMINAR** | No deben existir en Preview/self-hosted. Mantenerlas únicamente en Production hasta un cutover aprobado. |
-| Clave S3 temporal creada para la extracción Platform | **ELIMINAR** | Revocar en Dashboard y borrar cualquier copia del bloc de notas. La revocación no puede confirmarse desde el flujo read-only. |
+| Clave S3 temporal creada para la extracción Platform | **ELIMINADA** | El operador confirmó su revocación en Dashboard el 2026-09-24. Se vació el portapapeles local y se comprobó que no existen configuraciones estándar de `rclone` ni archivos de credenciales en el repositorio. No se conservaron ni mostraron sus valores. |
 
 ## Estado
 
@@ -30,4 +30,4 @@ Fecha: 2026-09-24. Este documento registra decisiones y dependencias; no contien
 - El snapshot conserva la fila cifrada de `integraciones_secretas` y los tokens cifrados Meta sin mostrar valores.
 - No se configuraron secretos nuevos en Vercel Production.
 - Preview continúa bloqueado hasta disponer de un endpoint HTTPS alcanzable.
-
+- La revocación de la clave S3 temporal quedó confirmada por el operador; no se hizo una prueba negativa posterior porque conservar la credencial únicamente para probarla habría contradicho su eliminación inmediata.
