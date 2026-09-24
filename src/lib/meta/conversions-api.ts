@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { runtimeSiteUrl } from '../site-url.ts';
+import { externalSideEffectsBlocked } from '@/lib/runtime/preview-safety';
 
 type PurchaseItem = {
   sku?: string;
@@ -19,7 +20,7 @@ type PurchaseItem = {
 
 export type MetaCapiResult =
   | { sent: true; eventId: string; duplicate?: boolean }
-  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'not_web_order' | 'request_failed' };
+  | { sent: false; reason: 'not_configured' | 'order_not_found' | 'not_web_order' | 'request_failed' | 'preview_safe_mode' };
 
 function normalizedHash(value: unknown) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -38,6 +39,7 @@ function normalizedPhoneHash(value: unknown) {
  * quedó pending/failed por una caída temporal de Meta.
  */
 export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string | number): Promise<MetaCapiResult> {
+  if (externalSideEffectsBlocked()) return { sent: false, reason: 'preview_safe_mode' };
   const accessToken = process.env.META_CONVERSIONS_API_ACCESS_TOKEN?.trim();
   if (!accessToken) return { sent: false, reason: 'not_configured' };
 

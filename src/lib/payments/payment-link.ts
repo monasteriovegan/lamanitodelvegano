@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveMercadoPagoAccessToken } from './mercadopago';
 import { getOrderPaymentEligibility } from './order-payment-eligibility';
 import { runtimeSiteUrl } from '@/lib/site-url';
+import { assertExternalSideEffectsAllowed } from '@/lib/runtime/preview-safety';
 
 export type PaymentProvider = 'mercadopago' | 'flow';
 
@@ -57,6 +58,7 @@ export async function createPaymentLink(
   db: SupabaseClient,
   input: { pedidoId: string | number; provider: PaymentProvider; origin?: string | null },
 ) {
+  assertExternalSideEffectsAllowed('payment');
   const pedido = await loadOrder(db, input.pedidoId);
   const origin = String(input.origin || defaultOrigin()).replace(/\/$/, '');
   if (pedido.payment_status === 'paid') throw new Error('payment_already_paid');

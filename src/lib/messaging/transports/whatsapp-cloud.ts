@@ -4,11 +4,13 @@ import { normalizarTelefonoChile } from '@/lib/whatsapp/client';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
 import { automaticRepliesEnabled, evaluateMessagingCapability, resolveChannelSendMode } from '@/lib/messaging/capability-policy';
 import { createWhatsAppCloudSender } from '@/lib/messaging/whatsapp-cloud-sender';
+import { assertExternalSideEffectsAllowed } from '@/lib/runtime/preview-safety';
 
 export async function sendWhatsAppCloud(
   input: { to: string; text: string },
   options: { manual?: boolean; automatic?: boolean; businessUnitId: string },
 ) {
+  assertExternalSideEffectsAllowed('whatsapp_outbound');
   const db = createSupabaseServiceClient();
   const { data: settings, error: settingsError } = await db.from('channel_settings')
     .select('enabled,auto_reply_enabled,read_only_mode')

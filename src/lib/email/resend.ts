@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { externalSideEffectsBlocked } from '@/lib/runtime/preview-safety';
 
 /**
  * Cliente de Resend (https://resend.com) vía su API REST directa, sin
@@ -17,6 +18,9 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 type EnviarResultado = { ok: true } | { ok: false; error: string };
 
 export async function enviarEmail(opts: { to: string; subject: string; html: string }): Promise<EnviarResultado> {
+  if (externalSideEffectsBlocked()) {
+    return { ok: false, error: 'Envío bloqueado por el modo seguro de Preview.' };
+  }
   const supabase = createSupabaseServiceClient();
   const { data: config } = await supabase
     .from('integraciones_secretas')

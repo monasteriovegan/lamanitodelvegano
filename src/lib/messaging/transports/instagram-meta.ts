@@ -1,6 +1,7 @@
 import 'server-only';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { MetaConnectionsRepository } from '@/lib/repositories/meta-connections-repository';
+import { assertExternalSideEffectsAllowed } from '@/lib/runtime/preview-safety';
 
 async function resolvePageAccessToken(
   userAccessToken: string,
@@ -106,6 +107,7 @@ export async function sendInstagramMeta(
   input: { to: string; text: string },
   options: { manual?: boolean; automatic?: boolean; businessUnitId: string },
 ) {
+  assertExternalSideEffectsAllowed('instagram_outbound');
   if (!options.manual && !options.automatic && process.env.META_SEND_MODE !== 'live') {
     throw new Error('real_sends_disabled');
   }
