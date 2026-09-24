@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { runtimeSiteUrl } from '../site-url.ts';
-import { externalSideEffectsBlocked } from '@/lib/runtime/preview-safety';
+import { externalSideEffectsBlocked } from '../runtime/preview-safety.ts';
 
 type PurchaseItem = {
   sku?: string;
