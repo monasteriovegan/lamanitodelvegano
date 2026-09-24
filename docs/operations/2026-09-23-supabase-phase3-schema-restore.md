@@ -211,6 +211,8 @@ Paridad comprobada origen → destino:
 
 Se añadieron después las dos policies de Storage, alcanzando paridad también en ese overlay personalizado.
 
+La comprobación final del destino confirmó cero filas en `auth.users`, `storage.buckets`, `storage.objects`, `public.productos` y `public.pedidos`; no se migraron datos reales.
+
 ## Red, firewall y recursos tras el restore
 
 Puertos escuchando:
