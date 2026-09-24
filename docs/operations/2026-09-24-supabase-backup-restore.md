@@ -28,7 +28,7 @@ No plaintext transfer copy of the encryption key remains on Windows or in `/tmp`
 
 - `lmv-supabase-backup.timer`: daily at 05:15 UTC, with up to five minutes randomized delay and persistent catch-up.
 - VPS retention: 7 daily, 4 weekly, and 6 monthly encrypted archives.
-- `lmv-supabase-healthcheck.timer`: every 30 minutes; fails if a project container is unhealthy, disk is at least 80%, or the newest backup is older than 36 hours.
+- `lmv-supabase-healthcheck.timer`: every 30 minutes; explicitly checks all 11 expected containers, fails if available memory falls below 10%, disk is at least 80%, or the newest backup is older than 36 hours.
 - Windows Scheduled Task `LMV Supabase encrypted offsite backup`: daily at 03:15 local time, `StartWhenAvailable`, and pulls the latest encrypted archive over SSH. It verifies SHA-256 before reporting success and retains seven copies.
 
 The Windows task uses interactive logon so no Windows password is stored. If the account is logged out at the trigger time, Task Scheduler starts it when the user next logs in.
