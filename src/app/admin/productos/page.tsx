@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/supabase/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { BusinessRepository } from '@/lib/repositories/business-repository';
 import { toggleDestacado, eliminarProducto } from './actions';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 export default async function AdminProductosPage() {
   const admin = await requireRole(['admin', 'bodega']);
@@ -60,12 +61,12 @@ export default async function AdminProductosPage() {
                       className="w-9 h-9 rounded-lg flex items-center justify-center text-lg overflow-hidden"
                       style={{ background: p.color_fondo }}
                     >
-                      {p.imagen_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imagen_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        p.emoji
-                      )}
+                      <SafeStorageImage
+                        src={p.imagen_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        fallback={<span>{p.emoji || '🌱'}</span>}
+                      />
                     </div>
                     <span className="font-semibold text-white">{p.nombre}</span>
                   </div>

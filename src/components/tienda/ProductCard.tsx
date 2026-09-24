@@ -6,6 +6,7 @@ import { useCart } from '@/lib/cart/CartContext';
 import { itemKey } from '@/lib/cart/CartContext';
 import { trackAddToCart } from '@/lib/analytics/client';
 import { formatPriceSummary } from '@/lib/catalog/price-summary';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 const TAG_STYLES: Record<string, string> = {
   nuevo: 'bg-v3 text-white',
@@ -57,16 +58,12 @@ export function ProductCard({ producto, onOpenDetail }: { producto: Producto; on
         className="w-full aspect-square flex items-center justify-center text-[42px] relative overflow-hidden block"
         style={{ background: producto.color_fondo || '#1B4332' }}
       >
-        {producto.imagen_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={producto.imagen_url}
-            alt={producto.nombre}
-            className="absolute inset-0 w-full h-full object-cover transition-transform hover:scale-110"
-          />
-        ) : (
-          <span className="relative z-[1]">{producto.emoji || '🌱'}</span>
-        )}
+        <SafeStorageImage
+          src={producto.imagen_url}
+          alt={producto.nombre}
+          className="absolute inset-0 w-full h-full object-cover transition-transform hover:scale-110"
+          fallback={<span className="relative z-[1]">{producto.emoji || '🌱'}</span>}
+        />
         {producto.etiqueta && (
           <span
             className={`absolute top-1.5 left-1.5 px-[7px] py-0.5 rounded-full text-[8px] font-bold uppercase z-[2] ${TAG_STYLES[producto.etiqueta]}`}

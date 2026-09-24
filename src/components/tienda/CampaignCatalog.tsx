@@ -8,6 +8,7 @@ import type { PublicCatalogCampaign, PublicCatalogProduct } from '@/lib/catalog/
 import { trackAddToCart } from '@/lib/analytics/client';
 import { formatDeliveryDateLabel } from '@/lib/pricing/fechas';
 import { OptionQuantitySelector } from './OptionQuantitySelector';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogProduct; campaignTag: string }) {
   const { addItem, openCart } = useCart();
@@ -68,16 +69,16 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
   return (
     <article className="overflow-hidden rounded-3xl border border-white/10 bg-[#07130e] shadow-[0_18px_70px_rgba(0,0,0,0.35)]">
       <Link href={`/productos/${product.slug}`} className="relative block aspect-square overflow-hidden bg-[#132d22]">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-cover transition duration-500 hover:scale-[1.02]" />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#244b39,#07130e_70%)] px-8 text-center">
+        <SafeStorageImage
+          src={product.imageUrl}
+          alt={product.name}
+          className="absolute inset-0 h-full w-full object-cover transition duration-500 hover:scale-[1.02]"
+          fallback={<div className="flex h-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#244b39,#07130e_70%)] px-8 text-center">
             <span className="text-6xl">🌱</span>
             <span className="font-display text-xl font-extrabold text-white">{product.name}</span>
             <span className="text-xs text-white/55">Pack por encargo</span>
-          </div>
-        )}
+          </div>}
+        />
       </Link>
       <div className="space-y-5 p-5 sm:p-6">
         <div>

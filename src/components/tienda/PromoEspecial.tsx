@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Producto, AjustesData } from '@/types/domain';
 import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
 import { useCart, itemKey } from '@/lib/cart/CartContext';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 interface PromoEspecialProps {
   ajustes: AjustesData;
@@ -91,8 +92,7 @@ function PromoEspecialContenido({
     return (
       <section className="px-4 py-4 max-w-[600px] mx-auto">
         <div className="rounded-2xl overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.5)] border border-[rgba(0,255,179,0.2)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imgUrl} alt="Promoción Especial" className="w-full h-auto object-cover display-block" />
+          <SafeStorageImage src={imgUrl} alt="Promoción Especial" className="w-full h-auto object-cover display-block" fallback={<div className="p-10 text-center text-5xl">🌱</div>} />
         </div>
       </section>
     );
@@ -103,8 +103,7 @@ function PromoEspecialContenido({
       <div className="promo-section">
         {/* Lado Izquierdo: Imagen */}
         <div className="promo-image-container">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imgUrl} alt={producto.nombre} />
+          <SafeStorageImage src={imgUrl} alt={producto.nombre} fallback={<div className="flex min-h-64 items-center justify-center text-6xl">{producto.emoji || '🌱'}</div>} />
         </div>
 
         {/* Lado Derecho: Compra Rápida */}

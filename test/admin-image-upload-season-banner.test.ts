@@ -36,10 +36,10 @@ test('Temporadas permite subir banner sin obligar a pegar una URL manual', () =>
 
 test('Fiestas Patrias renderiza banner local o remoto sin optimización remota de next image', () => {
   assert.doesNotMatch(campaignPage, /from ['"]next\/image['"]/);
-  assert.match(campaignPage, /<img[^>]+src=\{dto\.bannerImage\}/);
+  assert.match(campaignPage, /<SafeStorageImage[\s\S]+src=\{dto\.bannerImage\}[\s\S]+fallback=/);
 });
 
 test('El catálogo estacional no manda sus fotos remotas al optimizador de Next', () => {
   assert.doesNotMatch(campaignCatalog, /from ['"]next\/image['"]/);
-  assert.match(campaignCatalog, /<img[^>]+src=\{product\.imageUrl\}/);
+  assert.match(campaignCatalog, /<SafeStorageImage[\s\S]+src=\{product\.imageUrl\}[\s\S]+fallback=/);
 });

@@ -4,6 +4,7 @@ import { SiteShell } from '@/components/layout/SiteShell';
 import { CampaignCatalog } from '@/components/tienda/CampaignCatalog';
 import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
 import { toPublicCatalogCampaign } from '@/lib/catalog/public-dto';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +34,12 @@ export default async function FiestasPatriasPage() {
       <main className="min-h-screen bg-[#030907] pb-16 pt-20">
         <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
           <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#0a1b13] shadow-[0_24px_90px_rgba(0,0,0,0.4)]">
-            {dto.bannerImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={dto.bannerImage} alt="Fiestas Patrias 2026 de La Manito del Vegano" className="h-auto w-full" />
-            )}
+            <SafeStorageImage
+              src={dto.bannerImage}
+              alt="Fiestas Patrias 2026 de La Manito del Vegano"
+              className="h-auto w-full"
+              fallback={<div className="flex min-h-52 items-center justify-center bg-[#132d22] text-6xl">🌱</div>}
+            />
           </div>
           <div className="mx-auto max-w-3xl py-9 text-center">
             <span className="pill">🇨🇱 {dto.badgeText || dto.name}</span>

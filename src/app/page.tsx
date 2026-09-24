@@ -6,6 +6,7 @@ import { PromoEspecial } from '@/components/tienda/PromoEspecial';
 import { getProductosActivos, getCategorias, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
 import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
 import { formatPriceSummary } from '@/lib/catalog/price-summary';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +29,12 @@ export default async function HomePage() {
         {fiestasPatrias && (
           <section className="px-4 py-6">
             <Link href="/fiestas-patrias-2026" className="group mx-auto grid max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-[#0a1b13] shadow-[0_18px_70px_rgba(0,0,0,0.35)] md:grid-cols-[1.15fr_0.85fr]">
-              {fiestasPatrias.bannerImage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={fiestasPatrias.bannerImage} alt="Fiestas Patrias 2026" className="h-full min-h-[240px] w-full object-cover" />
-              )}
+              <SafeStorageImage
+                src={fiestasPatrias.bannerImage}
+                alt="Fiestas Patrias 2026"
+                className="h-full min-h-[240px] w-full object-cover"
+                fallback={<div className="flex min-h-[240px] items-center justify-center bg-[#132d22] text-6xl">🌱</div>}
+              />
               <div className="flex flex-col justify-center p-7 sm:p-10">
                 <span className="text-xs font-bold uppercase tracking-[0.2em] text-neon">🇨🇱 Solo por encargo</span>
                 <h2 className="mt-3 font-display text-3xl font-extrabold text-white">Fiestas Patrias 2026</h2>
@@ -62,12 +65,12 @@ export default async function HomePage() {
                     style={{ background: p.color_fondo || '#1B4332' }}
                   >
                     <div className="h-[180px] flex items-center justify-center text-6xl relative">
-                      {p.imagen_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imagen_url} alt={p.nombre} className="absolute inset-0 w-full h-full object-cover" />
-                      ) : (
-                        p.emoji
-                      )}
+                      <SafeStorageImage
+                        src={p.imagen_url}
+                        alt={p.nombre}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        fallback={<span>{p.emoji || '🌱'}</span>}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">
                         <p className="font-display font-bold text-base text-white mb-0.5">{p.nombre}</p>
                         <div className="mb-2">

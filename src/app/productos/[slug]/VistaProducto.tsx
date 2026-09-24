@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import type { Producto } from '@/types/domain';
 import { ProductPurchasePanel } from '@/components/tienda/ProductPurchasePanel';
 import { trackViewContent } from '@/lib/analytics/client';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 export function VistaProducto({ producto }: { producto: Producto }) {
   // ViewContent / view_item: se dispara una sola vez al entrar a la página
@@ -35,12 +36,12 @@ export function VistaProducto({ producto }: { producto: Producto }) {
         className="w-full aspect-square rounded-2xl flex items-center justify-center text-7xl mb-5 overflow-hidden relative"
         style={{ background: producto.color_fondo || '#1B4332' }}
       >
-        {producto.imagen_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={producto.imagen_url} alt={producto.nombre} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          producto.emoji || '🌱'
-        )}
+        <SafeStorageImage
+          src={producto.imagen_url}
+          alt={producto.nombre}
+          className="absolute inset-0 w-full h-full object-cover"
+          fallback={<span>{producto.emoji || '🌱'}</span>}
+        />
       </div>
 
       <h1 className="font-display font-bold text-2xl text-white mb-1.5">{producto.nombre}</h1>
