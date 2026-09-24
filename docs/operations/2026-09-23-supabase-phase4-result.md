@@ -1,5 +1,7 @@
 # Phase 4: resultado de migración aislada de datos, Auth y Storage
 
+> Nota histórica: este documento registra el estado al cierre inicial de Fase 4. La recuperación posterior de 27 objetos, el endurecimiento de Storage, los backups y la validación interna están documentados en los informes de 2026-09-24 y en el reporte final de precutover. Las afirmaciones de “0 objetos físicos” y `storage_anon_insert` pendiente ya no describen el estado actual.
+
 Fecha de cierre: 2026-09-24.
 
 ## Estado ejecutivo
@@ -237,4 +239,3 @@ No se aplicó este endurecimiento todavía; se preservó paridad con el origen.
 ## Stop point
 
 No hubo cutover. DNS, Vercel Production, variables de producción y endpoints públicos permanecen intactos. No debe avanzarse hasta resolver Storage y recibir una nueva aprobación explícita.
-
