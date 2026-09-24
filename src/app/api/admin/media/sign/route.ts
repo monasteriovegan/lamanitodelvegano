@@ -2,19 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
+import { validateAdminMediaUpload } from '@/lib/storage/admin-upload-policy';
 
 const BUCKET = 'productos';
 const PREFIX = 'ads-media';
-const ALLOWED_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-]);
-
 function safeExtension(fileName: string, contentType: string) {
   const ext = String(fileName || '').toLowerCase().match(/\.([a-z0-9]{1,8})$/)?.[1];
   if (ext) return ext;
@@ -37,13 +28,11 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null) as { fileName?: unknown; contentType?: unknown; size?: unknown } | null;
-  const fileName = String(body?.fileName || '').trim();
-  const contentType = String(body?.contentType || '').trim().toLowerCase();
-  const size = Number(body?.size || 0);
-
-  if (!fileName || fileName.length > 240 || !ALLOWED_TYPES.has(contentType) || !Number.isFinite(size) || size <= 0) {
+  const upload = validateAdminMediaUpload(body || {});
+  if (!upload.ok) {
     return NextResponse.json({ error: 'Archivo no válido. Usa una foto o video compatible.' }, { status: 400 });
   }
+  const { fileName, contentType } = upload;
 
   const extension = safeExtension(fileName, contentType);
   const path = `${PREFIX}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${randomUUID()}.${extension}`;
