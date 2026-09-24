@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Producto, AjustesData } from '@/types/domain';
 import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
-import { useCart, itemKey } from '@/lib/cart/CartContext';
+import { useCart } from '@/lib/cart/CartContext';
 import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 interface PromoEspecialProps {
@@ -18,14 +18,13 @@ export function PromoEspecial({ ajustes, productos }: PromoEspecialProps) {
   const imgUrl = ajustes.promo_imagen_url ?? '';
   const prodId = ajustes.promo_producto_id ?? '';
 
-  // 1. Si no está activa o no hay imagen promocional, no renderizar nada
-  if (!activa || !imgUrl) return null;
-
-  // 2. Buscar el producto asociado en el catálogo
   const producto = useMemo(() => {
     if (!prodId) return null;
     return productos.find((p) => p.id === prodId) || null;
   }, [prodId, productos]);
+
+  // Si no está activa o no hay imagen promocional, no renderizar nada.
+  if (!activa || !imgUrl) return null;
 
   return <PromoEspecialContenido producto={producto} imgUrl={imgUrl} itemsInCart={items} addItem={addItem} />;
 }

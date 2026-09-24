@@ -1,6 +1,6 @@
 'use client';
 
-import { createElement, useEffect, useState, type ImgHTMLAttributes, type ReactNode } from 'react';
+import { createElement, useState, type ImgHTMLAttributes, type ReactNode } from 'react';
 
 type ImageElementInput = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError'> & {
   src?: string | null;
@@ -16,17 +16,13 @@ export function buildStorageImageElement({ src, fallback = null, onFailure, ...i
 type SafeStorageImageProps = Omit<ImageElementInput, 'onFailure'>;
 
 export function SafeStorageImage({ src, fallback = null, ...imageProps }: SafeStorageImageProps) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const activeSrc = src && failedSrc === src ? null : src;
 
   return buildStorageImageElement({
     ...imageProps,
-    src: failed ? null : src,
+    src: activeSrc,
     fallback,
-    onFailure: () => setFailed(true),
+    onFailure: () => setFailedSrc(src || null),
   });
 }
-

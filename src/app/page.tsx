@@ -94,7 +94,7 @@ export default async function HomePage() {
         <div className="reswrap">
           <div className="res">
             <div className="ress">★★★★★</div>
-            <div className="rest">"Las empanadas de soya son increíbles. No puedo creer que sean veganas, están mejor que las de carne que comía antes."</div>
+            <div className="rest">“Las empanadas de soya son increíbles. No puedo creer que sean veganas, están mejor que las de carne que comía antes.”</div>
             <div className="resa">
               <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#40916c] to-[#52b788] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">VM</div>
               Valentina M. · Santiago
@@ -103,7 +103,7 @@ export default async function HomePage() {
           </div>
           <div className="res">
             <div className="ress">★★★★★</div>
-            <div className="rest">"El manjar de cáñamo es lo mejor que he probado. Único en Chile, lo comparto con toda la familia y todos quedan sorprendidos."</div>
+            <div className="rest">“El manjar de cáñamo es lo mejor que he probado. Único en Chile, lo comparto con toda la familia y todos quedan sorprendidos.”</div>
             <div className="resa">
               <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#2d6a4f] to-[#40916c] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">RP</div>
               Rodrigo P. · Pucón
@@ -112,7 +112,7 @@ export default async function HomePage() {
           </div>
           <div className="res">
             <div className="ress">★★★★★</div>
-            <div className="rest">"El pie de arándanos es una obra de arte. Se nota el amor con el que lo elaboran, volvería a pedir mil veces más."</div>
+            <div className="rest">“El pie de arándanos es una obra de arte. Se nota el amor con el que lo elaboran, volvería a pedir mil veces más.”</div>
             <div className="resa">
               <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#52b788] to-[#74c69d] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">CR</div>
               Camila R. · Providencia
@@ -121,7 +121,7 @@ export default async function HomePage() {
           </div>
           <div className="res">
             <div className="ress">★★★★★</div>
-            <div className="rest">"Super puntual el despacho y la presentación es hermosa. Se nota el amor y conciencia en cada detalle."</div>
+            <div className="rest">“Super puntual el despacho y la presentación es hermosa. Se nota el amor y conciencia en cada detalle.”</div>
             <div className="resa">
               <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#1b4332] to-[#2d6a4f] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">FA</div>
               Felipe A. · Ñuñoa
