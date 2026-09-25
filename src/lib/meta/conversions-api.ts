@@ -7,6 +7,8 @@ type PurchaseItem = {
   sku?: string;
   variantSku?: string;
   variant_sku?: string;
+  variantId?: string;
+  variant_id?: string;
   productoId?: string;
   producto_id?: string;
   id?: string;
@@ -121,14 +123,16 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
   const missingSku = items.some((i) => !i.sku && !i.variantSku && !i.variant_sku);
   if (missingSku && items.length > 0) {
     const productIds = items.map((i) => i.productoId || i.producto_id || i.id).filter(Boolean) as string[];
-    const variantIds = items.map((i: any) => i.variantId || i.variant_id).filter(Boolean) as string[];
+    const variantIds = items.map((i) => i.variantId || i.variant_id).filter(Boolean) as string[];
     const [prodsRes, varsRes] = await Promise.all([
       productIds.length > 0 ? db.from('productos').select('id,sku').in('id', productIds) : { data: [] },
       variantIds.length > 0 ? db.from('product_variants').select('id,sku').in('id', variantIds) : { data: [] },
     ]);
-    const prodMap = new Map((prodsRes.data || []).map((p: any) => [p.id, p.sku]));
-    const varMap = new Map((varsRes.data || []).map((v: any) => [v.id, v.sku]));
-    resolvedItems = items.map((i: any) => {
+    const productRows = (prodsRes.data || []) as Array<{ id: string; sku: string | null }>;
+    const variantRows = (varsRes.data || []) as Array<{ id: string; sku: string | null }>;
+    const prodMap = new Map(productRows.map((p) => [p.id, p.sku]));
+    const varMap = new Map(variantRows.map((v) => [v.id, v.sku]));
+    resolvedItems = items.map((i) => {
       const sku =
         i.sku ||
         i.variantSku ||
@@ -209,7 +213,12 @@ export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string
     return { sent: false, reason: 'request_failed' };
   }
 
-  let responseData: any = null;
+  let responseData: {
+    events_received?: unknown;
+    messages?: unknown;
+    fbtrace_id?: unknown;
+    error?: { message?: unknown; fbtrace_id?: unknown };
+  } | null = null;
   try {
     responseData = await response.json();
   } catch {
