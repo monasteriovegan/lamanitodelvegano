@@ -50,4 +50,3 @@
 - [ ] Re-run non-mutating VPS, Preview, and integration checks.
 - [ ] Confirm Git contains no secrets or dump data and commit documentation in small reversible commits.
 - [ ] Stop before any production change.
-

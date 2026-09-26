@@ -24,4 +24,3 @@ The audit records command timestamps, non-sensitive counts, hashes/fingerprints,
 4. Storage-debt and offline escrow verification.
 5. Read-only source-versus-snapshot delta inventory and an idempotent final-delta procedure.
 6. Exact 16-step cutover runbook, rollback procedure, reconciliation rules, expected maintenance window, and final readiness verdict.
-
