@@ -45,6 +45,12 @@ The Compose file pins `caddy:2.11.4-alpine`, uses host networking only so Caddy 
 
 Envoy remains loopback-only throughout. Removing the public gateway does not require a database rollback.
 
-## Remaining gate
+## Vercel Preview activated
 
-The trusted HTTPS backend is ready. Vercel Preview remains unchanged until the self-hosted public/Auth URLs and branch-specific Preview credentials are configured and verified.
+The isolated branch `staging/supabase-self-hosted` deploys only to Vercel Preview. Its stable alias is `https://lmv-selfhost-preview.vercel.app`; deployment `dpl_F9ABHiLqAuAZvoDvzvG9uJ9M9KAT` was `Ready` when verified. Nine environment variables are scoped to the `preview` target and this exact Git branch. They point to the self-hosted API and enable `LMV_PREVIEW_SAFE_MODE`; no Production variable was changed.
+
+Self-hosted Auth now uses the stable Preview alias as `SITE_URL` and includes it in the redirect allow-list. Google OAuth remains disabled because no valid existing configuration was available, so no callback was invented or changed.
+
+Vercel Authentication remains enabled for the Preview. Automated checks used the authenticated `vercel curl` path; the protection was not disabled.
+
+The full Preview smoke passed with temporary, cleaned-up resources: three public pages, nine authenticated admin pages, login/refresh/logout, catalog and availability reads, a checkout validation dry-run with zero order writes, both payment providers blocked by Preview safe mode, a signed private object, and the administrative signed-upload route.
