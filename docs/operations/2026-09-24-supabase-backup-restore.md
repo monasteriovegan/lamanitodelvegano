@@ -10,7 +10,7 @@ This procedure protects only the isolated self-hosted environment. It does not c
 - Storage objects are read through the supported self-hosted S3 endpoint. The backup contains the 27 binaries that are actually present. The 100 metadata-only objects known to be unavailable are explicitly excluded so a missing binary cannot silently turn the scheduled backup into a partial failure.
 - The pinned self-hosted configuration is included: `.env`, Compose files, Envoy/Kong, database initialization SQL, Functions, pooler, and reverse-proxy templates. Raw PostgreSQL and Storage volume files are not copied.
 - Every plaintext file in the staging tree is covered by `SHA256SUMS` before encryption.
-- The archive is encrypted with AES-256-CBC, PBKDF2, a random salt, and a random 256-bit key. Plaintext staging is removed by a guarded cleanup trap.
+- The archive is encrypted with AES-256-CBC, PBKDF2, a random salt, and a random 256-bit key. Plaintext staging is removed by a guarded cleanup trap. Storage backup uses the public HTTPS S3 endpoint derived from `SUPABASE_PUBLIC_URL`; this is required because S3 signatures include the canonical host after the HTTPS origin is active.
 
 ## Locations and permissions
 
@@ -19,7 +19,7 @@ This procedure protects only the isolated self-hosted environment. It does not c
 - Encryption key: `/opt/supabase-lamanito/backup/.key`, owned by root, mode `0600`.
 - VPS archives: `/opt/supabase-lamanito/backup/{daily,weekly,monthly}`, root-only.
 - Offsite handoff contains encrypted material only: `/opt/supabase-lamanito/backup/offsite`, readable by `supabaseops`.
-- Windows encrypted key envelope: `outputs/lmv-selfhost-backup-key.dpapi`. It is protected by Windows DPAPI for the current Windows account.
+- Windows encrypted key envelopes: `outputs/lmv-selfhost-backup-key.dpapi` and `outputs/lmv-selfhost-backup-key-escrow-2.dpapi`. Both protect the same key with independent DPAPI entropy for the current Windows account.
 - Windows encrypted archive copy: `outputs/backups/`.
 
 No plaintext transfer copy of the encryption key remains on Windows or in `/tmp` on the VPS.
@@ -35,7 +35,7 @@ The Windows task uses interactive logon so no Windows password is stored. If the
 
 ## Verified restore drill
 
-The latest archive checksum and every internal checksum were verified. A temporary database named exactly `lmv_restore_drill_20260924` was created from `template0`, then the schema and data dumps were restored with stop-on-error behavior. Exact row counts for all 127 restored tables matched the live self-hosted database. The source and drill each had 324 primary/foreign-key constraints. The extracted Storage copy had 27 objects and 39,405,106 bytes. The temporary database and plaintext drill directory were removed after validation.
+The latest verified run produced `lmv-supabase-20260925T033110Z.tar.gz.enc` and its offsite checksum matched. A temporary database named exactly `lmv_restore_drill_20260924` was created from `template0`, then the schema and data dumps were restored with stop-on-error behavior. Exact row counts for all 129 restored tables matched the live self-hosted database. The drill verified 325 primary/foreign-key constraints and 27 Storage objects / 39,405,106 bytes. The temporary database and plaintext drill directory were removed after validation.
 
 ## Manual checks
 
@@ -51,6 +51,6 @@ Do not run a restore against `postgres`. A recovery must target a new database f
 ## Remaining backup risks
 
 - The 100 known unavailable Storage binaries cannot be backed up; their database metadata is included, but their object files are absent.
-- The offsite archive and DPAPI key envelope currently live on the same Windows computer. Create a second offline encrypted escrow copy under a separate custody process before cutover.
+- Two independent DPAPI envelopes now exist outside the VPS, but both remain on the same Windows computer. Copy the second envelope to disconnected removable media under separate custody before cutover; no removable volume was connected during this phase.
 - The DPAPI envelope is recoverable only by this Windows account on this Windows installation. Losing both the VPS key and this account profile would make the encrypted archives unrecoverable.
 - Health checks are local systemd failures only; an external alert destination has not been configured because no notification service was authorized.
