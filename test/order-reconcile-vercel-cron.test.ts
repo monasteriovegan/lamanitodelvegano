@@ -13,11 +13,10 @@ test('order reconciliation cron is configured as a Hobby-compatible daily safety
   assert.equal(cron.schedule, '0 8 * * *');
 });
 
-test('order reconciliation cron route requires CRON_SECRET and uses fixed bounded reconciliation', () => {
+test('order reconciliation cron route delegates to the fail-closed guard and uses fixed bounded reconciliation', () => {
   const route = read('src/app/api/cron/reconcile-pending-sales/route.ts');
   assert.match(route, /process\.env\.CRON_SECRET/);
-  assert.match(route, /Authorization|authorization/);
-  assert.match(route, /Bearer/);
+  assert.match(route, /hasValidCronAuthorization\(authHeader, secret\)/);
   assert.match(route, /reconcilePendingSales/);
   assert.match(route, /limit:\s*10/);
   assert.match(route, /hours:\s*72/);

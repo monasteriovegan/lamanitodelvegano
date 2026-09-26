@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { runOpportunityCycle } from '@/lib/opportunities/runner';
+import { hasValidCronAuthorization } from '@/lib/security/cron-authorization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!hasValidCronAuthorization(authHeader, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

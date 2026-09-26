@@ -1,6 +1,6 @@
 import 'server-only';
-import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+export { validateMercadoPagoWebhookSignature } from './mercadopago-webhook-signature';
 
 export function mercadoPagoEnvToken() {
   return String(
@@ -29,34 +29,6 @@ export function mercadoPagoWebhookSecret() {
     || process.env.MP_WEBHOOK_SECRET
     || '',
   ).trim();
-}
-
-function signatureParts(signature: string) {
-  const parts = signature.split(',').map((part) => part.trim());
-  return {
-    ts: parts.find((part) => part.startsWith('ts='))?.slice(3) || '',
-    v1: parts.find((part) => part.startsWith('v1='))?.slice(3) || '',
-  };
-}
-
-export function validateMercadoPagoWebhookSignature(input: {
-  signature: string | null;
-  requestId: string | null;
-  dataId: string;
-  secret: string;
-}) {
-  if (!input.secret) return true;
-  if (!input.signature) return false;
-  const { ts, v1 } = signatureParts(input.signature);
-  if (!ts || !v1) return false;
-  const manifest = [
-    input.dataId ? `id:${input.dataId};` : '',
-    input.requestId ? `request-id:${input.requestId};` : '',
-    ts ? `ts:${ts};` : '',
-  ].join('');
-  const expected = crypto.createHmac('sha256', input.secret).update(manifest).digest('hex');
-  if (expected.length !== v1.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
 }
 
 export async function getMercadoPagoPayment(token: string, paymentId: string) {

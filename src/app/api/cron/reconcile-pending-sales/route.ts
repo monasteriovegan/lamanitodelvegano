@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { reconcilePendingSales } from '@/lib/orders/reconcile-pending-sales';
+import { hasValidCronAuthorization } from '@/lib/security/cron-authorization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const authHeader = req.headers.get('authorization');
 
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  if (!hasValidCronAuthorization(authHeader, secret)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

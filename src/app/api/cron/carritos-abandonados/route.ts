@@ -7,6 +7,7 @@ import { evaluateConversationOpportunity } from '@/lib/opportunities/service';
 import { enviarEmail } from '@/lib/email/resend';
 import { plantillaCarritoAbandonado } from '@/lib/email/templates';
 import type { ItemCarrito } from '@/types/domain';
+import { hasValidCronAuthorization } from '@/lib/security/cron-authorization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -23,7 +24,7 @@ function recoveryText(nombre: string, items: ItemCarrito[], subtotal: number) {
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!hasValidCronAuthorization(authHeader, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 

@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
   }
 
   const secret = mercadoPagoWebhookSecret();
-  if (secret && !validateMercadoPagoWebhookSignature({
+  if (!secret) {
+    return NextResponse.json({ error: 'mercadopago_webhook_secret_not_configured' }, { status: 503 });
+  }
+  if (!validateMercadoPagoWebhookSignature({
     signature: req.headers.get('x-signature'),
     requestId: req.headers.get('x-request-id'),
     dataId: paymentId,
