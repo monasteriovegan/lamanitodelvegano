@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { reconcilePendingSales } from '@/lib/orders/reconcile-pending-sales';
 import { hasValidCronAuthorization } from '@/lib/security/cron-authorization';
+import { scheduledJobEnabled } from '@/lib/runtime/production-controls';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,6 +13,9 @@ export async function GET(req: NextRequest) {
 
   if (!hasValidCronAuthorization(authHeader, secret)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+  if (!scheduledJobEnabled('reconcile')) {
+    return NextResponse.json({ ok: false, paused: true }, { status: 503, headers: { 'Retry-After': '3600' } });
   }
 
   try {

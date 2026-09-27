@@ -8,6 +8,7 @@ import { enviarEmail } from '@/lib/email/resend';
 import { plantillaCarritoAbandonado } from '@/lib/email/templates';
 import type { ItemCarrito } from '@/types/domain';
 import { hasValidCronAuthorization } from '@/lib/security/cron-authorization';
+import { scheduledJobEnabled } from '@/lib/runtime/production-controls';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   if (!hasValidCronAuthorization(authHeader, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+  if (!scheduledJobEnabled('abandoned-carts')) {
+    return NextResponse.json({ ok: false, paused: true }, { status: 503, headers: { 'Retry-After': '3600' } });
   }
 
   const db = createSupabaseServiceClient();

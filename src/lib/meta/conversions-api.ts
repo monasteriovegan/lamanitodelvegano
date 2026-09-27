@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { runtimeSiteUrl } from '../site-url.ts';
 import { externalSideEffectsBlocked } from '../runtime/preview-safety.ts';
+import { metaCapiEnabled } from '../runtime/production-controls.ts';
 
 type PurchaseItem = {
   sku?: string;
@@ -42,6 +43,7 @@ function normalizedPhoneHash(value: unknown) {
  */
 export async function sendPaidPurchaseToMeta(db: SupabaseClient, orderId: string | number): Promise<MetaCapiResult> {
   if (externalSideEffectsBlocked()) return { sent: false, reason: 'preview_safe_mode' };
+  if (!metaCapiEnabled()) return { sent: false, reason: 'not_configured' };
   const accessToken = process.env.META_CONVERSIONS_API_ACCESS_TOKEN?.trim();
   if (!accessToken) return { sent: false, reason: 'not_configured' };
 
