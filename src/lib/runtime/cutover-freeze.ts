@@ -3,18 +3,7 @@ export type CutoverFreezeEnvironment = {
   LMV_CUTOVER_FREEZE?: string;
 };
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const SIDE_EFFECTING_GET_PREFIXES = [
-  '/api/cron/',
-  '/api/internal/',
-  '/api/meta/oauth/',
-  '/api/meta/instagram/oauth/',
-  '/api/admin/',
-  '/api/worker/',
-  '/api/mcp',
-  '/api/chat/',
-  '/internal-',
-];
+const PROVIDER_HANDSHAKE_PATHS = new Set(['/api/whatsapp', '/api/instagram']);
 
 export function isCutoverFreezeEnabled(
   environment: CutoverFreezeEnvironment = process.env,
@@ -28,6 +17,10 @@ export function shouldBlockRequestDuringCutover(
   environment: CutoverFreezeEnvironment = process.env,
 ) {
   if (!isCutoverFreezeEnabled(environment)) return false;
-  if (!SAFE_METHODS.has(method.toUpperCase())) return true;
-  return SIDE_EFFECTING_GET_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const normalizedMethod = method.toUpperCase();
+  if (normalizedMethod === 'OPTIONS') return false;
+  if ((normalizedMethod === 'GET' || normalizedMethod === 'HEAD') && PROVIDER_HANDSHAKE_PATHS.has(pathname)) {
+    return false;
+  }
+  return true;
 }

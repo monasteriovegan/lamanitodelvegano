@@ -20,7 +20,7 @@ test('cutover freeze blocks every HTTP mutation so webhooks receive a retryable 
   }
 });
 
-test('cutover freeze blocks side-effecting GET routes but permits ordinary reads and handshakes', () => {
+test('cutover freeze blocks every application read except provider verification handshakes', () => {
   const env = { LMV_CUTOVER_FREEZE: 'true' };
   for (const path of [
     '/api/cron/reconcile-pending-sales',
@@ -34,7 +34,10 @@ test('cutover freeze blocks side-effecting GET routes but permits ordinary reads
     '/internal-whatsapp-finalize-7c1d',
   ]) assert.equal(shouldBlockRequestDuringCutover(path, 'GET', env), true, path);
 
-  for (const path of ['/', '/productos/alfajores', '/api/catalog/products', '/api/whatsapp']) {
+  for (const path of ['/', '/productos/alfajores', '/api/catalog/products']) {
+    assert.equal(shouldBlockRequestDuringCutover(path, 'GET', env), true, path);
+  }
+  for (const path of ['/api/whatsapp', '/api/instagram']) {
     assert.equal(shouldBlockRequestDuringCutover(path, 'GET', env), false, path);
   }
   assert.equal(shouldBlockRequestDuringCutover('/api/cron/reconcile-pending-sales', 'GET', {}), false);
@@ -45,6 +48,8 @@ test('Proxy enforces retry-safe freeze responses before admin authentication', (
   assert.match(proxy, /shouldBlockRequestDuringCutover/);
   assert.match(proxy, /Retry-After/);
   assert.match(proxy, /no-store/);
+  assert.match(proxy, /Servicio temporalmente en mantenimiento/);
+  assert.match(proxy, /text\/html/);
   assert.match(proxy, /\(\?!_next\/static\|_next\/image/);
   assert.ok(proxy.indexOf('shouldBlockRequestDuringCutover') < proxy.indexOf("pathname.startsWith('/admin')"));
 });

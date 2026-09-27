@@ -6,15 +6,19 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (shouldBlockRequestDuringCutover(pathname, request.method)) {
+    const headers = {
+      'Cache-Control': 'no-store',
+      'Retry-After': '60',
+    };
+    if (!pathname.startsWith('/api/')) {
+      return new NextResponse(
+        '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>La Manito</title></head><body><main><h1>Servicio temporalmente en mantenimiento</h1><p>Volveremos en unos minutos. Gracias por tu paciencia.</p></main></body></html>',
+        { status: 503, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } },
+      );
+    }
     return NextResponse.json(
       { error: 'cutover_freeze' },
-      {
-        status: 503,
-        headers: {
-          'Cache-Control': 'no-store',
-          'Retry-After': '60',
-        },
-      },
+      { status: 503, headers },
     );
   }
 
