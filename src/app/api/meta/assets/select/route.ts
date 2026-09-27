@@ -2,6 +2,7 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { checkMetaToken, subscribeMetaPages } from '@/lib/meta/oauth';
 import { decryptMetaToken } from '@/lib/meta/token-crypto';
+import { metaReconnectReadOnly } from '@/lib/meta/reconnect-policy';
 
 export async function POST(request: Request) {
   const user = await getCurrentAdminUser();
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   if (!connectionId || !assetIds.length) return Response.json({ error: 'selection_required' }, { status: 400 });
 
   const db = createSupabaseServiceClient();
-  const { data: connection } = await db.from('meta_connections').select('id,business_unit_id,status')
+  const { data: connection } = await db.from('meta_connections').select('id,business_unit_id,provider,status')
     .eq('id', connectionId).in('status', ['pending', 'active', 'degraded', 'expired']).maybeSingle();
   if (!connection) return Response.json({ error: 'connection_not_found' }, { status: 404 });
   const { data: membership } = await db.from('business_members').select('id')
@@ -38,15 +39,18 @@ export async function POST(request: Request) {
   try {
     const accessToken = decryptMetaToken({ ciphertext: secret.access_token_ciphertext, iv: secret.access_token_iv, tag: secret.access_token_tag }, key);
     if (!(await checkMetaToken(accessToken))) throw new Error('invalid_token');
-    const pageIds = (candidates || []).flatMap((candidate) => {
-      if (candidate.asset_type === 'page') return [String(candidate.external_id)];
-      if (candidate.asset_type === 'instagram_account' && candidate.metadata?.page_id) {
-        return [String(candidate.metadata.page_id)];
-      }
-      return [];
-    });
-    await subscribeMetaPages(accessToken, pageIds);
-    await db.from('meta_connection_assets').update({ subscribed: true })
+    const readOnly = metaReconnectReadOnly(process.env);
+    if (!readOnly) {
+      const pageIds = (candidates || []).flatMap((candidate) => {
+        if (candidate.asset_type === 'page') return [String(candidate.external_id)];
+        if (candidate.asset_type === 'instagram_account' && candidate.metadata?.page_id) {
+          return [String(candidate.metadata.page_id)];
+        }
+        return [];
+      });
+      await subscribeMetaPages(accessToken, pageIds);
+    }
+    await db.from('meta_connection_assets').update({ subscribed: !readOnly })
       .eq('connection_id', connectionId).eq('business_unit_id', connection.business_unit_id).in('id', assetIds);
   } catch (error) {
     const code = error instanceof Error && error.message === 'invalid_token'
@@ -58,5 +62,8 @@ export async function POST(request: Request) {
   }
   await db.from('meta_connections').update({ status: 'active', last_health_at: new Date().toISOString(), last_error_code: null })
     .eq('id', connectionId).eq('business_unit_id', connection.business_unit_id);
-  return Response.json({ ok: true });
+  await db.from('meta_connections').update({ status: 'revoked', last_error_code: 'reauthorized' })
+    .eq('business_unit_id', connection.business_unit_id).eq('provider', connection.provider)
+    .eq('status', 'active').neq('id', connectionId);
+  return Response.json({ ok: true, mode: metaReconnectReadOnly(process.env) ? 'read_only' : 'live' });
 }

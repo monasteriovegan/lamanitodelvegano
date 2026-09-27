@@ -80,7 +80,7 @@ test('OAuth propio valida membresía, consume state y descubre assets server-sid
   assert.doesNotMatch(callback, /localStorage/);
 });
 
-test('selección sólo activa candidatos descubiertos para la conexión y tenant del usuario', () => {
+test('selección sólo activa candidatos del tenant y delega la suscripción a la política read-only', () => {
   const source = read('src/app/api/meta/assets/select/route.ts');
   assert.match(source, /business_members/);
   assert.match(source, /meta_connection_assets/);
@@ -88,7 +88,8 @@ test('selección sólo activa candidatos descubiertos para la conexión y tenant
   assert.match(source, /candidateIds/);
   assert.match(source, /status: 'active'/);
   assert.match(source, /subscribeMetaPages/);
-  assert.match(source, /subscribed:\s*true/);
+  assert.match(source, /metaReconnectReadOnly/);
+  assert.match(source, /subscribed:\s*!readOnly/);
 });
 
 test('la suscripción webhook usa tokens de Page efímeros y no persiste esos secretos', () => {

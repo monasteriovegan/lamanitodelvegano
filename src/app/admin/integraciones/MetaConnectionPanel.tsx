@@ -19,6 +19,7 @@ export function MetaConnectionPanel({ businessUnitId, businessName, connection }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [verified, setVerified] = useState(false);
+  const [verificationMode, setVerificationMode] = useState<'read_only' | 'live' | null>(null);
   const needsSelection = connection?.status === 'pending';
   const connectUrl = `/api/meta/oauth/start?business_unit_id=${encodeURIComponent(businessUnitId)}`;
   const instagramLoginUrl = `/api/meta/instagram/oauth/start?business_unit_id=${encodeURIComponent(businessUnitId)}`;
@@ -34,6 +35,7 @@ export function MetaConnectionPanel({ businessUnitId, businessName, connection }
     if (!response.ok) setError(body.error || 'No fue posible guardar la selección.');
     else {
       setVerified(true);
+      setVerificationMode(body.mode === 'live' ? 'live' : 'read_only');
       router.refresh();
     }
     setSaving(false);
@@ -84,7 +86,11 @@ export function MetaConnectionPanel({ businessUnitId, businessName, connection }
           </button> : null}
         </div>
       ) : null}
-      {verified ? <p className="mt-3 text-xs text-emerald-300">Conexión y suscripción de webhooks verificadas.</p> : null}
+      {verified ? <p className="mt-3 text-xs text-emerald-300">
+        {verificationMode === 'live'
+          ? 'Conexión y suscripción de webhooks verificadas.'
+          : 'Conexión validada en modo read-only; los webhooks productivos no fueron modificados.'}
+      </p> : null}
       {error ? <p className="mt-3 text-xs text-red-300">{error}</p> : null}
       {connection && connection.status !== 'disconnected' ? (
         <form action="/api/meta/connections/disconnect" method="post" className="mt-4">
