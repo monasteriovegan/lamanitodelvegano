@@ -2,7 +2,7 @@ import { getCurrentAdminUser } from '@/lib/supabase/server-auth';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { checkMetaToken, subscribeMetaPages } from '@/lib/meta/oauth';
 import { decryptMetaToken } from '@/lib/meta/token-crypto';
-import { metaReconnectReadOnly } from '@/lib/meta/reconnect-policy';
+import { metaReconnectFailureCode, metaReconnectReadOnly } from '@/lib/meta/reconnect-policy';
 
 export async function POST(request: Request) {
   const user = await getCurrentAdminUser();
@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   const { data: membership } = await db.from('business_members').select('id')
     .eq('business_unit_id', connection.business_unit_id).eq('user_id', user.id).maybeSingle();
   if (!membership) return Response.json({ error: 'tenant_forbidden' }, { status: 403 });
+  const connectionBusinessUnitId = connection.business_unit_id;
 
   const { data: candidates } = await db.from('meta_connection_assets').select('id,asset_type,external_id,metadata')
     .eq('connection_id', connectionId).eq('business_unit_id', connection.business_unit_id).in('id', assetIds);
@@ -36,11 +37,28 @@ export async function POST(request: Request) {
     .eq('business_unit_id', connection.business_unit_id).single();
   const key = process.env.META_TOKEN_ENCRYPTION_KEY;
   if (!secret || !key) return Response.json({ error: 'health_configuration_missing' }, { status: 503 });
+  async function markDegraded(stage: 'decrypt' | 'health' | 'subscribe') {
+    const code = metaReconnectFailureCode(stage);
+    await db.from('meta_connections').update({ status: 'degraded', last_error_code: code })
+      .eq('id', connectionId).eq('business_unit_id', connectionBusinessUnitId);
+    return Response.json({ error: code }, { status: 409 });
+  }
+
+  let accessToken: string;
   try {
-    const accessToken = decryptMetaToken({ ciphertext: secret.access_token_ciphertext, iv: secret.access_token_iv, tag: secret.access_token_tag }, key);
-    if (!(await checkMetaToken(accessToken))) throw new Error('invalid_token');
-    const readOnly = metaReconnectReadOnly(process.env);
-    if (!readOnly) {
+    accessToken = decryptMetaToken({ ciphertext: secret.access_token_ciphertext, iv: secret.access_token_iv, tag: secret.access_token_tag }, key);
+  } catch {
+    return markDegraded('decrypt');
+  }
+  try {
+    if (!(await checkMetaToken(accessToken))) return markDegraded('health');
+  } catch {
+    return markDegraded('health');
+  }
+
+  const readOnly = metaReconnectReadOnly(process.env);
+  if (!readOnly) {
+    try {
       const pageIds = (candidates || []).flatMap((candidate) => {
         if (candidate.asset_type === 'page') return [String(candidate.external_id)];
         if (candidate.asset_type === 'instagram_account' && candidate.metadata?.page_id) {
@@ -49,17 +67,12 @@ export async function POST(request: Request) {
         return [];
       });
       await subscribeMetaPages(accessToken, pageIds);
+    } catch {
+      return markDegraded('subscribe');
     }
-    await db.from('meta_connection_assets').update({ subscribed: !readOnly })
-      .eq('connection_id', connectionId).eq('business_unit_id', connection.business_unit_id).in('id', assetIds);
-  } catch (error) {
-    const code = error instanceof Error && error.message === 'invalid_token'
-      ? 'reauthorization_required'
-      : 'webhook_subscription_failed';
-    await db.from('meta_connections').update({ status: 'degraded', last_error_code: code })
-      .eq('id', connectionId).eq('business_unit_id', connection.business_unit_id);
-    return Response.json({ error: code }, { status: 409 });
   }
+  await db.from('meta_connection_assets').update({ subscribed: !readOnly })
+    .eq('connection_id', connectionId).eq('business_unit_id', connection.business_unit_id).in('id', assetIds);
   await db.from('meta_connections').update({ status: 'active', last_health_at: new Date().toISOString(), last_error_code: null })
     .eq('id', connectionId).eq('business_unit_id', connection.business_unit_id);
   await db.from('meta_connections').update({ status: 'revoked', last_error_code: 'reauthorized' })
