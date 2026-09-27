@@ -1,8 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { shouldBlockRequestDuringCutover } from '@/lib/runtime/cutover-freeze';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (shouldBlockRequestDuringCutover(pathname, request.method)) {
+    return NextResponse.json(
+      { error: 'cutover_freeze' },
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Retry-After': '60',
+        },
+      },
+    );
+  }
 
   if (!pathname.startsWith('/admin')) {
     return NextResponse.next();
@@ -54,5 +68,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

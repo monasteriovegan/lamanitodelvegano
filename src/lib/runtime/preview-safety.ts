@@ -6,7 +6,9 @@ export type ExternalSideEffect =
   | 'instagram_outbound';
 
 export function externalSideEffectsBlocked(env: NodeJS.ProcessEnv = process.env) {
-  return env.VERCEL_ENV === 'preview' || env.LMV_PREVIEW_SAFE_MODE === 'true';
+  return env.VERCEL_ENV === 'preview'
+    || env.LMV_PREVIEW_SAFE_MODE === 'true'
+    || env.LMV_CUTOVER_FREEZE === 'true';
 }
 
 export function assertExternalSideEffectsAllowed(
