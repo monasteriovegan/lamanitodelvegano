@@ -20,6 +20,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
+read_env_value() {
+  local requested_key="$1"
+  awk -v requested_key="$requested_key" '
+    index($0, requested_key "=") == 1 {
+      value = substr($0, length(requested_key) + 2)
+      sub(/\r$/, "", value)
+      if ((substr(value, 1, 1) == "\"" && substr(value, length(value), 1) == "\"") ||
+          (substr(value, 1, 1) == "\047" && substr(value, length(value), 1) == "\047")) {
+        value = substr(value, 2, length(value) - 2)
+      }
+      print value
+      exit
+    }
+  ' "$stack/.env"
+}
+
 test -r "$key"
 mkdir -p "$base"/{daily,weekly,monthly,tmp,logs,offsite}
 run=$(mktemp -d "$base/tmp/run.XXXXXX")
@@ -32,10 +48,10 @@ docker exec supabase-db pg_dumpall -U supabase_admin --roles-only --no-role-pass
 docker exec supabase-db pg_dump -U supabase_admin -d postgres --schema-only --no-owner --no-privileges > "$run/payload/database/schema.sql"
 docker exec supabase-db pg_dump -U supabase_admin -d postgres --data-only --disable-triggers --no-owner --no-privileges > "$run/payload/database/data.sql"
 
-set -a
-# shellcheck disable=SC1091
-source "$stack/.env"
-set +a
+S3_PROTOCOL_ACCESS_KEY_ID=$(read_env_value S3_PROTOCOL_ACCESS_KEY_ID)
+S3_PROTOCOL_ACCESS_KEY_SECRET=$(read_env_value S3_PROTOCOL_ACCESS_KEY_SECRET)
+REGION=$(read_env_value REGION)
+SUPABASE_PUBLIC_URL=$(read_env_value SUPABASE_PUBLIC_URL)
 test -n "${S3_PROTOCOL_ACCESS_KEY_ID:-}"
 test -n "${S3_PROTOCOL_ACCESS_KEY_SECRET:-}"
 test -n "${REGION:-}"
@@ -101,4 +117,3 @@ find "$base/monthly" -maxdepth 1 -type f -name '*.tar.gz.enc' -printf '%T@ %p\n'
 find "$base/offsite" -maxdepth 1 -type f -name '*.tar.gz.enc' -printf '%T@ %p\n' | sort -nr | awk 'NR>2 {print $2}' | while read -r old; do rm -f -- "$old" "$old.sha256"; done
 
 echo "BACKUP_OK archive=$archive"
-
