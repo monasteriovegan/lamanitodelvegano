@@ -14,8 +14,3 @@ export function scheduledJobEnabled(
 ) {
   return environment[cronFlags[job]] !== 'false';
 }
-
-export function metaCapiEnabled(environment: RuntimeEnvironment = process.env) {
-  return environment.META_CAPI_ENABLED !== 'false';
-}
-
