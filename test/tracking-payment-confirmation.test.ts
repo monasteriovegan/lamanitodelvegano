@@ -10,14 +10,11 @@ test('tracking API uses the reconciled pedidos schema and accepts the generated 
   const route = read('src/app/api/tracking/route.ts');
 
   assert.match(route, /tracking_number/);
-  assert.match(route, /nombre_cliente/);
-  assert.match(route, /shipping_zone_name/);
   assert.match(route, /fecha_entrega/);
-  assert.match(route, /metodopago/);
   assert.match(route, /estado/);
-  assert.match(route, /created_at/);
-  assert.doesNotMatch(route, /\.select\('id, cliente,/);
   assert.match(route, /\.eq\('tracking_number',/);
+  assert.doesNotMatch(route, /\.eq\('id',/);
+  assert.doesNotMatch(route, /nombre_cliente|direccion|telefono|customer_email|shipping_zone_name|metodopago|payment_status|total|created_at/);
 });
 
 test('tracking page consumes the id query parameter automatically and does not promise a later tracking id', () => {

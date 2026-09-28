@@ -5,17 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/layout/SiteShell';
 
 interface TrackingData {
-  id: string;
-  trackingNumber: string | null;
-  nombreCliente: string;
-  direccion: string;
-  zonaEnvio: string | null;
-  fechaDespacho: string | null;
-  metodoPago: string | null;
+  trackingNumber: string;
   status: string;
-  paymentStatus: string;
-  total: number;
-  createdAt: string;
+  estimatedDelivery: string | null;
 }
 
 const STEPS = [
@@ -109,21 +101,14 @@ function SeguimientoContent() {
                 <p className="text-3xl mb-2">❌</p>
                 <p className="font-display font-bold text-white">Pedido Cancelado</p>
                 <p className="text-xs text-muted mt-1">
-                  El pedido #{resultado.id} fue cancelado.
+                  El seguimiento {resultado.trackingNumber} fue cancelado.
                 </p>
               </div>
             ) : (
               <>
                 <p className="text-[10px] uppercase text-muted font-bold tracking-wider">Número de seguimiento</p>
                 <p className="font-serif italic font-bold text-lg text-white mb-1">
-                  {resultado.trackingNumber || `Pedido #${resultado.id}`}
-                </p>
-                <p className="text-xs text-muted mb-5">
-                  Realizado: {new Date(resultado.createdAt).toLocaleDateString('es-CL', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {resultado.trackingNumber}
                 </p>
 
                 <div className="relative mb-6">
@@ -152,15 +137,8 @@ function SeguimientoContent() {
                 </div>
 
                 <div className="bg-white/5 rounded-xl p-4 text-xs text-white/80 leading-relaxed">
-                  <p>👤 <strong>Cliente:</strong> {resultado.nombreCliente}</p>
-                  <p>📍 <strong>Despacho:</strong> {resultado.direccion} ({resultado.zonaEnvio || '—'})</p>
-                  <p>📅 <strong>Fecha entrega:</strong> {resultado.fechaDespacho || 'Por confirmar'}</p>
-                  <p className="mt-2 pt-2 border-t border-white/10">
-                    <strong>Pago:</strong> {resultado.metodoPago || 'No especificado'} ({resultado.paymentStatus === 'paid' ? 'Pagado' : resultado.status})
-                  </p>
-                  <p className="text-base font-bold text-neon mt-1">
-                    Total: ${resultado.total.toLocaleString('es-CL')}
-                  </p>
+                  <p><strong>Estado:</strong> {resultado.status}</p>
+                  <p>📅 <strong>Fecha estimada de entrega:</strong> {resultado.estimatedDelivery || 'Por confirmar'}</p>
                 </div>
               </>
             )}

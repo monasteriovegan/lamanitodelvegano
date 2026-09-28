@@ -24,7 +24,7 @@ export default async function PedidoConfirmacionPage({
 
   const esExito = pedido.estado === 'Pagado' && pedido.payment_status === 'paid';
   const orderId = String(pedido.id);
-  const trackingId = String(pedido.tracking_number || pedido.id);
+  const trackingId = String(pedido.tracking_number || '').trim();
 
   let trackingItems = (pedido.items || []) as Array<{
     sku?: string;
@@ -87,12 +87,16 @@ export default async function PedidoConfirmacionPage({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Link
-            href={`/seguimiento?id=${encodeURIComponent(trackingId)}`}
-            className="bg-neon text-[#020705] font-bold py-3 rounded-full text-sm hover:bg-white transition-all"
-          >
-            📍 Rastrear mi pedido
-          </Link>
+          {trackingId ? (
+            <Link
+              href={`/seguimiento?id=${encodeURIComponent(trackingId)}`}
+              className="bg-neon text-[#020705] font-bold py-3 rounded-full text-sm hover:bg-white transition-all"
+            >
+              📍 Rastrear mi pedido
+            </Link>
+          ) : (
+            <p className="text-sm text-white/60 py-2">El seguimiento todavía no está disponible.</p>
+          )}
           <Link href="/" className="text-sm text-white/60 underline py-2">
             Volver a la tienda
           </Link>
