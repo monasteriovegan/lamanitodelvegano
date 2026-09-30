@@ -7,16 +7,9 @@ import { hasValidCronAuthorization } from '../src/lib/security/cron-authorizatio
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('Vercel retains the three schedules until the no-overlap cutover commit', () => {
+test('Vercel has no schedules after the no-overlap cutover commit', () => {
   const config = JSON.parse(read('vercel.json')) as { crons?: Array<{ path: string; schedule: string }> };
-  assert.deepEqual(
-    config.crons,
-    [
-      { path: '/api/cron/carritos-abandonados', schedule: '0 13 * * *' },
-      { path: '/api/cron/sales-opportunities', schedule: '0 14 * * *' },
-      { path: '/api/cron/reconcile-pending-sales', schedule: '0 8 * * *' },
-    ],
-  );
+  assert.deepEqual(config.crons || [], []);
 });
 
 test('all migrated endpoints retain GET fail-closed authorization and 60 second bounds', () => {
