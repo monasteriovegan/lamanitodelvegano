@@ -65,7 +65,7 @@ Expected before cutover: all three timers disabled/inactive; six units pass `sys
 1. Commit only removal of the three `vercel.json` entries; record its parent as rollback commit.
 2. Deploy that exact commit to Vercel Production.
 3. Require `vercel crons ls` to show none of the three paths.
-4. Record the disable timestamp: `TO_RECORD`.
+4. Production deployment `dpl_AtJXL6L2X2pSN5UHWDM85fkMvM7U` reached READY and `vercel crons ls` first confirmed zero jobs at `2026-09-30T02:36:38Z`; all VPS timers were still disabled/inactive at that check.
 5. Only then run:
 
 ```bash
@@ -73,7 +73,7 @@ systemctl enable --now lmv-reconciliation.timer lmv-abandoned-carts.timer lmv-op
 systemctl list-timers --all 'lmv-*'
 ```
 
-6. Record the enable timestamp and first future run: `TO_RECORD`.
+6. VPS timers were enabled at `2026-09-30T02:37:30Z`. First future runs are reconciliation `2026-09-30T08:00:00Z`, abandoned carts `2026-09-30T13:00:00Z`, and opportunities `2026-09-30T14:00:00Z`.
 
 ## Evidence
 
@@ -102,3 +102,32 @@ systemctl disable --now lmv-reconciliation.timer lmv-abandoned-carts.timer lmv-o
 5. Verify VPS timers remain disabled. Do not modify endpoint logic or `CRON_SECRET`.
 
 Rollback commit: `0787aa1e19bb87d496778de030b21cf6dd7ded33`.
+
+## Final production audit
+
+Production deployment `dpl_AtJXL6L2X2pSN5UHWDM85fkMvM7U` is READY from commit `0b73c4ef531666b2ebb09a2d63a42ddd543e9e9e`.
+
+| Job | Before | Now | Schedule | Last controlled test | State |
+|---|---|---|---|---|---|
+| Reconciliation | Vercel Cron | `lmv-reconciliation.timer` | `08:00 UTC` daily | `2026-09-30T02:21:18Z`, 1.076s, HTTP 200; second run had no duplicate or count change | enabled/active |
+| Abandoned carts | Vercel Cron | `lmv-abandoned-carts.timer` | `13:00 UTC` daily | `2026-09-30T02:22:50Z`, 0.516s, HTTP 200; controlled probe reported zero sends and exact gate restoration | enabled/active |
+| Opportunities | Vercel Cron | `lmv-opportunities.timer` | `14:00 UTC` daily | `2026-09-30T02:21:41Z`, 17.242s, HTTP 200; outbound count unchanged | enabled/active |
+
+| System | Effective state | Authoritative control |
+|---|---|---|
+| Remy | OFF | `agent_runtime_configs(agent='remy').enabled=false` and global `ai_enabled=false` |
+| Meta CAPI | ON | Production access token plus configured Pixel/dataset; paid-order guards and `conversion_events.event_id` outbox provide payment gating and idempotency independently of Remy |
+| Meta Pixel | ON | `integraciones_secretas.meta_pixel_id`; a headless production browser observed `fbq`, the Facebook script, the Pixel DOM node, and initial PageView |
+| WhatsApp | ON / READ_ONLY | `channel_settings`: enabled=true, auto_reply=false, read_only=true |
+| Instagram | ON / READ_ONLY | `channel_settings`: enabled=true, auto_reply=false, read_only=true |
+
+Final evidence:
+
+- `vercel crons ls`: zero jobs.
+- Three VPS timers: enabled/active; next runs `2026-09-30T08:00:00Z`, `13:00:00Z`, and `14:00:00Z`.
+- Integrated healthcheck: success; 11/11 Supabase containers healthy, cron timers=3, disk used 10%, memory available 82%, latest backup successful and under 24 hours old.
+- Web smoke: canonical root 200, unauthenticated admin 307 to login, login 200, catalog 200 with 14 products, product page 200, checkout page 200, no payment created.
+- Meta CAPI diagnostic: HTTP 200, token authorized, dataset configured, Meta validation status 400 for an intentionally empty batch, and `eventSent=false`.
+- All three cron endpoints return 401 without authorization. `/etc/lmv-cron/cron.env` is `root:root` mode `0600`; the secret is absent from process arguments, unit text, Git-shaped tracked content, and journals.
+- Repository verification: focused scheduler tests 12/12, Meta/payment tests 17/17, full suite 529/529, and ESLint passes for the changed TypeScript file. Repository-wide lint retains 506 pre-existing findings in unchanged files. Local builds cannot access protected Supabase values, while the exact cutover commit passed the remote Vercel production build.
+- Rollback pressure test: the rollback commit contains exactly the original three schedules, and the documented order is disable VPS timers, restore/deploy Vercel schedules, verify Vercel, then remain in rollback mode with VPS timers disabled.

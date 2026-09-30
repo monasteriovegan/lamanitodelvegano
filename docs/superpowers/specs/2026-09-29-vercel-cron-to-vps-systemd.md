@@ -91,4 +91,3 @@ If any VPS timer or service is unsafe or unhealthy: disable and stop all three t
 - Meta Pixel and Meta CAPI remain ON.
 - No real outbound message, email, payment, or purchase is generated during validation.
 - No managed Supabase mutation, DNS change, business schedule change, full VPS reboot, or Git secret is allowed.
-

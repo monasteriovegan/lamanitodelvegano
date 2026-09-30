@@ -237,4 +237,3 @@ git commit -m "ops: move production cron schedules to VPS"
 - [ ] **Step 7: Commit only the sanitized final operations report, if it changed, and push the deployed commits.**
 
 - [ ] **Step 8: Deliver the required `Job | Antes | Ahora | Schedule | Última prueba | Estado` table, unit/timer mappings, next runs, durations, auth/log/health evidence, environment-file path/mode, deployed commit, Vercel state, VPS state, and rollback commit. End with the exact success or failure terminal phrase from the specification.**
-
