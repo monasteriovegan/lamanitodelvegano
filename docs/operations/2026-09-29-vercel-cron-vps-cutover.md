@@ -21,16 +21,16 @@ This runbook migrates only these production schedules. The authenticated GET end
 
 ## Pre-cutover inventory
 
-- Pre-cutover commit: `TO_RECORD`
-- Last retained Vercel execution: `TO_RECORD` (or `not retained` with last expected UTC instant)
-- VPS services installed: `TO_RECORD`
-- VPS timers disabled: `TO_RECORD`
-- Manual test UTC/duration/status/request ID: `TO_RECORD`
-- Sanitized before/after counts: `TO_RECORD`
+- Pre-cutover/rollback commit: `0787aa1e19bb87d496778de030b21cf6dd7ded33`.
+- Last retained Vercel execution: not retained. Last expected instants before the 2026-09-30 cutover were reconciliation `2026-09-29T08:00:00Z`, abandoned carts `2026-09-29T13:00:00Z`, and opportunities `2026-09-29T14:00:00Z`.
+- VPS services installed: all three unit pairs passed `systemd-analyze verify`.
+- VPS timers disabled: all three reported `disabled/inactive` throughout controlled tests.
+- Manual tests: reconciliation `2026-09-30T02:21:14Z` (2.698s) and `02:21:18Z` (1.076s), opportunities `02:21:41Z` (17.242s), abandoned carts `02:22:50Z` (0.516s); all HTTP 200 with safe Vercel request IDs retained in journald.
+- Sanitized before/after counts were identical: orders `67` (`57` paid), conversation links `39` (duplicate pairs `0`), outbound messages `3149`, contacted carts `2`, opportunities `643` (`207` due).
 
 ## Secure secret installation
 
-Pull the existing Production environment into an operator-only temporary file, extract `CRON_SECRET` in memory, and stream it over SSH stdin into an atomic temporary file on the VPS. The final file is:
+The existing Production variable was present but empty. It was rotated in place to a cryptographically random value, streamed to Vercel and the VPS through stdin/memory, and never printed or retained in the repository. The final VPS file is:
 
 ```text
 /etc/lmv-cron/cron.env  root:root  0600
@@ -101,4 +101,4 @@ systemctl disable --now lmv-reconciliation.timer lmv-abandoned-carts.timer lmv-o
 4. Require `vercel crons ls` to show the three original paths/schedules.
 5. Verify VPS timers remain disabled. Do not modify endpoint logic or `CRON_SECRET`.
 
-Rollback commit: `TO_RECORD`.
+Rollback commit: `0787aa1e19bb87d496778de030b21cf6dd7ded33`.
