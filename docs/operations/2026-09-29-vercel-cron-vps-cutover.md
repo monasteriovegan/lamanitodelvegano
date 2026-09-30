@@ -109,9 +109,9 @@ Production deployment `dpl_AtJXL6L2X2pSN5UHWDM85fkMvM7U` is READY from commit `0
 
 | Job | Before | Now | Schedule | Last controlled test | State |
 |---|---|---|---|---|---|
-| Reconciliation | Vercel Cron | `lmv-reconciliation.timer` | `08:00 UTC` daily | `2026-09-30T02:21:18Z`, 1.076s, HTTP 200; second run had no duplicate or count change | enabled/active |
-| Abandoned carts | Vercel Cron | `lmv-abandoned-carts.timer` | `13:00 UTC` daily | `2026-09-30T02:22:50Z`, 0.516s, HTTP 200; controlled probe reported zero sends and exact gate restoration | enabled/active |
-| Opportunities | Vercel Cron | `lmv-opportunities.timer` | `14:00 UTC` daily | `2026-09-30T02:21:41Z`, 17.242s, HTTP 200; outbound count unchanged | enabled/active |
+| Reconciliation | Vercel Cron | `lmv-reconciliation.timer` | `08:00 UTC` daily | Automatic `2026-09-30T08:00:20Z`, 3.044s, HTTP 200; orders/payments/links unchanged | enabled/active |
+| Abandoned carts | Vercel Cron | `lmv-abandoned-carts.timer` | `13:00 UTC` daily | Automatic `2026-09-30T13:00:11Z`, 3.166s, HTTP 200; contacted carts unchanged | enabled/active |
+| Opportunities | Vercel Cron | `lmv-opportunities.timer` | `14:00 UTC` daily | Automatic `2026-09-30T14:00:04Z`, 23.286s, HTTP 200; no outbound message in the execution window | enabled/active |
 
 | System | Effective state | Authoritative control |
 |---|---|---|
@@ -124,10 +124,11 @@ Production deployment `dpl_AtJXL6L2X2pSN5UHWDM85fkMvM7U` is READY from commit `0
 Final evidence:
 
 - `vercel crons ls`: zero jobs.
-- Three VPS timers: enabled/active; next runs `2026-09-30T08:00:00Z`, `13:00:00Z`, and `14:00:00Z`.
+- Three VPS timers: enabled/active; first automatic runs all succeeded on 2026-09-30 and next runs are `2026-10-01T08:00:00Z`, `13:00:00Z`, and `14:00:00Z`.
 - Integrated healthcheck: success; 11/11 Supabase containers healthy, cron timers=3, disk used 10%, memory available 82%, latest backup successful and under 24 hours old.
 - Web smoke: canonical root 200, unauthenticated admin 307 to login, login 200, catalog 200 with 14 products, product page 200, checkout page 200, no payment created.
 - Meta CAPI diagnostic: HTTP 200, token authorized, dataset configured, Meta validation status 400 for an intentionally empty batch, and `eventSent=false`.
 - All three cron endpoints return 401 without authorization. `/etc/lmv-cron/cron.env` is `root:root` mode `0600`; the secret is absent from process arguments, unit text, Git-shaped tracked content, and journals.
 - Repository verification: focused scheduler tests 12/12, Meta/payment tests 17/17, full suite 529/529, and ESLint passes for the changed TypeScript file. Repository-wide lint retains 506 pre-existing findings in unchanged files. Local builds cannot access protected Supabase values, while the exact cutover commit passed the remote Vercel production build.
 - Rollback pressure test: the rollback commit contains exactly the original three schedules, and the documented order is disable VPS timers, restore/deploy Vercel schedules, verify Vercel, then remain in rollback mode with VPS timers disabled.
+- Post-schedule data check: orders `67`, paid orders `57`, conversation links `39`, contacted carts `2` (all unchanged); opportunities increased from `643` to `645` through evaluation. There were zero outbound-message rows in each timer execution window. The aggregate outbound count increased by nine over the wider production day and is not attributed to these jobs.
