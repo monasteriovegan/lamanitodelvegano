@@ -1,0 +1,12 @@
+[Unit]
+Description=Run La Manito abandoned carts at 13:00 UTC daily
+
+[Timer]
+OnCalendar=*-*-* 13:00:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1min
+Unit=lmv-abandoned-carts.service
+
+[Install]
+WantedBy=timers.target

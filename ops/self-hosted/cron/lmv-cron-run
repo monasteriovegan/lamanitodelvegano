@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+usage() {
+  printf 'usage: lmv-cron-run JOB ENDPOINT_PATH\n' >&2
+  exit 64
+}
+
+[[ $# -eq 2 ]] || usage
+job=$1
+endpoint_path=$2
+
+case "$job|$endpoint_path" in
+  'lmv-reconciliation|/api/cron/reconcile-pending-sales'|\
+  'lmv-abandoned-carts|/api/cron/carritos-abandonados'|\
+  'lmv-opportunities|/api/cron/sales-opportunities') ;;
+  *)
+    printf 'invalid job/endpoint mapping\n' >&2
+    exit 64
+    ;;
+esac
+
+if [[ -z ${CRON_SECRET:-} || -z ${LMV_CRON_BASE_URL:-} ]]; then
+  printf 'job=%s outcome=configuration_error reason=required_environment_missing\n' "$job"
+  exit 78
+fi
+if [[ $LMV_CRON_BASE_URL != https://* ]]; then
+  printf 'job=%s outcome=configuration_error reason=https_required\n' "$job"
+  exit 78
+fi
+
+runtime_dir=${LMV_CRON_RUNTIME_DIR:-/run/lmv-cron}
+curl_bin=${LMV_CURL_BIN:-curl}
+flock_bin=${LMV_FLOCK_BIN:-flock}
+sleep_bin=${LMV_SLEEP_BIN:-sleep}
+if [[ ! -d $runtime_dir ]]; then
+  printf 'job=%s outcome=configuration_error reason=runtime_directory_missing\n' "$job"
+  exit 78
+fi
+
+start_utc=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')
+start_ms=$(date -u +%s%3N)
+lock_file="$runtime_dir/$job.lock"
+exec 9>"$lock_file"
+if ! "$flock_bin" -n 9; then
+  printf 'job=%s start_utc=%s end_utc=%s duration_ms=0 http_status=none attempt=0 outcome=already_running request_id=none\n' \
+    "$job" "$start_utc" "$start_utc"
+  exit 0
+fi
+
+printf 'job=%s start_utc=%s outcome=started\n' "$job" "$start_utc"
+
+body_file=$(mktemp "${TMPDIR:-/tmp}/lmv-cron-body.XXXXXX") || exit 70
+header_file=$(mktemp "${TMPDIR:-/tmp}/lmv-cron-headers.XXXXXX") || exit 70
+metrics_file=$(mktemp "${TMPDIR:-/tmp}/lmv-cron-metrics.XXXXXX") || exit 70
+error_file=$(mktemp "${TMPDIR:-/tmp}/lmv-cron-error.XXXXXX") || exit 70
+cleanup() {
+  rm -f -- "$body_file" "$header_file" "$metrics_file" "$error_file"
+}
+trap cleanup EXIT HUP INT TERM
+
+url="${LMV_CRON_BASE_URL%/}${endpoint_path}"
+attempt=1
+curl_exit=0
+http_status=000
+request_id=none
+
+while :; do
+  : > "$body_file"
+  : > "$header_file"
+  : > "$metrics_file"
+  : > "$error_file"
+
+  set +e
+  printf 'header = "Authorization: Bearer %s"\n' "$CRON_SECRET" | \
+    "$curl_bin" \
+      --silent \
+      --show-error \
+      --fail-with-body \
+      --request GET \
+      --connect-timeout 10 \
+      --max-time 75 \
+      --user-agent 'lmv-vps-systemd-cron/1.0' \
+      --output "$body_file" \
+      --dump-header "$header_file" \
+      --write-out '%{http_code}|%{time_total}' \
+      --config - \
+      "$url" > "$metrics_file" 2> "$error_file"
+  pipeline_status=("${PIPESTATUS[@]}")
+  curl_exit=${pipeline_status[1]:-1}
+  set -e
+
+  metrics=$(<"$metrics_file")
+  http_status=${metrics%%|*}
+  [[ $http_status =~ ^[0-9]{3}$ ]] || http_status=000
+  request_id=$(grep -Eim1 '^(x-vercel-id|x-request-id):' "$header_file" 2>/dev/null \
+    | cut -d: -f2- \
+    | tr -d '\r' \
+    | tr -cd 'A-Za-z0-9._:-' || true)
+  [[ -n $request_id ]] || request_id=none
+
+  if [[ $curl_exit -eq 0 && $http_status =~ ^2[0-9][0-9]$ ]]; then
+    outcome=success
+    break
+  fi
+
+  if [[ $attempt -eq 1 && $http_status == 000 && ( $curl_exit -eq 6 || $curl_exit -eq 7 ) ]]; then
+    printf 'job=%s start_utc=%s http_status=000 attempt=1 outcome=retrying request_id=none retry_delay_seconds=15\n' \
+      "$job" "$start_utc"
+    attempt=2
+    "$sleep_bin" 15
+    continue
+  fi
+
+  outcome=failure
+  break
+done
+
+end_utc=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')
+end_ms=$(date -u +%s%3N)
+duration_ms=$((end_ms - start_ms))
+printf 'job=%s start_utc=%s end_utc=%s duration_ms=%s http_status=%s curl_exit=%s attempt=%s outcome=%s request_id=%s\n' \
+  "$job" "$start_utc" "$end_utc" "$duration_ms" "$http_status" "$curl_exit" "$attempt" "$outcome" "$request_id"
+
+[[ $outcome == success ]]

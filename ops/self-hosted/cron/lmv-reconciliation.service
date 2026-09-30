@@ -1,0 +1,36 @@
+[Unit]
+Description=La Manito daily pending-sales reconciliation
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=lmv-cron
+Group=lmv-cron
+EnvironmentFile=-/etc/lmv-cron/cron.env
+ExecStart=/usr/local/libexec/lmv-cron-run lmv-reconciliation /api/cron/reconcile-pending-sales
+RuntimeDirectory=lmv-cron
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=90s
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lmv-reconciliation
