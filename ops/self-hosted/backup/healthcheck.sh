@@ -34,5 +34,7 @@ latest=$(find "$base/daily" -maxdepth 1 -type f -name '*.tar.gz.enc' -printf '%T
 now=$(date +%s)
 if [[ -z "$latest" ]] || (( now - ${latest%.*} > 129600 )); then echo 'ALERT backup_older_than_36h'; fail=1; fi
 
-if (( fail == 0 )); then echo "HEALTHCHECK_OK containers=${#containers[@]} disk_percent=$disk_pct memory_available_percent=$mem_available_pct"; fi
+if ! "$base/bin/cron-healthcheck.sh"; then fail=1; fi
+
+if (( fail == 0 )); then echo "HEALTHCHECK_OK containers=${#containers[@]} cron_timers=3 disk_percent=$disk_pct memory_available_percent=$mem_available_pct"; fi
 exit "$fail"
