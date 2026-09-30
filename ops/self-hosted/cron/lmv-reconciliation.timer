@@ -1,0 +1,12 @@
+[Unit]
+Description=Run La Manito reconciliation at 08:00 UTC daily
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1min
+Unit=lmv-reconciliation.service
+
+[Install]
+WantedBy=timers.target

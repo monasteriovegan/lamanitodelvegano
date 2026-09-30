@@ -1,0 +1,12 @@
+[Unit]
+Description=Run La Manito opportunities at 14:00 UTC daily
+
+[Timer]
+OnCalendar=*-*-* 14:00:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1min
+Unit=lmv-opportunities.service
+
+[Install]
+WantedBy=timers.target
