@@ -88,6 +88,8 @@ test('three persistent timers preserve exact UTC schedules independent of server
 
 const bash = 'C:\\Program Files\\Git\\bin\\bash.exe';
 const runner = join(root, 'ops/self-hosted/cron/lmv-cron-run');
+const cronHealthcheck = join(root, 'ops/self-hosted/cron/cron-healthcheck.sh');
+const installer = join(root, 'ops/self-hosted/cron/install.sh');
 
 function executable(path: string, content: string) {
   writeFileSync(path, content, 'utf8');
@@ -215,4 +217,106 @@ test('runner exits cleanly as already_running without issuing HTTP traffic', () 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.attempts, 0);
   assert.match(result.stdout, /outcome=already_running/);
+});
+
+function runCronHealthcheck(mode: string) {
+  const sandbox = mkdtempSync(join(tmpdir(), 'lmv-cron-health-'));
+  const bin = join(sandbox, 'bin');
+  mkdirSync(bin);
+  executable(join(bin, 'systemctl'), `#!/usr/bin/env bash
+set -euo pipefail
+mode=$FAKE_HEALTH_MODE
+if [[ $1 == is-enabled ]]; then
+  [[ $mode == disabled && $3 == lmv-abandoned-carts.timer ]] && exit 1
+  exit 0
+fi
+if [[ $1 == show ]]; then
+  unit=$2
+  case "$*" in
+    *property=Result*)
+      [[ $mode == failed && $unit == lmv-opportunities.service ]] && printf 'failed\\n' || printf 'success\\n' ;;
+    *property=ExecMainExitTimestamp*)
+      [[ $mode == stale && $unit == lmv-reconciliation.service ]] && printf 'Sat 2000-01-01 00:00:00 UTC\\n' || printf '%s\\n' "$FAKE_LAST_EXIT" ;;
+    *) exit 96 ;;
+  esac
+  exit 0
+fi
+exit 95
+`);
+  executable(join(bin, 'journalctl'), `#!/usr/bin/env bash
+if [[ "$FAKE_HEALTH_MODE" == repeated && "$*" == *lmv-abandoned-carts.service* ]]; then
+  printf '%s\\n' 'job=lmv-abandoned-carts outcome=failure' 'job=lmv-abandoned-carts outcome=failure'
+fi
+exit 0
+`);
+  const posixBin = bin.replace(/^([A-Za-z]):/, (_match, drive: string) => `/${drive.toLowerCase()}`).replaceAll('\\', '/');
+  const result = spawnSync(bash, [cronHealthcheck], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      SystemRoot: process.env.SystemRoot,
+      WINDIR: process.env.WINDIR,
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP,
+      PATH: '/usr/bin:/bin',
+      LMV_SYSTEMCTL_BIN: `${posixBin}/systemctl`,
+      LMV_JOURNALCTL_BIN: `${posixBin}/journalctl`,
+      FAKE_HEALTH_MODE: mode,
+      FAKE_LAST_EXIT: new Date().toUTCString(),
+    },
+  });
+  rmSync(sandbox, { recursive: true, force: true });
+  return result;
+}
+
+test('cron healthcheck accepts three enabled successful and fresh jobs', () => {
+  assert.ok(existsSync(cronHealthcheck), 'missing cron healthcheck');
+  const result = runCronHealthcheck('healthy');
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /CRON_HEALTH_OK timers=3/);
+});
+
+test('cron healthcheck detects disabled timer failed service stale completion and repeated failures', () => {
+  const expectations = [
+    ['disabled', /timer_disabled=lmv-abandoned-carts\.timer/],
+    ['failed', /service_failed=lmv-opportunities\.service/],
+    ['stale', /last_success_older_than_36h=lmv-reconciliation\.service/],
+    ['repeated', /repeated_failures=lmv-abandoned-carts\.service count=2/],
+  ] as const;
+  for (const [mode, message] of expectations) {
+    const result = runCronHealthcheck(mode);
+    assert.notEqual(result.status, 0, `${mode} must fail`);
+    assert.match(result.stdout, message);
+  }
+});
+
+test('installer preserves an existing secret file while staging all cron artifacts', () => {
+  assert.ok(existsSync(installer), 'missing cron installer');
+  const sandbox = mkdtempSync(join(tmpdir(), 'lmv-cron-install-'));
+  const etc = join(sandbox, 'etc/lmv-cron');
+  mkdirSync(etc, { recursive: true });
+  const envFile = join(etc, 'cron.env');
+  writeFileSync(envFile, 'CRON_SECRET=sentinel-existing\n', 'utf8');
+  const result = spawnSync(bash, [installer], {
+    cwd: join(root, 'ops/self-hosted/cron'),
+    encoding: 'utf8',
+    env: {
+      SystemRoot: process.env.SystemRoot,
+      WINDIR: process.env.WINDIR,
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP,
+      PATH: '/usr/bin:/bin',
+      LMV_INSTALL_ROOT: sandbox.replace(/^([A-Za-z]):/, (_match, drive: string) => `/${drive.toLowerCase()}`).replaceAll('\\', '/'),
+      LMV_SKIP_USER_SETUP: '1',
+      LMV_SKIP_SYSTEMD: '1',
+    },
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.equal(readFileSync(envFile, 'utf8'), 'CRON_SECRET=sentinel-existing\n');
+  for (const job of jobs) {
+    assert.ok(existsSync(join(sandbox, `etc/systemd/system/${job.name}.service`)));
+    assert.ok(existsSync(join(sandbox, `etc/systemd/system/${job.name}.timer`)));
+  }
+  assert.ok(existsSync(join(sandbox, 'usr/local/libexec/lmv-cron-run')));
+  rmSync(sandbox, { recursive: true, force: true });
 });
