@@ -7,13 +7,11 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
     businessId = bu?.id || 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
   }
 
-  // 1. Categoría
-  await db.from('categorias').upsert({
-    id: 'dulces-chocolateria',
-    nombre: 'Dulces & Chocolatería',
-    emoji: '🍫',
-    slug: 'dulces-chocolateria',
-  }, { onConflict: 'id' });
+  // 1. Categorías públicas canónicas
+  await db.from('categorias').upsert([
+    { id: 'chocolateria-dulces', nombre: 'Chocolatería y dulces', emoji: '🍫', slug: 'chocolateria-dulces' },
+    { id: 'pasteleria', nombre: 'Pastelería', emoji: '🧁', slug: 'pasteleria' },
+  ], { onConflict: 'id' });
 
   // 2. Productos
   const productsToSync: Array<Record<string, any>> = [
@@ -21,7 +19,8 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       business_unit_id: businessId,
       nombre: 'Protein Balls',
       slug: 'protein-balls',
-      categoria: 'Dulces & Chocolatería',
+      categoria: 'Chocolatería y dulces',
+      category_id: 'chocolateria-dulces',
       descripcion: 'Protein Balls veganas con cáñamo + mung. Aproximadamente 4 g de proteína por unidad. Sin azúcar, endulzadas con alulosa.',
       precio: 10900,
       precio_anterior: null,
@@ -43,7 +42,8 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       business_unit_id: businessId,
       nombre: 'Brigadeiros & Trufas surtidos',
       slug: 'brigadeiros-trufas-surtidos',
-      categoria: 'Dulces & Chocolatería',
+      categoria: 'Chocolatería y dulces',
+      category_id: 'chocolateria-dulces',
       descripcion: 'Cajita surtida de brigadeiros y trufas 100% veganos artesanales a base de cáñamo y cacao.',
       precio: 10900,
       precio_anterior: null,
@@ -65,7 +65,8 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       business_unit_id: businessId,
       nombre: 'Box Rollitos de Canela',
       slug: 'box-rollitos-canela',
-      categoria: 'Dulces & Chocolatería',
+      categoria: 'Pastelería',
+      category_id: 'pasteleria',
       descripcion: 'Box de 6 rollitos de canela 100% veganos horneados artesanalmente con tus toppings favoritos.',
       precio: 10900,
       precio_anterior: null,
@@ -87,7 +88,8 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       business_unit_id: businessId,
       nombre: 'Barra Dubái',
       slug: 'barra-dubai',
-      categoria: 'Dulces & Chocolatería',
+      categoria: 'Chocolatería y dulces',
+      category_id: 'chocolateria-dulces',
       descripcion: 'Chocolate vegano relleno de crema de pistacho y kunafa crujiente. Artesanal, vegana e irresistible.',
       precio: 10900,
       precio_anterior: 12900,
@@ -109,7 +111,8 @@ export async function syncDulcesCatalog(db: SupabaseClient, explicitBusinessUnit
       business_unit_id: businessId,
       nombre: 'Alfajores de Cáñamo',
       slug: 'alfajores-canamo',
-      categoria: 'Dulces & Chocolatería',
+      categoria: 'Chocolatería y dulces',
+      category_id: 'chocolateria-dulces',
       descripcion: 'Alfajores veganos proteicos de cáñamo, aprox. 60 g cada uno y 13 g de proteína por unidad. Altos en Omega 3 y 6, endulzados con alulosa, libres de gluten y soya.',
       precio: 3500,
       precio_anterior: null,

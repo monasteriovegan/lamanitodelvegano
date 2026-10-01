@@ -155,7 +155,7 @@ export async function getCategorias(): Promise<Categoria[]> {
     console.error('Error cargando categorías:', error);
     return [];
   }
-  const hasDulces = (data || []).some((c: any) => c.slug === 'dulces-chocolateria' || c.id === 'dulces-chocolateria');
+  const hasDulces = (data || []).some((c: any) => c.slug === 'chocolateria-dulces' || c.id === 'chocolateria-dulces');
   if (!hasDulces) {
     try {
       await syncDulcesCatalog(supabase);
