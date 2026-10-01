@@ -25,7 +25,9 @@ export function effectiveCatalogOptionGroups(product: CatalogProduct): CatalogOp
       seen.add(group.id);
       groups.push({
         ...group,
-        name: `${component.componentName} — ${group.name}`,
+        name: group.code === 'adobo' && component.componentName.toLocaleLowerCase('es').includes('kostilles')
+          ? 'Elige tus Kostilles'
+          : `${component.componentName} — ${group.name}`,
         values: group.values.map((value) => ({ ...value })),
       });
     }

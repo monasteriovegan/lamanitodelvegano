@@ -140,7 +140,7 @@ test('pack inherits required option groups from linked canonical child product',
 
   const publicProduct = toPublicCatalogProduct(pack);
   assert.equal(publicProduct.optionGroups.length, 1);
-  assert.equal(publicProduct.optionGroups[0].name, 'Le Kostilles al vacío — Adobo');
+  assert.equal(publicProduct.optionGroups[0].name, 'Elige tus Kostilles');
 
   const result = resolveCatalogLine(pack, {
     productId: pack.id,

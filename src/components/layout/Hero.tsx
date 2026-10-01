@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SafeStorageImage } from '@/components/media/SafeStorageImage';
 
 export function Hero() {
   return (
@@ -11,14 +12,22 @@ export function Hero() {
       </span>
 
       <div className="relative z-[2]">
-        <span className="hpill mb-3">🌿 Taller Plant Based</span>
+        <SafeStorageImage
+          src="/campaigns/especial-fin-de-semana/antojos-veganos-finde.png"
+          alt="Antojos veganos para el finde"
+          className="absolute inset-0 -z-10 h-full w-full object-cover opacity-45"
+          fallback={null}
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#102c1b]/70 via-[#102c1b]/80 to-[#06130c]" />
+        <span className="hpill mb-3">🌿 Especial de fin de semana</span>
 
         <h1 className="font-display font-extrabold text-[clamp(28px,8vw,48px)] text-white leading-[1.1] mb-3">
-          Comida vegana que <em className="italic text-[#B7E4C7] not-italic [font-style:italic]">enamora</em>
+          <span className="text-white">ANTOJOS VEGANOS PARA EL FINDE</span>
         </h1>
 
         <p className="text-white/75 text-sm leading-relaxed max-w-[600px] mx-auto mb-6">
-          Elaboramos con amor y conciencia. Solo pedidos · Santiago y Pucón · Delivery a todo Santiago
+          <strong className="text-white">DULCE + SALADO</strong><br />
+          Proteínas veganas, alfajores y chocolatería artesanal
         </p>
 
         <div className="flex gap-[7px] justify-center flex-wrap mb-6">
@@ -34,10 +43,10 @@ export function Hero() {
 
         <div className="hbtns">
           <Link
-            href="#catalogo"
+            href="/especial-fin-de-semana"
             className="btnw"
           >
-            Ver productos 🛒
+            Ver especial de fin de semana 🛒
           </Link>
           <Link
             href="/nosotros"
