@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default async function FiestasPatriasPage() {
-  const campaign = await loadDefaultCatalogCampaign('fiestas-patrias-2026', 'web');
+  const campaign = await loadDefaultCatalogCampaign('fiestas-patrias-2026', 'web', true);
   if (!campaign) notFound();
   const dto = toPublicCatalogCampaign(campaign);
   const publicCampaign = {

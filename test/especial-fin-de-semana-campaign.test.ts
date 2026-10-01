@@ -25,6 +25,13 @@ test('Especial fin de semana is a cross-sell campaign with canonical product slu
   assert.match(sql, /on conflict \(business_unit_id, campaign_tag\)/i);
 });
 
+test('made-to-order Seitán is reopened without inherited finite stock', () => {
+  const sql = read('supabase/migrations/20261001090000_especial_fin_de_semana_catalog.sql');
+  const seitanUpdate = sql.match(/update public\.productos set\s+nombre = 'Seitán preparado'[\s\S]*?where business_unit_id = v_business and slug = 'seitan-parrillero';/i)?.[0] || '';
+  assert.match(seitanUpdate, /maneja_stock = false/i);
+  assert.match(seitanUpdate, /stock = null/i);
+});
+
 test('Home points to the weekend campaign and no longer renders the Fiestas hero block', () => {
   const home = read('src/app/page.tsx');
   const hero = read('src/components/layout/Hero.tsx');
@@ -40,5 +47,6 @@ test('Weekend campaign route uses the generic campaign catalog and keeps Fiestas
   const page = read('src/app/especial-fin-de-semana/page.tsx');
   assert.match(page, /loadDefaultCatalogCampaign\('especial-fin-de-semana',\s*'web'\)/);
   assert.match(page, /<CampaignCatalog\s+campaign=/);
-  assert.match(read('src/app/fiestas-patrias-2026/page.tsx'), /fiestas-patrias-2026/);
+  const fiestasPage = read('src/app/fiestas-patrias-2026/page.tsx');
+  assert.match(fiestasPage, /loadDefaultCatalogCampaign\('fiestas-patrias-2026',\s*'web',\s*true\)/);
 });

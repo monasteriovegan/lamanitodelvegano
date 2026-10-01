@@ -34,7 +34,8 @@ begin
     nombre = 'Seitán preparado', categoria = 'Proteínas veganas',
     descripcion = 'Seitán preparado en dos sabores: mongoliano o al pil pil y finas hierbas.', precio = 6900,
     imagen_url = 'https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/seitan-mongoliano.png',
-    images = array['https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/seitan-mongoliano.png', 'https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/seitan-pil-pil.png'], activo = true
+    images = array['https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/seitan-mongoliano.png', 'https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/seitan-pil-pil.png'],
+    maneja_stock = false, stock = null, activo = true
   where business_unit_id = v_business and slug = 'seitan-parrillero';
 
   update public.productos set

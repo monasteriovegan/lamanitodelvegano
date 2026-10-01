@@ -18,6 +18,7 @@ export async function loadCatalogCampaign(
   businessUnitId: string,
   campaignTag: string,
   channel: CatalogChannel = 'web',
+  includeOutsideWindow = false,
 ): Promise<CatalogCampaign | null> {
   const channelColumn = CHANNEL_COLUMNS[channel];
   const { data: season, error: seasonError } = await db.from('seasons')
@@ -28,7 +29,7 @@ export async function loadCatalogCampaign(
     .eq(channelColumn, true)
     .maybeSingle();
   if (seasonError) throw seasonError;
-  if (!season || !seasonIsInWindow(season.starts_at, season.ends_at)) return null;
+  if (!season || (!includeOutsideWindow && !seasonIsInWindow(season.starts_at, season.ends_at))) return null;
 
   const { data: links, error: linksError } = await db.from('season_products')
     .select('product_id,is_featured,sort_order')
@@ -67,8 +68,12 @@ export async function loadCatalogCampaign(
   };
 }
 
-export async function loadDefaultCatalogCampaign(campaignTag: string, channel: CatalogChannel = 'web') {
+export async function loadDefaultCatalogCampaign(
+  campaignTag: string,
+  channel: CatalogChannel = 'web',
+  includeOutsideWindow = false,
+) {
   const db = createSupabaseServiceClient();
   const business = await new BusinessRepository(db).requireDefault();
-  return loadCatalogCampaign(db, business.id, campaignTag, channel);
+  return loadCatalogCampaign(db, business.id, campaignTag, channel, includeOutsideWindow);
 }

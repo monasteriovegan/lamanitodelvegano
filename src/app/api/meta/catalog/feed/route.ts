@@ -2,7 +2,7 @@ import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
 import { buildMetaFeedItem, serializeMetaCatalogCsv } from '@/lib/meta/catalog-feed';
 
 export async function GET() {
-  const campaign = await loadDefaultCatalogCampaign('fiestas-patrias-2026', 'whatsapp');
+  const campaign = await loadDefaultCatalogCampaign('especial-fin-de-semana', 'whatsapp');
   if (!campaign) return new Response('campaign_not_available', { status: 404 });
   const items = campaign.products.flatMap((product) => product.variants
     .filter((variant) => variant.active && Boolean(product.imageUrl || variant.imageUrl))

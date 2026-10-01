@@ -15,6 +15,7 @@ test('feed usa SKU, precio CLP y URL canónica', () => {
 
 test('Meta y WhatsApp usan la imagen principal del Catálogo Master antes que una imagen vieja de variante', () => {
   const route = readFileSync('src/app/api/meta/catalog/feed/route.ts', 'utf8');
+  assert.match(route, /loadDefaultCatalogCampaign\('especial-fin-de-semana',\s*'whatsapp'\)/);
   assert.match(route, /imageUrl:\s*product\.imageUrl\s*\|\|\s*variant\.imageUrl/);
   assert.doesNotMatch(route, /imageUrl:\s*variant\.imageUrl\s*\|\|\s*product\.imageUrl/);
 });
