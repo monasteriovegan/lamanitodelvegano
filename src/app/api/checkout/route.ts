@@ -22,12 +22,7 @@ type ProductionCheckoutRequest = CatalogCheckoutRequest & {
 const FIESTAS_PATRIAS_EMPANADA_ID = '170fb7d9-947a-406e-bcb1-338d1e98f6df';
 const FIESTAS_PATRIAS_EMPANADA_DATE = '2026-09-18';
 const FIESTAS_PATRIAS_CLOSED_PRODUCT_IDS = new Set([
-  'bac7659e-b2e2-4603-8a59-75b0425c969c',
-  '63a7bd54-5386-44bc-a7d7-998ad71daa92',
-  '04bacb84-95ff-4f03-99ff-0b103ae65ea0',
-  '8df2cb6f-f15d-4710-a8e6-d8c818e5e25f',
   '2c76d930-ad5a-4d25-92a5-13c665b1c56a',
-  '18853adf-28bd-4ba6-afd6-d86b9280c780',
 ]);
 
 function parseAvailability(value: unknown): string[] {
@@ -47,8 +42,8 @@ async function validDeliveryDates(productIds: string[]) {
   const uniqueIds = Array.from(new Set(productIds.filter(Boolean)));
   if (!uniqueIds.length) return [];
 
-  // Cierre temporal Fiestas Patrias: 17 agotado. Sólo la empanada queda
-  // abierta para entrega el 18. Esto protege también carritos antiguos.
+  // Cierre temporal del producto agotado de Fiestas Patrias. Los productos
+  // canónicos reutilizados por campañas posteriores no deben quedar bloqueados.
   if (uniqueIds.some((id) => FIESTAS_PATRIAS_CLOSED_PRODUCT_IDS.has(id))) return [];
 
   const { data, error } = await db
