@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createSupabaseAuthBrowserClient } from '@/lib/supabase/auth-client';
+import { adminRecoveryRedirectUrl } from '@/lib/auth/admin-auth-redirects';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -61,7 +62,7 @@ function LoginForm() {
     }
     const supabase = createSupabaseAuthBrowserClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/admin/callback?next=/admin/update-password`,
+      redirectTo: adminRecoveryRedirectUrl(),
     });
     if (resetError) {
       setError(`Error al enviar el email: ${resetError.message}`);
