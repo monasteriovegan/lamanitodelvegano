@@ -7,6 +7,21 @@ export function adminRecoveryRedirectUrl() {
   return `${OFFICIAL_SITE_URL}/admin/callback?next=${ADMIN_UPDATE_PASSWORD_PATH}`;
 }
 
+export function parseRecoverySessionHash(hash: string) {
+  const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+  if (params.get('type') !== 'recovery') {
+    return null;
+  }
+
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  if (!accessToken || !refreshToken) {
+    return null;
+  }
+
+  return { accessToken, refreshToken };
+}
+
 export function safeAdminCallbackPath(raw: string | null) {
   if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
     return ADMIN_HOME_PATH;
