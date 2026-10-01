@@ -32,6 +32,24 @@ test('made-to-order Seitán is reopened without inherited finite stock', () => {
   assert.match(seitanUpdate, /stock = null/i);
 });
 
+test('weekend campaign products have the approved October delivery window', () => {
+  const sql = read('supabase/migrations/20261001170000_especial_fin_de_semana_delivery_dates.sql');
+  for (const date of [
+    '2026-10-03',
+    '2026-10-05',
+    '2026-10-06',
+    '2026-10-07',
+    '2026-10-08',
+    '2026-10-09',
+    '2026-10-10',
+  ]) assert.match(sql, new RegExp(date));
+
+  assert.doesNotMatch(sql, /2026-10-04/);
+  assert.doesNotMatch(sql, /2026-10-11/);
+  assert.match(sql, /campaign_tag\s*=\s*'especial-fin-de-semana'/i);
+  assert.match(sql, /update public\.productos/i);
+});
+
 test('Home points to the weekend campaign and no longer renders the Fiestas hero block', () => {
   const home = read('src/app/page.tsx');
   const hero = read('src/components/layout/Hero.tsx');
