@@ -41,10 +41,14 @@ export function formatPriceSummary(product: ProductPricingInput): PriceSummary {
     const unitVariant = sorted[0];
     const packVariant = sorted[sorted.length - 1];
 
-    const unitQty = unitVariant.selectionQuantity || 1;
-    const packQty = packVariant.selectionQuantity || (packVariant.name?.match(/\d+/)?.[0] ? parseInt(packVariant.name.match(/\d+/)![0], 10) : 1);
-
-    const packSummary = `${unitQty} por ${formatPriceCLP(unitVariant.price)} · ${packQty} por ${formatPriceCLP(packVariant.price)}`;
+    const formatVariant = (variant: typeof unitVariant) => {
+      const quantity = Number(variant.selectionQuantity || 0);
+      return quantity > 0
+        ? `${quantity} por ${formatPriceCLP(variant.price)}`
+        : `${variant.name || 'Formato'} — ${formatPriceCLP(variant.price)}`;
+    };
+    const unitQty = Number(unitVariant.selectionQuantity || 0);
+    const packSummary = `${formatVariant(unitVariant)} · ${formatVariant(packVariant)}`;
 
     return {
       displayPrice: unitVariant.price,

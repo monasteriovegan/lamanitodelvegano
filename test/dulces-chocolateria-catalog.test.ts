@@ -341,5 +341,5 @@ test('formatPriceSummary muestra correctamente el resumen de precios y variantes
   });
   assert.equal(summary.displayPrice, 10900);
   assert.equal(summary.formattedDisplayPrice, '$10.900');
-  assert.ok(summary.packSummary);
+  assert.equal(summary.packSummary, '120 g — $10.900 · 240 g — $18.900');
 });
