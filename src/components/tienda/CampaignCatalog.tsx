@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useCart } from '@/lib/cart/CartContext';
-import type { CatalogCartSelection } from '@/lib/catalog/catalog-cart';
 import type { PublicCatalogCampaign, PublicCatalogProduct } from '@/lib/catalog/public-dto';
+import {
+  buildInitialOptionState,
+  evaluateOptionSelection,
+  purchaseActionState,
+} from '@/lib/catalog/purchase-option-state';
 import { trackAddToCart } from '@/lib/analytics/client';
 import { formatDeliveryDateLabel } from '@/lib/pricing/fechas';
 import { OptionQuantitySelector } from './OptionQuantitySelector';
@@ -14,32 +18,17 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
   const { addItem, openCart } = useCart();
   const [variantId, setVariantId] = useState(product.variants[0]?.id || '');
   const [quantity, setQuantity] = useState(1);
-  const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
+  const [selected, setSelected] = useState<Record<string, Record<string, number>>>(() =>
+    buildInitialOptionState(product.optionGroups),
+  );
   const variant = product.variants.find((item) => item.id === variantId) || product.variants[0];
   const hasStock = Boolean(variant && (!variant.managesStock || (variant.stock ?? 0) >= quantity));
 
-  const selectionState = useMemo(() => {
-    const selections: CatalogCartSelection[] = [];
-    let valid = Boolean(variant);
-    for (const group of product.optionGroups) {
-      const values = selected[group.id] || {};
-      const total = Object.values(values).reduce((sum, selectedQuantity) => sum + selectedQuantity, 0);
-      const expected = group.selectionMode === 'quantity' ? (variant?.selectionQuantity || 0) * quantity : 1;
-      if (group.required && total !== expected) valid = false;
-      for (const value of group.values) {
-        const selectedQuantity = values[value.id] || 0;
-        if (selectedQuantity > 0) selections.push({
-          optionGroupId: group.id,
-          optionGroupName: group.name,
-          optionValueId: value.id,
-          code: value.code,
-          label: value.label,
-          quantity: selectedQuantity,
-        });
-      }
-    }
-    return { selections, valid };
-  }, [product.optionGroups, quantity, selected, variant]);
+  const selectionState = useMemo(
+    () => evaluateOptionSelection(product.optionGroups, selected, variant?.selectionQuantity || 0, quantity),
+    [product.optionGroups, quantity, selected, variant],
+  );
+  const actionState = purchaseActionState(quantity, selectionState);
 
   function add() {
     if (!variant || !selectionState.valid || !hasStock || quantity <= 0) return;
@@ -102,7 +91,7 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
               <button
                 key={item.id}
                 type="button"
-                onClick={() => { setVariantId(item.id); setQuantity(1); setSelected({}); }}
+                onClick={() => { setVariantId(item.id); setQuantity(1); setSelected(buildInitialOptionState(product.optionGroups)); }}
                 className={`rounded-xl border px-3 py-3 text-left ${item.id === variant.id ? 'border-neon bg-neon/10' : 'border-white/10 bg-white/5'}`}
               >
                 <span className="block text-sm font-bold text-white">{item.name}</span>
@@ -132,6 +121,12 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
           />
         ))}
 
+        {!selectionState.valid && (
+          <p role="status" className="rounded-xl border border-amber-300/35 bg-amber-300/10 px-3 py-2.5 text-xs font-semibold leading-5 text-amber-100">
+            {selectionState.messages.join(' ')} Usa los botones + para completar tu elección.
+          </p>
+        )}
+
         {product.availabilityDates.length > 0 && (
           <p className="text-xs leading-5 text-white/60">📅 Entregas: {product.availabilityDates.map(formatDeliveryDateLabel).join(', ')}</p>
         )}
@@ -142,8 +137,8 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
             <span className="font-display text-2xl font-extrabold text-neon">${(variant.price * quantity).toLocaleString('es-CL')}</span>
             {variant.compareAtPrice && variant.compareAtPrice > variant.price && <span className="block text-sm text-white/50 line-through">${(variant.compareAtPrice * quantity).toLocaleString('es-CL')}</span>}
           </div>
-          <button type="button" onClick={add} disabled={!selectionState.valid || !hasStock || quantity <= 0} className="rounded-full bg-neon px-5 py-3 text-sm font-extrabold text-[#020705] shadow-[0_0_22px_rgba(0,255,179,0.24)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">
-            {hasStock ? 'Agregar 🛒' : 'Sin stock'}
+          <button type="button" onClick={add} disabled={!hasStock || actionState.disabled} className={`rounded-full px-5 py-3 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-35 ${hasStock && actionState.needsSelection ? 'border border-amber-300/60 bg-amber-300 text-[#171006] hover:bg-white' : 'bg-neon text-[#020705] shadow-[0_0_22px_rgba(0,255,179,0.24)] hover:bg-white'}`}>
+            {hasStock ? actionState.label : 'Sin stock'}
           </button>
         </div>
       </div>
