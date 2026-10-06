@@ -15,7 +15,7 @@ begin
     ('brigadeiros-trufas-surtidos', 'https://lamanitodelvegano.cl/products/brigadeiros-trufas-surtidos.jpg'),
     ('promocion-24-bombones', 'https://supabase.lamanitodelvegano.cl/storage/v1/object/public/productos/ads-media/2026-10-01/1790877111796-232b67de-24d7-44cd-a433-5cb8d9be7c68.png'),
     ('alfajores-canamo', 'https://lamanitodelvegano.cl/products/alfajores-canamo.jpg')
-  ) x(slug, image_url) on x.slug = p.slug
-  where p.business_unit_id = b;
+  ) x(slug, image_url)
+  where p.business_unit_id = b and x.slug = p.slug;
 end $$;
 commit;
