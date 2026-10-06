@@ -4,7 +4,7 @@ import { CampaignTargetCard } from './CampaignTargetCard';
 
 export function CampaignCatalog({ campaign }: { campaign: PublicCatalogCampaign }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       {campaign.products.map((product) => (
         <div key={product.id} id={`offer-${product.slug}`} className="min-w-0">
           {product.purchaseTargets.length > 0
