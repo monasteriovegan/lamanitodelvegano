@@ -5,10 +5,10 @@ import { mapCatalogProductRow } from '../src/lib/catalog/catalog-repository.ts';
 import { resolveCatalogCheckoutItem } from '../src/lib/catalog/catalog-checkout.ts';
 const now = new Date('2026-10-06T12:00:00Z');
 const master = mapCatalogProductRow('b1', { id: 'p1', business_unit_id: 'b1', nombre: 'Producto', slug: 'producto', precio: 11900, activo: true, gramaje: 'Pack:11900' })!;
-const campaign = { startsAt: '2026-10-05T00:00:00-03:00', endsAt: '2026-10-10T23:59:59-03:00', overrides: [] };
+const campaign = { startsAt: '2026-10-05T00:00:00-03:00', endsAt: '2026-10-09T23:59:59-03:00', overrides: [] };
 test('rest of catalog receives exactly 25% with integer CLP, original price and fixed delivery', () => {
   const effective = applyCyberPricing(master, campaign, now);
-  assert.equal(effective.variants[0].price, 8925);
+  assert.equal(effective.variants[0].price, Math.round(11900 * 0.75));
   assert.equal(effective.variants[0].compareAtPrice, 11900);
   assert.deepEqual(effective.availabilityDates, [CYBER_DELIVERY_DATE]);
   assert.equal(master.variants[0].price, 11900);
@@ -18,13 +18,15 @@ test('rest of catalog receives exactly 25% with integer CLP, original price and 
 test('flyer offers take precedence over 25% without stacking', () => {
   const effective = applyCyberPricing(master, { ...campaign, overrides: [{ variantId: master.variants[0].id, priceOverride: 9900, compareAtPriceOverride: 11900, isActive: true }] }, now);
   assert.equal(effective.variants[0].price, 9900);
+  assert.notEqual(effective.variants[0].price, Math.round(9900 * 0.75));
   assert.equal(effective.variants[0].compareAtPrice, 11900);
 });
 test('absent, inactive or expired campaign leaves the master unchanged', () => {
   assert.deepEqual(applyCyberPricing(master, null, now), master);
   assert.deepEqual(applyCyberPricing(master, campaign, new Date('2026-10-11T03:00:00Z')), master);
   assert.equal(cyberIsActive(campaign, new Date('2026-10-04T23:59:59-03:00')), false);
-  assert.equal(cyberIsActive(campaign, new Date('2026-10-10T23:59:59-03:00')), true);
+  assert.equal(cyberIsActive(campaign, new Date('2026-10-09T23:59:59-03:00')), true);
+  assert.equal(cyberIsActive(campaign, new Date('2026-10-10T00:00:00-03:00')), false);
 });
 test('only live overrides suppress the general discount', () => {
   const effective = applyCyberPricing(master, { ...campaign, overrides: [{ variantId: master.variants[0].id, priceOverride: 9900, compareAtPriceOverride: 11900, isActive: false }] }, now);
