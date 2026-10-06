@@ -40,13 +40,13 @@ test('sidebar presents catalog master, seasons and categories without top-level 
   assert.doesNotMatch(mobile, /Canales & Precios/);
 });
 
-test('storefront loads normalized variants and featured cards use the shared promotion summary', () => {
+test('storefront loads normalized variants, campaign presentation, and master cards use the shared promotion summary', () => {
   const loader = read('src/lib/data/catalogo.ts');
   const home = read('src/app/page.tsx');
   const card = read('src/components/tienda/ProductCard.tsx');
   assert.match(loader, /product_variants/);
   assert.match(loader, /variants/);
-  assert.match(home, /formatPriceSummary/);
+  assert.match(home, /CampaignFeaturedGrid/);
   assert.doesNotMatch(home, /\$\{p\.precio\.toLocaleString/);
   assert.match(card, /const\s+priceSummary\s*=\s*formatPriceSummary\(producto\)/);
 });

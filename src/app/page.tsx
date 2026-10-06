@@ -1,13 +1,12 @@
-import Link from 'next/link';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { Hero } from '@/components/layout/Hero';
 import { CatalogoGrid } from '@/components/tienda/CatalogoGrid';
+import { CampaignFeaturedGrid } from '@/components/tienda/CampaignFeaturedGrid';
 import { PromoEspecial } from '@/components/tienda/PromoEspecial';
 import { getProductosActivos, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
-import { formatPriceSummary } from '@/lib/catalog/price-summary';
-import { featuredProductMediaLayout, publicCatalogCategories } from '@/lib/catalog/public-categories';
-import { SafeStorageImage } from '@/components/media/SafeStorageImage';
+import { publicCatalogCategories } from '@/lib/catalog/public-categories';
 import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
+import { toPublicCatalogCampaign } from '@/lib/catalog/public-dto';
 import { CYBER_TAG } from '@/lib/catalog/cyber-pricing';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +20,8 @@ export default async function HomePage() {
   ]);
 
   const categorias = publicCatalogCategories(productos);
-  const cyberFeaturedIds = cyber ? new Set(cyber.products.filter((p) => p.featured).map((p) => p.id)) : null;
-  const destacados = productos.filter((p) => cyberFeaturedIds ? cyberFeaturedIds.has(p.id) : p.destacado);
-  const featuredMedia = featuredProductMediaLayout();
+  const cyberDto = cyber ? toPublicCatalogCampaign(cyber) : null;
+  const destacados = cyberDto?.products.filter((product) => product.presentationSlot === 'featured') || [];
 
   return (
     <SiteShell>
@@ -39,37 +37,7 @@ export default async function HomePage() {
             <h2 className="font-display font-extrabold text-xl text-white mb-4 flex items-center gap-2">
               ⭐ Destacados &amp; Ofertas
             </h2>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-              {destacados.map((p) => {
-                const priceSummary = formatPriceSummary(p);
-                return (
-                  <Link
-                    key={p.id}
-                    href={`/productos/${p.slug}`}
-                    className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-neon"
-                    style={{ background: p.color_fondo || '#1B4332' }}
-                  >
-                    <div className={`${featuredMedia.containerClassName} flex items-center justify-center bg-black/10 text-6xl`}>
-                      <SafeStorageImage
-                        src={p.imagen_url}
-                        alt={p.nombre}
-                        className={featuredMedia.imageClassName}
-                        fallback={<span>{p.emoji || '🌱'}</span>}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">
-                        <p className="font-display font-bold text-base text-white mb-0.5">{p.nombre}</p>
-                        <div className="mb-2">
-                          <p className="text-sm text-neon font-bold">{priceSummary.formattedDisplayPrice}</p>
-                          {priceSummary.formattedOriginalPrice && <p className="text-[10px] text-white/45 line-through">{priceSummary.formattedOriginalPrice}</p>}
-                          {priceSummary.packSummary && <p className="mt-0.5 text-[10px] font-bold text-neon/90">🔥 {priceSummary.packSummary}</p>}
-                        </div>
-                        <span className="text-[11px] text-white/80 font-semibold">Ver producto</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <CampaignFeaturedGrid products={destacados} />
           </section>
         )}
 
