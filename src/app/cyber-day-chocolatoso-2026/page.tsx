@@ -25,7 +25,7 @@ export default async function CyberPage() {
         <section className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-3xl py-8 text-center">
             <span className="pill">🍫 La Manito del Vegano · Makangru</span>
-            <h1 className="mt-4 font-display text-4xl font-extrabold text-[#f3d59b] sm:text-6xl">Cyber Day Chocolatoso</h1>
+            <h1 className="mt-4 break-words font-display text-3xl font-extrabold text-[#f3d59b] sm:text-6xl">Cyber Day Chocolatoso</h1>
             <p className="mt-4 text-lg font-bold text-white">Entrega sábado 10 de octubre de 2026</p>
             <p className="mt-3 text-sm leading-7 text-white/75">Elige tus sabores y formatos. Los precios Cyber se aplican automáticamente en el carrito.</p>
           </div>
