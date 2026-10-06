@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cyberDatabase, CYBER_MIGRATION, CYBER_IMAGE_FIX, BUSINESS_ID } from './fixtures/cyber-database.ts';
+import { cyberDatabase, CYBER_MIGRATION, CYBER_IMAGE_FIX, CYBER_PRESENTATION_MIGRATION, BUSINESS_ID } from './fixtures/cyber-database.ts';
 import { mapCatalogProductRow } from '../src/lib/catalog/catalog-repository.ts';
 import { applyCyberPricing } from '../src/lib/catalog/cyber-pricing.ts';
 import { mapSeasonVariantOverride } from '../src/lib/catalog/seasonal-catalog.ts';
@@ -51,5 +51,83 @@ test('Cyber aborts atomically if any required flyer variant is missing', async (
     await db.exec('rollback');
     assert.equal((await db.query<any>("select count(*) count from productos where slug='duo-barras-rellenas'")).rows[0].count,0);
     assert.equal((await db.query<any>("select price from product_variants where sku='LMV-DUBAI-240G'")).rows[0].price,18900);
+  } finally { await db.close(); }
+});
+
+test('Cyber presentation migration isolates campaign media and maps every advertised option', async () => {
+  const db = await cyberDatabase();
+  try {
+    await db.exec(CYBER_MIGRATION);
+    await db.exec(CYBER_IMAGE_FIX);
+    const masterImagesBefore = (await db.query('select slug,imagen_url,images from productos order by slug')).rows;
+    const masterVariantPricesBefore = (await db.query('select sku,price,compare_at_price from product_variants order by sku')).rows;
+
+    assert.ok(CYBER_PRESENTATION_MIGRATION, 'the Cyber presentation migration must exist');
+    await db.exec(CYBER_PRESENTATION_MIGRATION);
+    await db.exec(CYBER_PRESENTATION_MIGRATION);
+
+    const slots = (await db.query<{presentation_slot:string;count:number}>(
+      `select presentation_slot,count(*)::integer count from season_products sp
+       join seasons s on s.id=sp.season_id
+       where s.campaign_tag='cyber-day-chocolatoso-2026'
+       group by presentation_slot`,
+    )).rows;
+    const slotCount = (slot: string) => slots.find((row) => row.presentation_slot === slot)?.count || 0;
+    assert.equal(slotCount('featured'), 6);
+    assert.equal(slotCount('hero_offer'), 1);
+    assert.equal(slotCount('target_only'), 2);
+
+    const barTargetSkus = (await db.query<{sku:string}>(
+      `select v.sku from season_product_variant_targets t
+       join product_variants v on v.id=t.target_variant_id
+       order by v.sku`,
+    )).rows.map((row) => row.sku);
+    assert.equal(barTargetSkus.length, 6);
+    assert.deepEqual(barTargetSkus.sort(), [
+      'LMV-DUBAI-120G', 'LMV-DUBAI-240G',
+      'LMV-TERREMOTO-120G', 'LMV-TERREMOTO-240G',
+      'LMV-SUPERNOVA-110', 'LMV-SUPERNOVA-230',
+    ].sort());
+
+    const bombonFlavorCount = (await db.query<{count:number}>(
+      `select count(*)::integer count from product_option_values value
+       join product_option_groups grouping on grouping.id=value.option_group_id
+       join productos product on product.id=grouping.product_id
+       where product.slug='promocion-24-bombones' and grouping.code='sabores' and value.is_active`,
+    )).rows[0].count;
+    assert.equal(bombonFlavorCount, 6);
+
+    const selectionsFor = async (slug: string) => (await db.query<{selection_quantity:number}>(
+      `select variant.selection_quantity from product_variants variant
+       join productos product on product.id=variant.product_id
+       where product.slug=$1 and variant.is_active
+       order by variant.selection_quantity`, [slug],
+    )).rows.map((row) => row.selection_quantity);
+    const flavorsFor = async (slug: string) => (await db.query<{count:number}>(
+      `select count(*)::integer count from product_option_values value
+       join product_option_groups grouping on grouping.id=value.option_group_id
+       join productos product on product.id=grouping.product_id
+       where product.slug=$1 and grouping.is_active and value.is_active`, [slug],
+    )).rows[0].count;
+    assert.deepEqual({ flavors: await flavorsFor('brigadeiros-trufas-surtidos'), selections: await selectionsFor('brigadeiros-trufas-surtidos') }, { flavors: 6, selections: [9, 15, 24] });
+    assert.deepEqual({ flavors: await flavorsFor('protein-balls'), selections: await selectionsFor('protein-balls') }, { flavors: 3, selections: [9, 15, 24] });
+    assert.equal(await flavorsFor('alfajores-canamo'), 4);
+    assert.ok((await selectionsFor('alfajores-canamo')).includes(4));
+    assert.deepEqual({ flavors: await flavorsFor('box-chocolatosa'), selections: await selectionsFor('box-chocolatosa') }, { flavors: 3, selections: [0] });
+    assert.deepEqual({ flavors: await flavorsFor('duo-barras-rellenas'), selections: await selectionsFor('duo-barras-rellenas') }, { flavors: 2, selections: [2] });
+
+    assert.deepEqual((await db.query('select slug,imagen_url,images from productos order by slug')).rows, masterImagesBefore);
+    assert.deepEqual((await db.query('select sku,price,compare_at_price from product_variants order by sku')).rows, masterVariantPricesBefore);
+
+    assert.equal((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname='season_product_variant_targets'")).rows[0].relrowsecurity, true);
+    await db.exec('set role anon');
+    await assert.rejects(db.query('select * from season_product_variant_targets'), /permission denied/);
+    await db.exec('reset role');
+    await db.exec('set role authenticated');
+    await assert.rejects(db.query('select * from season_product_variant_targets'), /permission denied/);
+    await db.exec('reset role');
+    await db.exec('set role service_role');
+    assert.equal((await db.query('select * from season_product_variant_targets')).rows.length, 6);
+    await db.exec('reset role');
   } finally { await db.close(); }
 });
