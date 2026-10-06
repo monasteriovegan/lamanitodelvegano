@@ -50,6 +50,7 @@ export function toPublicCatalogProduct(product: CatalogProduct) {
 }
 
 export function toPublicCatalogCampaign(campaign: CatalogCampaign) {
+  const productById = new Map(campaign.products.map((product) => [product.id, product]));
   return {
     id: campaign.id,
     campaignTag: campaign.tag,
@@ -63,6 +64,30 @@ export function toPublicCatalogCampaign(campaign: CatalogCampaign) {
       ...toPublicCatalogProduct(product),
       featured: product.featured,
       sortOrder: product.sortOrder,
+      campaignName: product.campaignName,
+      campaignDescription: product.campaignDescription,
+      campaignImageUrl: product.campaignImageUrl,
+      campaignAltText: product.campaignAltText,
+      presentationSlot: product.presentationSlot,
+      purchaseTargets: product.purchaseTargets.flatMap((target) => {
+        const targetProduct = productById.get(target.productId);
+        const targetVariant = targetProduct?.variants.find((variant) => variant.id === target.variantId && variant.active);
+        if (!targetProduct || !targetVariant || targetVariant.productId !== targetProduct.id) return [];
+        return [{
+          id: target.id,
+          productId: target.productId,
+          productName: target.productName,
+          variantId: target.variantId,
+          variantSku: target.variantSku,
+          groupLabel: target.groupLabel,
+          optionLabel: target.optionLabel,
+          sortOrder: target.sortOrder,
+          price: target.price,
+          compareAtPrice: target.compareAtPrice,
+          managesStock: target.managesStock,
+          stock: target.stock,
+        }];
+      }),
     })),
   };
 }

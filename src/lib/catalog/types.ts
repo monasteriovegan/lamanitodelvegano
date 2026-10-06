@@ -81,9 +81,32 @@ export interface CatalogProduct {
 
 export type CatalogChannel = 'web' | 'whatsapp' | 'instagram' | 'remy';
 
+export type CatalogPresentationSlot = 'hero_offer' | 'featured' | 'catalog' | 'target_only';
+
+export interface CatalogCampaignPurchaseTarget {
+  id: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantSku: string;
+  groupLabel: string;
+  optionLabel: string;
+  sortOrder: number;
+  price: number;
+  compareAtPrice: number | null;
+  managesStock: boolean;
+  stock: number | null;
+}
+
 export interface CatalogCampaignProduct extends CatalogProduct {
   featured: boolean;
   sortOrder: number;
+  campaignName: string | null;
+  campaignDescription: string | null;
+  campaignImageUrl: string | null;
+  campaignAltText: string | null;
+  presentationSlot: CatalogPresentationSlot;
+  purchaseTargets: CatalogCampaignPurchaseTarget[];
 }
 
 export interface CatalogCampaign {
