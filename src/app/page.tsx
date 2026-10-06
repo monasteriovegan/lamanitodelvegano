@@ -3,28 +3,33 @@ import { SiteShell } from '@/components/layout/SiteShell';
 import { Hero } from '@/components/layout/Hero';
 import { CatalogoGrid } from '@/components/tienda/CatalogoGrid';
 import { PromoEspecial } from '@/components/tienda/PromoEspecial';
-import { getProductosActivos, getCategorias, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
+import { getProductosActivos, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
 import { formatPriceSummary } from '@/lib/catalog/price-summary';
+import { featuredProductMediaLayout, publicCatalogCategories } from '@/lib/catalog/public-categories';
 import { SafeStorageImage } from '@/components/media/SafeStorageImage';
+import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
+import { CYBER_TAG } from '@/lib/catalog/cyber-pricing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [productos, categorias, zonas, ajustes] = await Promise.all([
+  const [productos, zonas, ajustes, cyber] = await Promise.all([
     getProductosActivos(),
-    getCategorias(),
     getZonas(),
     getAjustesPublicos(),
+    loadDefaultCatalogCampaign(CYBER_TAG),
   ]);
 
+  const categorias = publicCatalogCategories(productos);
   const destacados = productos.filter((p) => p.destacado);
+  const featuredMedia = featuredProductMediaLayout();
 
   return (
     <SiteShell>
       <main>
         <Hero />
 
-        {ajustes?.data && (
+        {!cyber && ajustes?.data && (
           <PromoEspecial ajustes={ajustes.data} productos={productos} />
         )}
 
@@ -43,11 +48,11 @@ export default async function HomePage() {
                     className="rounded-2xl overflow-hidden relative border border-[rgba(0,255,179,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-1.5 focus:outline-none focus:ring-2 focus:ring-neon"
                     style={{ background: p.color_fondo || '#1B4332' }}
                   >
-                    <div className="h-[180px] flex items-center justify-center text-6xl relative">
+                    <div className={`${featuredMedia.containerClassName} flex items-center justify-center bg-black/10 text-6xl`}>
                       <SafeStorageImage
                         src={p.imagen_url}
                         alt={p.nombre}
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className={featuredMedia.imageClassName}
                         fallback={<span>{p.emoji || '🌱'}</span>}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,9,7,0.97)] via-[rgba(3,9,7,0.4)] to-transparent flex flex-col justify-end p-3.5">

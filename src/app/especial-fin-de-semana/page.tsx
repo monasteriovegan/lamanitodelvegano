@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { CYBER_TAG } from '@/lib/catalog/cyber-pricing';
 import { SiteShell } from '@/components/layout/SiteShell';
 import { CampaignCatalog } from '@/components/tienda/CampaignCatalog';
 import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EspecialFinDeSemanaPage() {
+  if (await loadDefaultCatalogCampaign(CYBER_TAG)) redirect('/cyber-day-chocolatoso-2026');
   const campaign = await loadDefaultCatalogCampaign('especial-fin-de-semana', 'web');
   if (!campaign) notFound();
   const dto = toPublicCatalogCampaign(campaign);

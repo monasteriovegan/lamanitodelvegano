@@ -30,8 +30,15 @@ export function OptionQuantitySelector({
     <fieldset className="space-y-2">
       <legend className="mb-2 flex w-full items-center justify-between text-xs font-bold uppercase tracking-[0.12em] text-white/70">
         <span>{group.name}</span>
-        {!single && <span className={total === target ? 'text-neon' : 'text-amber-300'}>{total}/{target}</span>}
+        {single ? (
+          <span className={total === 1 ? 'text-neon' : 'text-amber-300'}>{total === 1 ? '✓ Seleccionado' : 'Elige 1'}</span>
+        ) : (
+          <span className={total === target ? 'text-neon' : 'text-amber-300'}>{total}/{target}</span>
+        )}
       </legend>
+      <p className="-mt-1 mb-2 text-xs leading-5 text-white/55">
+        {single ? 'Puedes cambiar la opción seleccionada.' : `Reparte ${target} ${target === 1 ? 'unidad' : 'unidades'} entre las opciones.`}
+      </p>
       <div className="grid gap-2">
         {group.values.map((value) => {
           const quantity = values[value.id] || 0;
@@ -41,8 +48,10 @@ export function OptionQuantitySelector({
                 key={value.id}
                 type="button"
                 onClick={() => change(value.id, 1)}
+                aria-pressed={quantity === 1}
                 className={`rounded-xl border px-3 py-2 text-left text-sm transition ${quantity === 1 ? 'border-neon bg-neon/10 text-white' : 'border-white/10 bg-white/5 text-white/75 hover:border-white/25'}`}
               >
+                <span className="mr-2 text-neon" aria-hidden="true">{quantity === 1 ? '●' : '○'}</span>
                 {value.label}
               </button>
             );

@@ -12,6 +12,8 @@ import { OrderRepository } from '@/lib/repositories/orders-repository';
 import { getSchemaCapabilities } from '@/lib/repositories/schema-capabilities';
 import { verifyCheckoutSchemaReady } from '@/lib/repositories/checkout-schema-readiness';
 import { getDeliveryDateBlock } from '@/lib/orders/delivery-date';
+import { CatalogRepository } from '@/lib/catalog/catalog-repository';
+import { CYBER_DELIVERY_DATE } from '@/lib/catalog/cyber-pricing';
 
 type ProductionCheckoutRequest = CatalogCheckoutRequest & {
   cliente: CatalogCheckoutRequest['cliente'] & { comuna?: string };
@@ -53,9 +55,11 @@ async function validDeliveryDates(productIds: string[]) {
     .eq('activo', true);
   if (error) throw error;
   if ((data || []).length !== uniqueIds.length) return [];
+  const business = await new BusinessRepository(db).requireDefault();
+  const cyber = await new CatalogRepository(db).cyberPricing(business.id);
 
   const candidateDates = genFechas((data || []).map((row: any) => ({
-    disponibilidad: String(row.id) === FIESTAS_PATRIAS_EMPANADA_ID
+    disponibilidad: cyber ? [CYBER_DELIVERY_DATE] : String(row.id) === FIESTAS_PATRIAS_EMPANADA_ID
       ? [FIESTAS_PATRIAS_EMPANADA_DATE]
       : parseAvailability(row.disponibilidad),
   })))
@@ -63,7 +67,6 @@ async function validDeliveryDates(productIds: string[]) {
     .map((item) => dateToYmd(item.fecha));
   if (!candidateDates.length) return [];
 
-  const business = await new BusinessRepository(db).requireDefault();
   const { data: blockedRows, error: blockedError } = await db
     .from('blocked_delivery_dates')
     .select('date')

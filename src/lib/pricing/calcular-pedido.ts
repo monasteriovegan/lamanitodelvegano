@@ -108,30 +108,27 @@ export async function calcularPedido(req: CatalogCheckoutRequest, businessUnitId
       return { ok: false, error: `Stock insuficiente para "${prod.nombre}". Disponible: ${prod.stock}.` };
     }
 
+    const catalogProduct = catalogById.get(reqItem.productoId);
+    const matchingVariant = findActiveVariantForFormat(reqItem.formato, catalogProduct?.variants || []);
     const formatos = parseFormatos(prod.gramaje, prod.precio);
     let precioUnitario = prod.precio;
     if (reqItem.formato) {
+      // Canonical labels may have changed since the legacy gramaje was written.
+      // A stale format must refresh instead of silently charging the first variant.
+      if (catalogProduct && !matchingVariant) {
+        return { ok: false, error: `Formato inválido para "${prod.nombre}". Actualiza tu carrito.` };
+      }
       const formatoMatch = formatos.find((f) => f.label === reqItem.formato);
-      if (!formatoMatch) {
+      if (!matchingVariant && !formatoMatch) {
         return { ok: false, error: `Formato inválido para "${prod.nombre}".` };
       }
-      precioUnitario = formatoMatch.precio;
+      precioUnitario = matchingVariant?.price ?? formatoMatch!.precio;
+    } else {
+      precioUnitario = catalogProduct?.variants[0]?.price ?? precioUnitario;
     }
 
-    const catalogProduct = catalogById.get(reqItem.productoId);
-    const matchingVariant = findActiveVariantForFormat(
-      reqItem.formato,
-      (catalogProduct?.variants || []).map((variant) => ({
-        id: variant.id,
-        name: variant.name,
-        price: variant.price,
-        unitsIncluded: variant.unitsIncluded,
-        active: variant.active,
-        sortOrder: variant.sortOrder,
-        sku: variant.sku,
-      })),
-    );
     const resolvedSku = matchingVariant?.sku || prod.sku || catalogProduct?.variants?.[0]?.sku || catalogProduct?.sku || null;
+    // Both canonical selections and older carts must use the server campaign price.
 
     itemsResueltos.push({
       productoId: prod.id,

@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Producto, Categoria } from '@/types/domain';
 import { ProductCard } from './ProductCard';
 import { ProductDetailModal } from './ProductDetailModal';
+import { filterProductsByCatalogCategory } from '@/lib/catalog/public-categories';
 
 export function CatalogoGrid({ productos, categorias }: { productos: Producto[]; categorias: Categoria[] }) {
   const [catActiva, setCatActiva] = useState<string>('todos');
@@ -11,7 +12,7 @@ export function CatalogoGrid({ productos, categorias }: { productos: Producto[];
 
   const productosFiltrados = useMemo(() => {
     if (catActiva === 'todos') return productos;
-    return productos.filter((p) => p.categoria === catActiva);
+    return filterProductsByCatalogCategory(productos, catActiva);
   }, [productos, catActiva]);
 
   return (

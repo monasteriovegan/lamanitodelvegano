@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { Producto } from '@/types/domain';
 import { parseFormatos, parseVariedades } from '@/lib/pricing/formatos';
 import { useCart } from '@/lib/cart/CartContext';
 import { trackAddToCart } from '@/lib/analytics/client';
 import { OptionQuantitySelector } from './OptionQuantitySelector';
 import type { CatalogCartSelection } from '@/lib/catalog/catalog-cart';
+import {
+  buildInitialOptionState,
+  evaluateOptionSelection,
+  purchaseActionState,
+} from '@/lib/catalog/purchase-option-state';
 
 export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto; onAdded?: () => void }) {
   const { addItem, openCart } = useCart();
@@ -17,8 +22,11 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
 
   // Canonical state
   const [canonicalVariantIdx, setCanonicalVariantIdx] = useState(0);
-  const [optionsState, setOptionsState] = useState<Record<string, Record<string, number>>>({});
+  const [optionsState, setOptionsState] = useState<Record<string, Record<string, number>>>(() =>
+    buildInitialOptionState(canonicalOptionGroups),
+  );
   const [canonicalQty, setCanonicalQty] = useState(1);
+  const optionsContainerRef = useRef<HTMLDivElement>(null);
 
   // Legacy state
   const formatos = useMemo(() => parseFormatos(producto.gramaje, producto.precio), [producto]);
@@ -38,41 +46,29 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
     // Required quantity-mode selections scale with it (2 unit empanadas = 2 flavor allocations,
     // 2 Pack 10 = 20 allocations). Single-choice options apply to the whole line.
     const quantity = canonicalQty;
-    let optionsValid = true;
-    const selections: CatalogCartSelection[] = [];
-    for (const group of canonicalOptionGroups) {
-      const groupValues = optionsState[group.id] || {};
-      const totalSelected = Object.values(groupValues).reduce((sum, q) => sum + q, 0);
-      const target = group.selectionMode === 'quantity' ? activeVariant.selectionQuantity * canonicalQty : 1;
-      if (group.required && totalSelected !== target) {
-        optionsValid = false;
-      }
-      for (const val of group.values) {
-        const q = groupValues[val.id] || 0;
-        if (q > 0) {
-          selections.push({
-            optionGroupId: group.id,
-            optionGroupName: group.name,
-            optionValueId: val.id,
-            code: val.code,
-            label: val.label,
-            quantity: q,
-          });
-        }
-      }
-    }
+    const selectionProgress = evaluateOptionSelection(
+      canonicalOptionGroups,
+      optionsState,
+      activeVariant.selectionQuantity,
+      canonicalQty,
+    );
+    const selections: CatalogCartSelection[] = selectionProgress.selections;
 
     const unitPrice = activeVariant.price;
     const compareAtPrice = activeVariant.compareAtPrice || activeVariant.compare_at_price || producto.precio_anterior || null;
     const totalPrice = unitPrice * quantity;
-    const disabledAdd = quantity <= 0 || (hasOptionGroups && !optionsValid);
+    const actionState = purchaseActionState(quantity, selectionProgress);
 
     const variedadLabel = selections.length > 0
       ? selections.map((s) => `${s.quantity}× ${s.label}`).join(', ')
       : null;
 
     const handleCanonicalAdd = () => {
-      if (disabledAdd) return;
+      if (!selectionProgress.valid) {
+        optionsContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (actionState.disabled) return;
 
       addItem({
         productoId: producto.id,
@@ -126,7 +122,7 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
                     onClick={() => {
                       setCanonicalVariantIdx(idx);
                       setCanonicalQty(1);
-                      setOptionsState({});
+                      setOptionsState(buildInitialOptionState(canonicalOptionGroups));
                     }}
                     className={`rounded-xl border p-3 text-left transition-all ${
                       isSelected
@@ -176,17 +172,23 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
 
         {/* Option Groups (Flavors / Toppings / inherited pack component options) */}
         {hasOptionGroups && (
-          <div className="mb-5 space-y-4">
+          <div ref={optionsContainerRef} className="mb-5 space-y-4">
             {canonicalOptionGroups.map((group) => (
               <OptionQuantitySelector
                 key={group.id}
-                group={group as any}
+                group={group}
                 values={optionsState[group.id] || {}}
                 target={group.selectionMode === 'quantity' ? activeVariant.selectionQuantity * canonicalQty : 1}
                 onChange={(next) => setOptionsState((prev) => ({ ...prev, [group.id]: next }))}
               />
             ))}
           </div>
+        )}
+
+        {!selectionProgress.valid && (
+          <p role="status" className="mb-4 rounded-xl border border-amber-300/35 bg-amber-300/10 px-3 py-2.5 text-xs font-semibold leading-5 text-amber-100">
+            {selectionProgress.messages.join(' ')} Usa los botones + para completar tu elección.
+          </p>
         )}
 
         {/* Price display & comparison */}
@@ -212,10 +214,10 @@ export function ProductPurchasePanel({ producto, onAdded }: { producto: Producto
         <button
           type="button"
           onClick={handleCanonicalAdd}
-          disabled={disabledAdd}
-          className="w-full bg-neon text-[#020705] font-bold py-3.5 rounded-full text-sm shadow-[0_0_20px_rgba(0,255,179,0.35)] transition-all hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+          disabled={actionState.disabled}
+          className={`w-full font-bold py-3.5 rounded-full text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none ${actionState.needsSelection ? 'border border-amber-300/60 bg-amber-300 text-[#171006] shadow-[0_0_20px_rgba(252,211,77,0.2)] hover:bg-white' : 'bg-neon text-[#020705] shadow-[0_0_20px_rgba(0,255,179,0.35)] hover:bg-white'}`}
         >
-          🛒 Agregar al carrito
+          {actionState.label}
         </button>
       </div>
     );
