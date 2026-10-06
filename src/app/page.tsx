@@ -21,7 +21,8 @@ export default async function HomePage() {
   ]);
 
   const categorias = publicCatalogCategories(productos);
-  const destacados = productos.filter((p) => p.destacado);
+  const cyberFeaturedIds = cyber ? new Set(cyber.products.filter((p) => p.featured).map((p) => p.id)) : null;
+  const destacados = productos.filter((p) => cyberFeaturedIds ? cyberFeaturedIds.has(p.id) : p.destacado);
   const featuredMedia = featuredProductMediaLayout();
 
   return (

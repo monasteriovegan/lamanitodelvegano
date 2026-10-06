@@ -52,8 +52,9 @@ begin
   on conflict (business_unit_id,sku) do update set name=excluded.name,price=excluded.price,weight_grams=excluded.weight_grams,
     units_included=excluded.units_included,selection_quantity=excluded.selection_quantity,is_active=true;
 
-  update public.productos p set precio=x.price,precio_anterior=null,imagen_url='https://lamanitodelvegano.cl/campaigns/cyber-day-chocolatoso-2026/'||x.asset||'.webp',
-    images=array['https://lamanitodelvegano.cl/campaigns/cyber-day-chocolatoso-2026/'||x.asset||'.webp'],destacado=true,is_featured=true,activo=true
+  -- Las tarjetas del catálogo conservan la foto maestra del producto. Los flyers
+  -- Cyber se muestran únicamente en CampaignCatalog, no se escriben en productos.
+  update public.productos p set precio=x.price,precio_anterior=null,destacado=true,is_featured=true,activo=true
   from (values
     ('barra-dubai',10900,'barras'),('explosion-supernova',10900,'barras'),('barra-terremoto',10900,'barra-xl'),
     ('duo-barras-rellenas',21800,'barras'),('box-chocolatosa',21900,'box-chocolatosa'),
