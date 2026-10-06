@@ -35,4 +35,7 @@ test('campaign cards can shrink to a mobile viewport without flavor labels widen
   assert.match(catalogSource, /grid-cols-1/);
   assert.match(catalogSource, /className="min-w-0"/);
   assert.match(optionSelectorSource, /min-w-0 break-words/);
+  assert.match(cardSource, /w-full max-w-full/);
+  assert.match(cardSource, /flex-col[^"']*sm:flex-row/);
+  assert.match(cyberPage, /break-words[^"']*text-3xl/);
 });
