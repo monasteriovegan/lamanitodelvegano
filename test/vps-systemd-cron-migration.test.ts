@@ -86,7 +86,7 @@ test('three persistent timers preserve exact UTC schedules independent of server
   }
 });
 
-const bash = 'C:\\Program Files\\Git\\bin\\bash.exe';
+const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : '/usr/bin/bash';
 const runner = join(root, 'ops/self-hosted/cron/lmv-cron-run');
 const cronHealthcheck = join(root, 'ops/self-hosted/cron/cron-healthcheck.sh');
 const installer = join(root, 'ops/self-hosted/cron/install.sh');
