@@ -6,6 +6,8 @@ const home = readFileSync('src/app/page.tsx', 'utf8');
 const hero = readFileSync('src/components/layout/Hero.tsx', 'utf8');
 const cyberPage = readFileSync('src/app/cyber-day-chocolatoso-2026/page.tsx', 'utf8');
 const cardSource = readFileSync('src/components/tienda/CampaignProductCard.tsx', 'utf8');
+const catalogSource = readFileSync('src/components/tienda/CampaignCatalog.tsx', 'utf8');
+const optionSelectorSource = readFileSync('src/components/tienda/OptionQuantitySelector.tsx', 'utf8');
 
 test('home uses the isolated six-card Cyber presentation', () => {
   assert.match(home, /CampaignFeaturedGrid/);
@@ -27,4 +29,9 @@ test('campaign media remains uncropped on the cards and hero links to its offer'
   assert.match(cardSource, /object-contain/);
   assert.match(hero, /object-contain/);
   assert.match(hero, /#offer-duo-barras-rellenas/);
+});
+
+test('campaign cards can shrink to a mobile viewport without flavor labels widening the grid', () => {
+  assert.match(catalogSource, /className="min-w-0"/);
+  assert.match(optionSelectorSource, /min-w-0 break-words/);
 });
