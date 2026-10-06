@@ -58,8 +58,8 @@ export function OptionQuantitySelector({
           }
           return (
             <div key={value.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <span className="pr-3 text-sm text-white/85">{value.label}</span>
-              <div className="flex items-center gap-2">
+              <span className="min-w-0 break-words pr-3 text-sm text-white/85">{value.label}</span>
+              <div className="flex shrink-0 items-center gap-2">
                 <button type="button" aria-label={`Quitar ${value.label}`} onClick={() => change(value.id, -1)} className="h-7 w-7 rounded-lg bg-white/10 text-white">−</button>
                 <span className="min-w-5 text-center text-sm font-bold text-white">{quantity}</span>
                 <button type="button" aria-label={`Agregar ${value.label}`} onClick={() => change(value.id, 1)} disabled={total >= target} className="h-7 w-7 rounded-lg bg-neon font-bold text-[#020705] disabled:cursor-not-allowed disabled:opacity-35">+</button>
