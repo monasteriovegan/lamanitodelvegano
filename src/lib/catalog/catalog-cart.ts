@@ -1,4 +1,5 @@
 import type { ResolvedCatalogLine } from './types.ts';
+import type { PublicCatalogCampaign } from './public-dto.ts';
 
 export interface CatalogCartSelection {
   optionGroupId: string;
@@ -46,6 +47,31 @@ export function toCatalogCartItem(
     selections,
     campaignTag: options.campaignTag,
     notas: options.notas || null,
+  };
+}
+
+export function toCampaignTargetCartItem(
+  displayName: string,
+  target: PublicCatalogCampaign['products'][number]['purchaseTargets'][number],
+  quantity: number,
+  campaignTag: string,
+): CatalogCartItem | null {
+  if (!Number.isInteger(quantity) || quantity <= 0) return null;
+  if (target.managesStock && (target.stock ?? 0) < quantity) return null;
+  return {
+    productoId: target.productId,
+    nombre: target.productName || displayName,
+    precio: target.price,
+    qty: quantity,
+    emoji: '🍫',
+    formato: `${target.groupLabel} · ${target.optionLabel}`,
+    variedad: target.groupLabel,
+    variantId: target.variantId,
+    variantSku: target.variantSku,
+    sku: target.variantSku,
+    selections: [],
+    campaignTag,
+    notas: null,
   };
 }
 

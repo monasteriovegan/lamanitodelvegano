@@ -178,8 +178,18 @@ test('Mercado Pago preference remains guest-safe instead of wallet-only', () => 
 
 test('canonical option products keep a customer quantity selector', () => {
   const productPanel = readFileSync(new URL('../src/components/tienda/ProductPurchasePanel.tsx', import.meta.url), 'utf8');
-  const campaign = readFileSync(new URL('../src/components/tienda/CampaignCatalog.tsx', import.meta.url), 'utf8');
+  const campaign = readFileSync(new URL('../src/components/tienda/CampaignProductCard.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(productPanel, /const quantity = hasOptionGroups \? 1 : canonicalQty/);
   assert.match(productPanel, /selectionQuantity\s*\*\s*canonicalQty/);
   assert.match(campaign, /selectionQuantity\s*\*\s*quantity/);
+});
+
+test('Cyber target card requires a real customer choice and keeps campaign media fallback', () => {
+  const productCard = readFileSync(new URL('../src/components/tienda/CampaignProductCard.tsx', import.meta.url), 'utf8');
+  const targetCard = readFileSync(new URL('../src/components/tienda/CampaignTargetCard.tsx', import.meta.url), 'utf8');
+  assert.match(productCard, /campaignImageUrl\s*\|\|\s*product\.imageUrl/);
+  assert.match(targetCard, /useState(?:<string>)?\(['"]['"]\)/);
+  assert.match(targetCard, /disabled=\{!selectedTarget/);
+  assert.match(targetCard, /toCampaignTargetCartItem/);
+  assert.doesNotMatch(targetCard, /productoId:\s*['"]barra-terremoto['"]/);
 });

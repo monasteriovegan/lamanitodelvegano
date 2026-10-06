@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 const productForm = readFileSync('src/app/admin/productos/ProductoForm.tsx', 'utf8');
 const seasonsPage = readFileSync('src/app/admin/temporadas/page.tsx', 'utf8');
 const campaignPage = readFileSync('src/app/fiestas-patrias-2026/page.tsx', 'utf8');
-const campaignCatalog = readFileSync('src/components/tienda/CampaignCatalog.tsx', 'utf8');
+const campaignProductCard = readFileSync('src/components/tienda/CampaignProductCard.tsx', 'utf8');
+const campaignTargetCard = readFileSync('src/components/tienda/CampaignTargetCard.tsx', 'utf8');
 
 function readOptional(path: string) {
   try {
@@ -40,6 +41,9 @@ test('Fiestas Patrias renderiza banner local o remoto sin optimización remota d
 });
 
 test('El catálogo estacional no manda sus fotos remotas al optimizador de Next', () => {
-  assert.doesNotMatch(campaignCatalog, /from ['"]next\/image['"]/);
-  assert.match(campaignCatalog, /<SafeStorageImage[\s\S]+src=\{product\.imageUrl\}[\s\S]+fallback=/);
+  assert.doesNotMatch(campaignProductCard, /from ['"]next\/image['"]/);
+  assert.doesNotMatch(campaignTargetCard, /from ['"]next\/image['"]/);
+  assert.match(campaignProductCard, /campaignImageUrl\s*\|\|\s*product\.imageUrl/);
+  assert.match(campaignProductCard, /<SafeStorageImage[\s\S]+src=\{image\}[\s\S]+fallback=/);
+  assert.match(campaignTargetCard, /<SafeStorageImage[\s\S]+src=\{image\}[\s\S]+fallback=/);
 });
