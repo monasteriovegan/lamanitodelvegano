@@ -32,6 +32,7 @@ test('campaign media remains uncropped on the cards and hero links to its offer'
 });
 
 test('campaign cards can shrink to a mobile viewport without flavor labels widening the grid', () => {
+  assert.match(catalogSource, /grid-cols-1/);
   assert.match(catalogSource, /className="min-w-0"/);
   assert.match(optionSelectorSource, /min-w-0 break-words/);
 });
