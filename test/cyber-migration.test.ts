@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cyberDatabase, CYBER_MIGRATION, BUSINESS_ID } from './fixtures/cyber-database.ts';
+import { cyberDatabase, CYBER_MIGRATION, CYBER_IMAGE_FIX, BUSINESS_ID } from './fixtures/cyber-database.ts';
 import { mapCatalogProductRow } from '../src/lib/catalog/catalog-repository.ts';
 import { applyCyberPricing } from '../src/lib/catalog/cyber-pricing.ts';
 import { mapSeasonVariantOverride } from '../src/lib/catalog/seasonal-catalog.ts';
@@ -10,6 +10,7 @@ test('Cyber migration executes twice without duplicate products, variants or off
   const db = await cyberDatabase();
   try {
     await db.exec(CYBER_MIGRATION);
+    await db.exec(CYBER_IMAGE_FIX);
     const before = (await db.query('select (select count(*) from productos) products,(select count(*) from product_variants) variants,(select count(*) from season_variant_overrides) offers')).rows;
     await db.exec(CYBER_MIGRATION);
     assert.deepEqual((await db.query('select (select count(*) from productos) products,(select count(*) from product_variants) variants,(select count(*) from season_variant_overrides) offers')).rows,before);
@@ -22,6 +23,15 @@ test('Cyber migration executes twice without duplicate products, variants or off
     assert.equal(offers.find((r)=>r.sku==='LMV-ALF-HEMP-04')?.cyber,8900);
     assert.equal(offers.find((r)=>r.sku==='LMV-BOX-CHOCO-80G')?.cyber,21900);
     assert.equal((await db.query<any>("select count(*) count from season_products where is_featured")).rows[0].count,9);
+    const images = (await db.query<any>("select slug,imagen_url from productos where slug in ('barra-dubai','explosion-supernova','protein-balls','brigadeiros-trufas-surtidos','promocion-24-bombones','alfajores-canamo') order by slug")).rows;
+    assert.deepEqual(images, [
+      { slug: 'alfajores-canamo', imagen_url: 'https://lamanitodelvegano.cl/products/alfajores-canamo.jpg' },
+      { slug: 'barra-dubai', imagen_url: 'https://lamanitodelvegano.cl/products/barra-dubai.jpg' },
+      { slug: 'brigadeiros-trufas-surtidos', imagen_url: 'https://lamanitodelvegano.cl/products/brigadeiros-trufas-surtidos.jpg' },
+      { slug: 'explosion-supernova', imagen_url: 'https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/supernova.png' },
+      { slug: 'protein-balls', imagen_url: 'https://lamanitodelvegano.cl/products/protein-balls.jpg' },
+      { slug: 'promocion-24-bombones', imagen_url: 'https://supabase.lamanitodelvegano.cl/storage/v1/object/public/productos/ads-media/2026-10-01/1790877111796-232b67de-24d7-44cd-a433-5cb8d9be7c68.png' },
+    ]);
     const row = (await db.query<any>(`select p.*, (select json_agg(v) from product_variants v where v.product_id=p.id) product_variants,
       (select json_agg(g) from (select g.*, (select json_agg(v) from product_option_values v where v.option_group_id=g.id) product_option_values from product_option_groups g where g.product_id=p.id) g) product_option_groups
       from productos p where slug='duo-barras-rellenas'`)).rows[0];

@@ -82,3 +82,20 @@ test('descarta relaciones que no pertenecen al producto o tenant', () => {
 
   assert.deepEqual(product?.variants.map((item) => item.id), ['valid']);
 });
+
+test('preserves the product master photo supplied by the catalog row', () => {
+  const product = mapCatalogProductRow(businessUnitId, {
+    id: 'dubai', business_unit_id: businessUnitId, slug: 'barra-dubai', nombre: 'Barra Dubái',
+    imagen_url: 'https://lamanitodelvegano.cl/products/barra-dubai.jpg',
+    precio: 10900, activo: true,
+  });
+  assert.equal(product?.imageUrl, 'https://lamanitodelvegano.cl/products/barra-dubai.jpg');
+  assert.equal(product?.variants[0].price, 10900);
+});
+
+test('does not replace a newer catalog photo or another tenant photo', () => {
+  for (const [tenant, photo] of [[businessUnitId, 'https://example.com/new-photo.jpg'], ['other', 'https://lamanitodelvegano.cl/campaigns/cyber-day-chocolatoso-2026/barras.webp']]) {
+    const product = mapCatalogProductRow(tenant, {id:'dubai',business_unit_id:tenant,slug:'barra-dubai',nombre:'Dubái',imagen_url:photo,precio:10900});
+    assert.equal(product?.imageUrl,photo);
+  }
+});
