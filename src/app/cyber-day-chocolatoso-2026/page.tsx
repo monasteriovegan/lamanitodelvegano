@@ -15,8 +15,10 @@ export default async function CyberPage() {
   const campaign = await loadDefaultCatalogCampaign(CYBER_TAG);
   if (!campaign) notFound();
   const dto = toPublicCatalogCampaign(campaign);
-  const offers = { ...dto, products: dto.products.filter((p) => p.featured) };
-  const rest = { ...dto, products: dto.products.filter((p) => !p.featured) };
+  const visibleProducts = dto.products.filter((product) => product.presentationSlot !== 'target_only');
+  const heroOffer = { ...dto, products: visibleProducts.filter((product) => product.presentationSlot === 'hero_offer') };
+  const featured = { ...dto, products: visibleProducts.filter((product) => product.presentationSlot === 'featured') };
+  const catalog = { ...dto, products: visibleProducts.filter((product) => product.presentationSlot === 'catalog') };
   return (
     <SiteShell>
       <main className="min-h-screen bg-[#180f09] px-4 pb-16 pt-24">
@@ -27,11 +29,18 @@ export default async function CyberPage() {
             <p className="mt-4 text-lg font-bold text-white">Entrega sábado 10 de octubre de 2026</p>
             <p className="mt-3 text-sm leading-7 text-white/75">Elige tus sabores y formatos. Los precios Cyber se aplican automáticamente en el carrito.</p>
           </div>
-          <CampaignCatalog campaign={offers} />
-          {rest.products.length > 0 && <section className="mt-12">
+          {heroOffer.products.length > 0 && <section aria-labelledby="oferta-principal-cyber">
+            <h2 id="oferta-principal-cyber" className="mb-5 font-display text-3xl font-extrabold text-[#f3d59b]">Oferta principal</h2>
+            <CampaignCatalog campaign={heroOffer} />
+          </section>}
+          {featured.products.length > 0 && <section className="mt-12" aria-labelledby="destacados-cyber">
+            <h2 id="destacados-cyber" className="mb-5 font-display text-3xl font-extrabold text-[#f3d59b]">Destacados Cyber Chocolatoso</h2>
+            <CampaignCatalog campaign={featured} />
+          </section>}
+          {catalog.products.length > 0 && <section className="mt-12">
             <h2 className="mb-4 font-display text-3xl font-extrabold text-[#f3d59b]">25% de descuento en el resto del catálogo</h2>
             <p className="mb-6 text-sm text-white/70">Descuento automático sobre el precio vigente. Las ofertas especiales mantienen el valor publicado en los flyers.</p>
-            <CampaignCatalog campaign={rest} />
+            <CampaignCatalog campaign={catalog} />
           </section>}
         </section>
       </main>

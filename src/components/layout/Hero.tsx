@@ -13,10 +13,10 @@ export async function Hero() {
           <h1 className="font-display text-4xl font-extrabold leading-tight text-[#f3d59b] sm:text-6xl">CYBER DAY CHOCOLATOSO</h1>
           <p className="mt-5 text-base leading-7 text-white/85">Chocolatería artesanal, barras rellenas y dulces de cáñamo. Ofertas especiales y <strong>25% de descuento en el resto del catálogo.</strong></p>
           <p className="my-5 font-bold text-[#f3d59b]">📅 Entrega sábado 10 de octubre de 2026</p>
-          <Link href="/cyber-day-chocolatoso-2026" className="btnw inline-block">Ver ofertas Cyber 🛒</Link>
+          <Link href="/cyber-day-chocolatoso-2026#offer-duo-barras-rellenas" className="btnw inline-block">Ver ofertas Cyber 🛒</Link>
         </div>
-        <Link href="/cyber-day-chocolatoso-2026" className="mx-auto block w-full max-w-[420px] overflow-hidden rounded-2xl border border-[#c99942]/40">
-          <SafeStorageImage src={cyber.bannerImage} alt="Cyber Chocolatoso: dos barras rellenas de 120 g por $17.900" className="h-auto w-full" fallback={null} />
+        <Link href="/cyber-day-chocolatoso-2026#offer-duo-barras-rellenas" className="mx-auto block w-full max-w-[420px] overflow-hidden rounded-2xl border border-[#c99942]/40">
+          <SafeStorageImage src={cyber.bannerImage} alt="Cyber Chocolatoso: dos barras rellenas de 120 g por $17.900" className="h-auto w-full object-contain" fallback={null} />
         </Link>
       </div>
     </section>

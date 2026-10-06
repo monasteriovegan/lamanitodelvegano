@@ -1,9 +1,17 @@
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 export const BUSINESS_ID = 'f3b57ce7-0796-40e5-94f1-07cb2b48ba85';
 export const CYBER_MIGRATION = readFileSync(resolve('supabase/migrations/20261006013933_cyber_day_chocolatoso_2026.sql'), 'utf8');
 export const CYBER_IMAGE_FIX = readFileSync(resolve('supabase/migrations/20261006024500_restore_cyber_catalog_images.sql'), 'utf8');
+const presentationMigrationName = readdirSync(resolve('supabase/migrations'))
+  .find((name) => name.endsWith('_cyber_campaign_presentation.sql'));
+const presentationMigrationPath = presentationMigrationName
+  ? resolve('supabase/migrations', presentationMigrationName)
+  : '';
+export const CYBER_PRESENTATION_MIGRATION = presentationMigrationPath && existsSync(presentationMigrationPath)
+  ? readFileSync(presentationMigrationPath, 'utf8')
+  : '';
 export async function cyberDatabase() {
   const db = new PGlite();
   await db.exec(`
