@@ -29,8 +29,8 @@ test('Cyber migration executes twice without duplicate products, variants or off
       { slug: 'barra-dubai', imagen_url: 'https://lamanitodelvegano.cl/products/barra-dubai.jpg' },
       { slug: 'brigadeiros-trufas-surtidos', imagen_url: 'https://lamanitodelvegano.cl/products/brigadeiros-trufas-surtidos.jpg' },
       { slug: 'explosion-supernova', imagen_url: 'https://lamanitodelvegano.cl/campaigns/especial-fin-de-semana/supernova.png' },
-      { slug: 'protein-balls', imagen_url: 'https://lamanitodelvegano.cl/products/protein-balls.jpg' },
       { slug: 'promocion-24-bombones', imagen_url: 'https://supabase.lamanitodelvegano.cl/storage/v1/object/public/productos/ads-media/2026-10-01/1790877111796-232b67de-24d7-44cd-a433-5cb8d9be7c68.png' },
+      { slug: 'protein-balls', imagen_url: 'https://lamanitodelvegano.cl/products/protein-balls.jpg' },
     ]);
     const row = (await db.query<any>(`select p.*, (select json_agg(v) from product_variants v where v.product_id=p.id) product_variants,
       (select json_agg(g) from (select g.*, (select json_agg(v) from product_option_values v where v.option_group_id=g.id) product_option_values from product_option_groups g where g.product_id=p.id) g) product_option_groups
