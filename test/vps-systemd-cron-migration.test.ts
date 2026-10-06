@@ -158,6 +158,7 @@ exit 0
     cwd: root,
     encoding: 'utf8',
     env: {
+      NODE_ENV: 'test',
       SystemRoot: process.env.SystemRoot,
       WINDIR: process.env.WINDIR,
       TEMP: process.env.TEMP,
@@ -254,6 +255,7 @@ exit 0
     cwd: root,
     encoding: 'utf8',
     env: {
+      NODE_ENV: 'test',
       SystemRoot: process.env.SystemRoot,
       WINDIR: process.env.WINDIR,
       TEMP: process.env.TEMP,
@@ -301,6 +303,7 @@ test('installer preserves an existing secret file while staging all cron artifac
     cwd: join(root, 'ops/self-hosted/cron'),
     encoding: 'utf8',
     env: {
+      NODE_ENV: 'test',
       SystemRoot: process.env.SystemRoot,
       WINDIR: process.env.WINDIR,
       TEMP: process.env.TEMP,
