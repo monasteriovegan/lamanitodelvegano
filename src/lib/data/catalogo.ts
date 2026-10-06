@@ -86,10 +86,20 @@ function mapProductoRow(p: any, catalogProduct?: CatalogProduct | null): Product
     }));
 
   const canonicalOptionGroups = publicOptionGroupsFromCatalog(catalogProduct);
+  const effectiveVariants = catalogProduct?.variants.map((v, index) => ({
+    id: v.id, name: v.name, sku: v.sku, price: v.price,
+    compareAtPrice: v.compareAtPrice ?? null, compare_at_price: v.compareAtPrice ?? null,
+    selectionQuantity: v.selectionQuantity, unitsIncluded: v.unitsIncluded,
+    isDefault: index === 0, active: v.active,
+  }));
 
   return {
     ...p,
-    variants: variants.length ? variants : undefined,
+    precio: effectiveVariants?.[0]?.price ?? p.precio,
+    precio_anterior: effectiveVariants?.[0]?.compareAtPrice ?? p.precio_anterior,
+    gramaje: effectiveVariants?.map((v) => `${v.name}:${v.price}`).join(',') || p.gramaje,
+    disponibilidad: catalogProduct?.availabilityDates ?? p.disponibilidad,
+    variants: effectiveVariants?.length ? effectiveVariants : (variants.length ? variants : undefined),
     optionGroups: canonicalOptionGroups || (directOptionGroups.length ? directOptionGroups : undefined),
   } as Producto;
 }

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseFormatos, parseVariedades } from '../pricing/formatos.ts';
+import { applyCyberPricing, CYBER_TAG, type CyberCampaignPricing } from './cyber-pricing.ts';
+import { mapSeasonVariantOverride, seasonIsInWindow } from './seasonal-catalog.ts';
 import type {
   CatalogOptionGroup,
   CatalogOptionValue,
@@ -202,6 +204,19 @@ export class CatalogRepository {
     this.db = db;
   }
 
+  async cyberPricing(businessUnitId: string): Promise<CyberCampaignPricing | null> {
+    const { data: season, error } = await this.db.from('seasons')
+      .select('id,starts_at,ends_at').eq('business_unit_id', businessUnitId)
+      .eq('campaign_tag', CYBER_TAG).eq('is_active', true).eq('visible_web', true).maybeSingle();
+    if (error) throw error;
+    if (!season || !seasonIsInWindow(season.starts_at, season.ends_at)) return null;
+    const { data, error: overrideError } = await this.db.from('season_variant_overrides')
+      .select('variant_id,price_override,compare_at_price_override,is_active')
+      .eq('business_unit_id', businessUnitId).eq('season_id', season.id).eq('is_active', true);
+    if (overrideError) throw overrideError;
+    return { startsAt: season.starts_at, endsAt: season.ends_at, overrides: (data || []).map(mapSeasonVariantOverride) };
+  }
+
   async listActive(businessUnitId: string): Promise<CatalogProduct[]> {
     const { data, error } = await this.db.from('productos')
       .select(PRODUCT_RELATIONS)
@@ -211,7 +226,8 @@ export class CatalogRepository {
       .order('nombre', { ascending: true });
     if (error) throw error;
     const products = (data || []).map((row) => mapCatalogProductRow(businessUnitId, row)).filter((item): item is CatalogProduct => Boolean(item));
-    return attachPackComponentOptions(products);
+    const campaign = await this.cyberPricing(businessUnitId);
+    return attachPackComponentOptions(products.map((product) => applyCyberPricing(product, campaign)));
   }
 
   async getById(businessUnitId: string, productId: string, includeInactive = false): Promise<CatalogProduct | null> {
@@ -221,7 +237,8 @@ export class CatalogRepository {
     if (!includeInactive) query = query.eq('activo', true);
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
-    return mapCatalogProductRow(businessUnitId, data);
+    const product = mapCatalogProductRow(businessUnitId, data);
+    return product ? applyCyberPricing(product, await this.cyberPricing(businessUnitId)) : null;
   }
 
   async getBySlug(businessUnitId: string, slug: string, includeInactive = false): Promise<CatalogProduct | null> {
@@ -231,6 +248,7 @@ export class CatalogRepository {
     if (!includeInactive) query = query.eq('activo', true);
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
-    return mapCatalogProductRow(businessUnitId, data);
+    const product = mapCatalogProductRow(businessUnitId, data);
+    return product ? applyCyberPricing(product, await this.cyberPricing(businessUnitId)) : null;
   }
 }

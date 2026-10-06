@@ -16,6 +16,7 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
   const [quantity, setQuantity] = useState(1);
   const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
   const variant = product.variants.find((item) => item.id === variantId) || product.variants[0];
+  const hasStock = Boolean(variant && (!variant.managesStock || (variant.stock ?? 0) >= quantity));
 
   const selectionState = useMemo(() => {
     const selections: CatalogCartSelection[] = [];
@@ -41,7 +42,7 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
   }, [product.optionGroups, quantity, selected, variant]);
 
   function add() {
-    if (!variant || !selectionState.valid || quantity <= 0) return;
+    if (!variant || !selectionState.valid || !hasStock || quantity <= 0) return;
     addItem({
       productoId: product.id,
       nombre: product.name,
@@ -72,7 +73,7 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
         <SafeStorageImage
           src={product.imageUrl}
           alt={product.name}
-          className="absolute inset-0 h-full w-full object-cover transition duration-500 hover:scale-[1.02]"
+          className="absolute inset-0 h-full w-full object-contain transition duration-500 hover:scale-[1.02]"
           fallback={<div className="flex h-full flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_top,#244b39,#07130e_70%)] px-8 text-center">
             <span className="text-6xl">🌱</span>
             <span className="font-display text-xl font-extrabold text-white">{product.name}</span>
@@ -106,6 +107,7 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
               >
                 <span className="block text-sm font-bold text-white">{item.name}</span>
                 <span className="text-sm font-bold text-neon">${item.price.toLocaleString('es-CL')}</span>
+                {item.compareAtPrice && item.compareAtPrice > item.price && <span className="block text-xs text-white/50 line-through">${item.compareAtPrice.toLocaleString('es-CL')}</span>}
               </button>
             ))}
           </div>
@@ -138,9 +140,10 @@ function CampaignProductCard({ product, campaignTag }: { product: PublicCatalogP
           <div>
             <span className="block text-xs text-white/50">{product.variants.length > 1 ? variant.name : 'Precio total'}</span>
             <span className="font-display text-2xl font-extrabold text-neon">${(variant.price * quantity).toLocaleString('es-CL')}</span>
+            {variant.compareAtPrice && variant.compareAtPrice > variant.price && <span className="block text-sm text-white/50 line-through">${(variant.compareAtPrice * quantity).toLocaleString('es-CL')}</span>}
           </div>
-          <button type="button" onClick={add} disabled={!selectionState.valid || quantity <= 0} className="rounded-full bg-neon px-5 py-3 text-sm font-extrabold text-[#020705] shadow-[0_0_22px_rgba(0,255,179,0.24)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">
-            Agregar 🛒
+          <button type="button" onClick={add} disabled={!selectionState.valid || !hasStock || quantity <= 0} className="rounded-full bg-neon px-5 py-3 text-sm font-extrabold text-[#020705] shadow-[0_0_22px_rgba(0,255,179,0.24)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35">
+            {hasStock ? 'Agregar 🛒' : 'Sin stock'}
           </button>
         </div>
       </div>

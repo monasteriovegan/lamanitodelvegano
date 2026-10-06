@@ -6,15 +6,18 @@ import { PromoEspecial } from '@/components/tienda/PromoEspecial';
 import { getProductosActivos, getCategorias, getZonas, getAjustesPublicos } from '@/lib/data/catalogo';
 import { formatPriceSummary } from '@/lib/catalog/price-summary';
 import { SafeStorageImage } from '@/components/media/SafeStorageImage';
+import { loadDefaultCatalogCampaign } from '@/lib/catalog/catalog-data';
+import { CYBER_TAG } from '@/lib/catalog/cyber-pricing';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [productos, categorias, zonas, ajustes] = await Promise.all([
+  const [productos, categorias, zonas, ajustes, cyber] = await Promise.all([
     getProductosActivos(),
     getCategorias(),
     getZonas(),
     getAjustesPublicos(),
+    loadDefaultCatalogCampaign(CYBER_TAG),
   ]);
 
   const destacados = productos.filter((p) => p.destacado);
@@ -24,7 +27,7 @@ export default async function HomePage() {
       <main>
         <Hero />
 
-        {ajustes?.data && (
+        {!cyber && ajustes?.data && (
           <PromoEspecial ajustes={ajustes.data} productos={productos} />
         )}
 
