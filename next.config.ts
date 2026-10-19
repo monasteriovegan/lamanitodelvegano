@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
       permanent: true,
     }];
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/',
+          has: [{ type: 'host', value: 'demo.lamanitodelvegano.cl' }],
+          destination: '/demo/bombones-v5.html',
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 export default nextConfig;
