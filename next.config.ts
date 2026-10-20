@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
         {
           source: '/',
           has: [{ type: 'host', value: 'demo.lamanitodelvegano.cl' }],
-          destination: '/demo/bombones-v5.html',
+          destination: '/demo/bombones-v6.html',
         },
       ],
       afterFiles: [],
