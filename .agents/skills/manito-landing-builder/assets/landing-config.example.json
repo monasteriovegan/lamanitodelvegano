@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "mls-1",
+  "status": "draft_example_not_live",
+  "brand": "La Manito del Vegano",
+  "campaign": {
+    "id": "bombones-demo-mls",
+    "productSlug": "bombones-artesanales",
+    "title": "Bombones artesanales",
+    "goal": "purchase",
+    "audience": "regalos_y_amantes_del_chocolate",
+    "seoIndex": false
+  },
+  "product": {
+    "catalogProductId": null,
+    "source": "supabase_catalog",
+    "type": "build_your_box",
+    "variantSource": "catalog",
+    "heroImageSource": "catalog_original",
+    "gallerySource": "catalog_original",
+    "flavorsFromCatalog": true,
+    "heroFit": "contain"
+  },
+  "modules": {
+    "banner": true,
+    "hero": true,
+    "benefits": true,
+    "flavors": true,
+    "buildYourBox": true,
+    "upsells": true,
+    "catalogDrawer": true,
+    "shippingProgress": true,
+    "cartDrawer": true,
+    "stickyCTA": true,
+    "faq": true
+  },
+  "crossSell": {
+    "source": "eligible_catalog",
+    "featuredProductIds": [],
+    "excludedProductIds": [],
+    "maxFeatured": 4,
+    "allowExploreAll": true,
+    "searchEnabled": true,
+    "categoryFilters": true,
+    "sortRule": "relevance_stock_margin_manual"
+  },
+  "promotionPolicy": {
+    "readActiveRulesFromServer": true,
+    "offerLabelsRequireActiveRule": true,
+    "discountStacking": "explicitly_configured_only",
+    "removeBenefitIfTriggerRemoved": true,
+    "exampleOnly": {
+      "eligibleProductSlug": "barra-dubai-120g",
+      "discountAmountClp": 1500,
+      "label": "Exclusivo con tu caja",
+      "live": false
+    }
+  },
+  "shipping": {
+    "thresholdClp": 50000,
+    "thresholdEditable": true,
+    "calculationBasis": "eligible_discounted_subtotal",
+    "modes": [
+      "threshold",
+      "trigger_whole_cart",
+      "trigger_item_only",
+      "manual_override"
+    ],
+    "selectedPromotionalMode": null,
+    "checkCoverageByAddress": true,
+    "dropProgressWhenAlreadyFree": true
+  },
+  "checkout": {
+    "mode": "demo_only",
+    "paymentEnabled": false,
+    "priceValidation": "server_required_before_production",
+    "stockValidation": "server_required_before_production",
+    "preserveExistingPaymentAndTracking": true
+  },
+  "customization": {
+    "useRealPhotosOnly": true,
+    "hideUnavailableProducts": true,
+    "adminEditableWhenImplemented": true,
+    "designPreset": "MLS",
+    "styleVariation": "product_specific"
+  },
+  "testing": {
+    "mobileWidths": [
+      360,
+      390,
+      430
+    ],
+    "keyboard": true,
+    "shippingEdgeCases": true,
+    "discountMath": true,
+    "stock": true,
+    "checkoutIsolation": true
+  }
+}
